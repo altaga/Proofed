@@ -1,0 +1,11 @@
+{
+  "name": "Proofed",
+  "slug": "proofed",
+  "tagline": "Authorize now. Capture only after proof of handover.",
+  "venueName": "Dome City Gift Shop",
+  "currency": "USD",
+  "pickupTimeoutMinutes": 30,
+  "stockReservationMinutes": 15,
+  "llmModel": "MiniMax-M3",
+  "llmBaseUrl": "https://api.minimax.io/v1"
+}
