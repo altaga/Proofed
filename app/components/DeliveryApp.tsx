@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Bot,
   Camera,
   CheckCircle2,
   Clock,
@@ -12,12 +13,9 @@ import {
   Package,
   QrCode,
   RefreshCw,
-  Scan,
   ShieldAlert,
   ShieldCheck,
   Upload,
-  Video,
-  VideoOff,
   XCircle,
 } from "lucide-react";
 
@@ -62,11 +60,14 @@ type VisionVerifyResponse = {
   ok: boolean;
   source: string;
   detectedDoorNumber: string | null;
+  targetDoorNumber?: string;
+  targetAddress?: string;
   isDoorMatch: boolean;
   packageDetected: boolean;
   packageCondition: string;
   confidence: number;
   visualEvidence: string;
+  agentAssessment?: string;
   boundingBoxes: BoundingBox[];
   handoverVerdict: "VERIFIED" | "REJECTED_MISMATCH" | "REJECTED_DAMAGED" | "REJECTED_NO_PACKAGE";
   processedInMs: number;
@@ -76,7 +77,7 @@ type VisionVerifyResponse = {
 const PHOTO_PRESETS: PhotoPreset[] = [
   {
     id: "correct",
-    label: "Door #744 (Correct Doorstep)",
+    label: "Door #744 (Correct Address)",
     subtitle: "744 Maple St · Brass Numerals · Parcel Intact",
     doorNumber: "744",
     imagePath: "/delivery/door-744.svg",
@@ -84,7 +85,7 @@ const PHOTO_PRESETS: PhotoPreset[] = [
   },
   {
     id: "wrong_door",
-    label: "Door #742 (Wrong Door Mismatch)",
+    label: "Door #742 (Wrong House Mismatch)",
     subtitle: "742 Evergreen Terr · Mismatch (+120m GPS Delta)",
     doorNumber: "742",
     imagePath: "/delivery/door-742.svg",
@@ -92,7 +93,7 @@ const PHOTO_PRESETS: PhotoPreset[] = [
   },
   {
     id: "damaged",
-    label: "Crushed Carton (Transit Impact)",
+    label: "Crushed Carton (Transit Damage)",
     subtitle: "744 Maple St · Impact Sensor >4.5G · Ruptured Flap",
     doorNumber: "744",
     imagePath: "/delivery/crushed-box.svg",
@@ -109,14 +110,6 @@ export function DeliveryApp() {
   const [customPhotoName, setCustomPhotoName] = useState<string | null>(null);
   const [customPhotoBase64, setCustomPhotoBase64] = useState<string | null>(null);
 
-  // Live Camera states
-  const [isCameraActive, setIsCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
   // Vision Pipeline states
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [visionResult, setVisionResult] = useState<VisionVerifyResponse | null>(null);
@@ -128,7 +121,11 @@ export function DeliveryApp() {
     title: string;
     message: string;
     paypalDetail?: string;
+    recoveryAction?: boolean;
   } | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   // Fetch active held order or latest order
   async function fetchLatestOrder() {
@@ -187,18 +184,8 @@ export function DeliveryApp() {
     void runVisionVerification({ presetId: "correct" });
   }, [runVisionVerification]);
 
-  // Clean up WebRTC tracks on unmount
-  useEffect(() => {
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
-
   // Preset Selection
   function handleSelectPreset(preset: PhotoPreset) {
-    stopCamera();
     setSelectedPreset(preset);
     setMediaMode("preset");
     setPreviewUrl(preset.imagePath);
@@ -207,83 +194,12 @@ export function DeliveryApp() {
     void runVisionVerification({ presetId: preset.id });
   }
 
-  // WebRTC Camera Controls
-  async function startCamera() {
-    setCameraError(null);
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error("WebRTC camera capture is not supported by your browser environment.");
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setIsCameraActive(true);
-      setMediaMode("camera");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unable to access device camera";
-      setCameraError(msg);
-      setIsCameraActive(false);
-    }
-  }
-
-  function stopCamera() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    setIsCameraActive(false);
-  }
-
-  function captureSnapshot() {
-    if (!videoRef.current) return;
-    const video = videoRef.current;
-    let canvas = canvasRef.current;
-    if (!canvas) {
-      canvas = document.createElement("canvas");
-      canvasRef.current = canvas;
-    }
-    const width = video.videoWidth || 800;
-    const height = video.videoHeight || 500;
-    canvas.width = width;
-    canvas.height = height;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, width, height);
-
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
-    const base64 = dataUrl.split(",")[1];
-
-    stopCamera();
-    setPreviewUrl(dataUrl);
-    setCustomPhotoBase64(base64);
-    setCustomPhotoName("camera-live-frame.jpg");
-    setMediaMode("camera");
-
-    // Run real neural vision on the snapped frame
-    void runVisionVerification({ image: dataUrl, presetId: "custom" });
-  }
-
-  // File Upload Handler
-  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  // File Upload or Native Camera Capture Handler
+  function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>, mode: "camera" | "upload") {
     const file = e.target.files?.[0];
     if (!file) return;
-    stopCamera();
     setCustomPhotoName(file.name);
-    setMediaMode("upload");
+    setMediaMode(mode);
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -352,7 +268,7 @@ export function DeliveryApp() {
           body: JSON.stringify({
             orderId: activeOrder?.id,
             pickupCode: code,
-            note: `Neural Vision Certified: ${visionResult?.visualEvidence || "Doorstep and parcel verified"} (${visionResult?.confidence.toFixed(1)}% confidence)`,
+            note: `Agent Certified: ${visionResult?.visualEvidence || "Doorstep and parcel verified"} (${visionResult?.confidence.toFixed(1)}% confidence)`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
           }),
@@ -363,7 +279,7 @@ export function DeliveryApp() {
         setFeedback({
           tone: "success",
           title: "Handover Certified · Payment Captured",
-          message: `Package successfully delivered to #744 Maple Street. Computer vision confirmed house plate and intact parcel (${visionResult?.confidence.toFixed(1)}% match).`,
+          message: `Package successfully delivered to #744 Maple Street. The AI agent verified the house number plate and intact parcel condition (${visionResult?.confidence.toFixed(1)}% confidence).`,
           paypalDetail: `PayPal Payments v2 /capture executed. Captured ${payload.order.formatted_total}.`,
         });
       } else {
@@ -374,6 +290,7 @@ export function DeliveryApp() {
             : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
             ? "missing_product"
             : "item_damaged";
+
         const res = await fetch("/api/device/fail", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -381,7 +298,7 @@ export function DeliveryApp() {
             orderId: activeOrder?.id,
             pickupCode: code,
             reason,
-            note: `AI Vision Rejection: ${visionResult?.visualEvidence || "Handover conditions not met"}`,
+            note: `AI Agent Rejection: ${visionResult?.agentAssessment || visionResult?.visualEvidence || "Handover conditions not met"}`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
           }),
@@ -392,8 +309,9 @@ export function DeliveryApp() {
         setFeedback({
           tone: "failure",
           title: "Handover Rejected · Zero-Capture Safety Lock Engaged",
-          message: `Delivery blocked: ${visionResult?.visualEvidence || "Verification failed"}. Capture locked. Buyer was charged $0.00.`,
-          paypalDetail: `PayPal hold remains active. Autonomous agent notified to offer client replacement or release hold.`,
+          message: `Delivery blocked by AI agent: ${visionResult?.visualEvidence || "Address mismatch detected"}. Capture permanently locked. Customer was charged $0.00.`,
+          paypalDetail: `PayPal hold remains active. Autonomous agent notified to offer customer replacement or refund.`,
+          recoveryAction: true,
         });
       }
     } catch (err) {
@@ -411,9 +329,6 @@ export function DeliveryApp() {
 
   return (
     <div className="delivery-container">
-      {/* Hidden canvas for video frame extraction */}
-      <canvas ref={canvasRef} style={{ display: "none" }} />
-
       {/* Handheld Courier Device Shell */}
       <div className="delivery-card">
         {/* Top Hardware Telemetry Bar */}
@@ -432,11 +347,11 @@ export function DeliveryApp() {
         <div className="delivery-header">
           <h2>Doorstep Delivery Terminal</h2>
           <p className="delivery-subtitle">
-            Autonomous computer vision verifies house numbers and package condition before PayPal capture.
+            Snap delivery photo. The autonomous agent identifies the door number and confirms the correct destination before PayPal funds are captured.
           </p>
         </div>
 
-        {/* Step 1: Scan Label */}
+        {/* Step 1: Scan Label & Destination Address */}
         <section className="delivery-step" aria-label="Step 1: Scan Package Label">
           <div className="step-label-row">
             <span className="step-num mono">01</span>
@@ -448,8 +363,8 @@ export function DeliveryApp() {
             <div className="viewfinder-content">
               <QrCode size={36} className="scanner-icon" />
               <div className="scanner-text-group">
-                <span className="scanner-target-addr mono">DESTINATION: 744 MAPLE ST (APT 2B)</span>
-                <span className="scanner-inst">Align parcel barcode with laser scanline</span>
+                <span className="scanner-target-addr mono">TARGET DESTINATION: 744 MAPLE ST (APT 2B)</span>
+                <span className="scanner-inst">Package must be delivered to door #744</span>
               </div>
             </div>
           </div>
@@ -486,6 +401,12 @@ export function DeliveryApp() {
                 <span className="manifest-value mono">{activeOrder.id}</span>
               </div>
               <div className="manifest-row">
+                <span className="manifest-label">DESTINATION</span>
+                <span className="manifest-value mono" style={{ color: "#FF7A3D", fontWeight: 700 }}>
+                  #744 MAPLE STREET, APT 2B
+                </span>
+              </div>
+              <div className="manifest-row">
                 <span className="manifest-label">HOLD AMOUNT</span>
                 <span className="manifest-value manifest-amount mono">
                   {activeOrder.formatted_total} <span className="hold-pill">HELD · $0.00 CHARGED</span>
@@ -511,18 +432,46 @@ export function DeliveryApp() {
           )}
         </section>
 
-        {/* Step 2: Proof of Handover Photo & Computer Vision HUD */}
-        <section className="delivery-step" aria-label="Step 2: Proof of Delivery Photo and Computer Vision">
+        {/* Step 2: Proof of Delivery Photo */}
+        <section className="delivery-step" aria-label="Step 2: Proof of Delivery Photo">
           <div className="step-label-row">
             <span className="step-num mono">02</span>
-            <span className="step-title">DOORSTEP PROOF & NEURAL VISION</span>
+            <span className="step-title">DOORSTEP PROOF PHOTO</span>
           </div>
 
           <p className="photo-instructions">
-            Select a verified delivery scenario, capture a live camera frame, or upload an image:
+            Snap a photo of the doorstep, upload an image, or select a demo scenario to test:
           </p>
 
-          {/* Preset Buttons Grid */}
+          {/* Direct Photo Capture Buttons */}
+          <div className="capture-modes-row">
+            <label className="capture-option-btn btn-take-photo">
+              <Camera size={15} />
+              <span>Take Photo</span>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden-file-input"
+                onChange={(e) => handlePhotoSelected(e, "camera")}
+              />
+            </label>
+
+            <label className="capture-option-btn upload-btn">
+              <Upload size={15} />
+              <span>{customPhotoName ? `Photo: ${customPhotoName}` : "Upload Photo"}</span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden-file-input"
+                onChange={(e) => handlePhotoSelected(e, "upload")}
+              />
+            </label>
+          </div>
+
+          {/* Quick Scenario Preset Selector for 1-click test */}
           <div className="preset-grid" role="radiogroup" aria-label="Delivery Scenario Presets">
             {PHOTO_PRESETS.map((preset) => {
               const active = mediaMode === "preset" && selectedPreset.id === preset.id;
@@ -545,45 +494,33 @@ export function DeliveryApp() {
             })}
           </div>
 
-          {/* High-Fidelity Optical Viewfinder with Computer Vision HUD */}
+          {/* High-Fidelity Photo Preview with OCR HUD Overlays */}
           <div className={`vision-viewfinder-frame ${isAnalyzing ? "is-analyzing" : ""}`}>
-            {/* Top Viewfinder Telemetry Header */}
+            {/* Top Viewfinder Metadata Header */}
             <div className="viewfinder-telemetry-strip">
               <div className="viewfinder-hud-status">
-                <span className={`hud-dot ${isCameraActive ? "dot-live" : "dot-archive"}`} />
+                <span className="hud-dot dot-archive" />
                 <span className="mono">
-                  {isCameraActive
-                    ? "WEBRTC LIVE SENSOR · 1080P 30FPS"
+                  {mediaMode === "camera"
+                    ? "DEVICE CAMERA SNAPSHOT"
                     : mediaMode === "upload"
-                    ? `IMAGE UPLOAD · ${customPhotoName || "CUSTOM"}`
-                    : `DOORSTEP SCENE · #${selectedPreset.doorNumber} ARCHIVE`}
+                    ? `IMAGE FILE: ${customPhotoName || "CUSTOM"}`
+                    : `DOORSTEP ARCHIVE · SCENARIO #${selectedPreset.doorNumber}`}
                 </span>
               </div>
               <div className="viewfinder-hud-meta mono">
-                <span>ISO 200</span>
-                <span>1/250s</span>
-                <span>f/1.8</span>
+                <span>{visionResult ? `${visionResult.confidence.toFixed(1)}% CONFIDENCE` : "READY"}</span>
               </div>
             </div>
 
-            {/* Media Layer (Live Video OR SVG / Photo Image) */}
+            {/* Media Layer (Doorstep Photo Preview) */}
             <div className="viewfinder-media-container">
-              {isCameraActive ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="viewfinder-media viewfinder-video"
-                />
-              ) : (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={previewUrl}
-                  alt="Doorstep handover scene preview"
-                  className="viewfinder-media"
-                />
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt="Doorstep handover scene preview"
+                className="viewfinder-media"
+              />
 
               {/* Optical Corner Reticles */}
               <div className="reticle-corner reticle-tl" />
@@ -591,27 +528,19 @@ export function DeliveryApp() {
               <div className="reticle-corner reticle-bl" />
               <div className="reticle-corner reticle-br" />
 
-              {/* Center Target Lock */}
-              <div className="reticle-center-crosshair">
-                <div className="crosshair-ring" />
-                <div className="crosshair-h" />
-                <div className="crosshair-v" />
-              </div>
-
-              {/* Laser Sweep Scanline (Visible while analyzing) */}
+              {/* Scanning Laser Bar (Visible while AI Agent is inspecting) */}
               {isAnalyzing && (
                 <div className="vision-laser-sweep-overlay" aria-live="polite">
                   <div className="vision-laser-sweep" />
                   <div className="vision-scanning-pill mono">
                     <Cpu size={14} className="spin" />
-                    <span>NEURAL OCR & DAMAGE SCANNING...</span>
+                    <span>AGENT INSPECTING HOUSE NUMBER & PARCEL...</span>
                   </div>
                 </div>
               )}
 
               {/* Computer Vision Bounding Boxes Overlay */}
               {!isAnalyzing &&
-                !isCameraActive &&
                 visionResult?.boundingBoxes?.map((box, idx) => (
                   <div
                     key={idx}
@@ -635,95 +564,30 @@ export function DeliveryApp() {
                   </div>
                 ))}
             </div>
-
-            {/* Live Camera Snapshot Controls */}
-            {isCameraActive && (
-              <div className="camera-live-overlay-bar">
-                <button
-                  type="button"
-                  className="camera-snap-action-btn"
-                  onClick={captureSnapshot}
-                >
-                  <Camera size={16} />
-                  <span>SNAP PROOF PHOTO</span>
-                </button>
-                <button
-                  type="button"
-                  className="camera-cancel-action-btn"
-                  onClick={stopCamera}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
           </div>
 
-          {/* Camera Error Alert if permissions fail */}
-          {cameraError && (
-            <div className="camera-error-banner" role="alert">
-              <AlertTriangle size={14} />
-              <span>{cameraError}</span>
-            </div>
-          )}
-
-          {/* Camera & File Upload Action Bar */}
-          <div className="capture-modes-row">
-            {!isCameraActive ? (
-              <button
-                type="button"
-                className="capture-option-btn"
-                onClick={startCamera}
-              >
-                <Video size={14} />
-                <span>Use Live Camera</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="capture-option-btn active-cam"
-                onClick={stopCamera}
-              >
-                <VideoOff size={14} />
-                <span>Stop Camera</span>
-              </button>
-            )}
-
-            <label className="capture-option-btn upload-btn">
-              <Upload size={14} />
-              <span>{customPhotoName ? `Photo: ${customPhotoName}` : "Upload Photo"}</span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden-file-input"
-                onChange={handleFileUpload}
-              />
-            </label>
-          </div>
-
-          {/* AI Neural Telemetry & Diagnostics Card */}
+          {/* Autonomous Agent Doorstep Verification Report */}
           <div className="ai-vision-telemetry-card">
             <div className="telemetry-top-strip">
               <div className="telemetry-source">
-                <Cpu size={13} />
-                <span className="mono">
-                  MODEL: {visionResult?.source === "minimax-m3.1-flash" ? "MINIMAX M3.1 FLASH (LIVE MULTIMODAL)" : "PROOFED NEURAL EDGE VISION"}
-                </span>
+                <Bot size={14} />
+                <span className="mono">AUTONOMOUS VERIFICATION AGENT AUDIT</span>
               </div>
               <div className="telemetry-latency mono">
                 <Clock size={12} />
-                <span>{visionResult?.processedInMs ?? 340}ms</span>
+                <span>{visionResult?.processedInMs ?? 320}ms</span>
               </div>
             </div>
 
+            {/* Target vs Detected Metrics */}
             <div className="telemetry-grid">
               <div className="telemetry-cell">
-                <span className="telemetry-label mono">TARGET DESTINATION</span>
-                <span className="telemetry-val">#744 Maple Street (Apt 2B)</span>
+                <span className="telemetry-label mono">ORDER DESTINATION</span>
+                <span className="telemetry-val">#744 Maple St (Apt 2B)</span>
               </div>
 
               <div className="telemetry-cell">
-                <span className="telemetry-label mono">OCR DOOR NUMBER</span>
+                <span className="telemetry-label mono">OCR DOOR NUMBER DETECTED</span>
                 <span className="telemetry-val mono">
                   {visionResult ? (
                     <>
@@ -735,7 +599,22 @@ export function DeliveryApp() {
                       </span>
                     </>
                   ) : (
-                    "Analyzing..."
+                    "Auditing..."
+                  )}
+                </span>
+              </div>
+
+              <div className="telemetry-cell">
+                <span className="telemetry-label mono">DELIVERY LOCATION CHECK</span>
+                <span className="telemetry-val mono">
+                  {visionResult ? (
+                    visionResult.isDoorMatch ? (
+                      <span style={{ color: "#00D687" }}>CORRECT LOCATION</span>
+                    ) : (
+                      <span style={{ color: "#FF7B72" }}>WRONG HOUSE (+120m)</span>
+                    )
+                  ) : (
+                    "Checking..."
                   )}
                 </span>
               </div>
@@ -757,20 +636,16 @@ export function DeliveryApp() {
                   )}
                 </span>
               </div>
-
-              <div className="telemetry-cell">
-                <span className="telemetry-label mono">AI CONFIDENCE</span>
-                <span className="telemetry-val mono">
-                  {visionResult ? `${visionResult.confidence.toFixed(1)}%` : "--.-%"}
-                </span>
-              </div>
             </div>
 
-            {/* Neural Scene Evidence Rationale */}
-            {visionResult?.visualEvidence && (
+            {/* Autonomous Agent Direct Assessment */}
+            {visionResult?.agentAssessment && (
               <div className="telemetry-evidence-box">
-                <span className="evidence-title mono">VISUAL PROOF LOG:</span>
-                <p className="evidence-body">{visionResult.visualEvidence}</p>
+                <div className="agent-statement-header">
+                  <Bot size={13} style={{ color: "#FF7A3D" }} />
+                  <span className="evidence-title mono">AGENT VERIFICATION STATEMENT:</span>
+                </div>
+                <p className="evidence-body">{visionResult.agentAssessment}</p>
               </div>
             )}
 
@@ -786,18 +661,18 @@ export function DeliveryApp() {
                   {isVerified
                     ? "HANDOVER CERTIFIED · SAFE TO CAPTURE PAYPAL HOLD"
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "HANDOVER REJECTED · ADDRESS MISMATCH DETECTED"
+                    ? "HANDOVER BLOCKED · WRONG DOOR NUMBER DETECTED"
                     : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                    ? "HANDOVER REJECTED · NO PARCEL DETECTED"
-                    : "HANDOVER REJECTED · TRANSIT DAMAGE BREACH"}
+                    ? "HANDOVER BLOCKED · NO PARCEL DETECTED ON PORCH"
+                    : "HANDOVER BLOCKED · TRANSIT DAMAGE DETECTED"}
                 </span>
                 <span className="verdict-banner-sub">
                   {isVerified
-                    ? "House number OCR matches label #744. Parcel intact. PayPal Payments v2 /capture authorized."
+                    ? "Doorplate OCR matches manifest destination (#744). Parcel is intact. PayPal Payments v2 /capture authorized."
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "Camera detected house #742 (+120m away). PayPal capture locked at $0.00 to protect buyer."
+                    ? "Camera detected door #742 (+120m away from 744 Maple St). PayPal capture locked at $0.00 to protect buyer."
                     : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                    ? "No parcel detected in doorstep photo. PayPal capture locked at $0.00."
+                    ? "No delivery parcel identified in photo. PayPal capture locked at $0.00."
                     : "Package compromised on porch. PayPal capture locked at $0.00. Hold preserved."}
                 </span>
               </div>
@@ -827,12 +702,12 @@ export function DeliveryApp() {
             )}
             <span>
               {isSubmitting
-                ? "Processing Evidence..."
+                ? "Recording Handover..."
                 : isAnalyzing
-                ? "Analyzing Doorstep Scene..."
+                ? "Agent Inspecting Photo..."
                 : isVerified
                 ? `Confirm Drop & Capture PayPal Hold (${activeOrder?.formatted_total ?? "$24.00"})`
-                : "Engage Zero-Capture Lock & Alert Agent"}
+                : "Lock Capture ($0.00 Charged) & Report Failure"}
             </span>
           </button>
         </section>
@@ -850,6 +725,27 @@ export function DeliveryApp() {
             {feedback.paypalDetail && (
               <div className="feedback-paypal mono">
                 <span>{feedback.paypalDetail}</span>
+              </div>
+            )}
+            {feedback.recoveryAction && (
+              <div style={{ marginTop: "10px" }}>
+                <a
+                  href="/client"
+                  className="footer-link"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    background: "#2E2B25",
+                    padding: "6px 12px",
+                    borderRadius: "4px",
+                    color: "#F4F1EA",
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>Open Customer Chat to Resolve</span>
+                  <ExternalLink size={12} />
+                </a>
               </div>
             )}
           </div>
