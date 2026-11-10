@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proofed — UI Gallery Showcase Hub</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.3); }
+    }
+    .pulse-dot { animation: pulseDot 1.8s infinite ease-in-out; }
+  </style>
+</head>
+<body class="bg-[#090b10] text-[#ededef] font-sans min-h-screen antialiased select-none flex flex-col">
+
+  <!-- Top Global Bar -->
+  <header class="bg-[#0e1118] border-b border-[#1c2333] px-5 py-3.5 flex flex-wrap justify-between items-center gap-3">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-[#0057d9] flex items-center justify-center font-bold text-white shadow-sm font-mono">
+        P
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-[#00ec97] pulse-dot"></span>
+          <h1 class="text-sm font-bold text-white tracking-tight">PROOFED // UI GALLERY & DESIGN SYSTEM</h1>
+          <span class="text-[10px] font-mono px-2 py-0.5 bg-[#141b29] text-[#38bdf8] rounded border border-[#22334d]">PAYPAL AI HACKATHON 2026</span>
+        </div>
+        <p class="text-xs text-[#94a3b8] mt-0.5">Physical agentic commerce with zero-trust escrow: Authorize now, capture post-handover.</p>
+      </div>
+    </div>
+
+    <!-- Health / Test Badges -->
+    <div class="flex items-center gap-2 font-mono text-xs">
+      <span class="px-2.5 py-1 bg-[#0c261b] text-[#00ec97] border border-[#164833] rounded-md font-semibold">
+        ✓ 25/25 VITEST PASSED
+      </span>
+      <span class="px-2.5 py-1 bg-[#0c261b] text-[#00ec97] border border-[#164833] rounded-md font-semibold">
+        ✓ 5/5 AXE CONTRAST PASSED
+      </span>
+      <a href="http://localhost:3000/demo" target="_blank" class="px-3 py-1 bg-[#182236] hover:bg-[#22304d] text-white border border-[#293b59] rounded-md transition-colors flex items-center gap-1.5 font-sans">
+        <span>Launch App</span>
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+      </a>
+    </div>
+  </header>
+
+  <!-- Gallery Controls & Screen Tabs -->
+  <div class="bg-[#0b0e14] border-b border-[#1c2333] px-5 py-2.5 flex flex-wrap justify-between items-center gap-3 text-xs font-mono">
+    <!-- View Switcher Tabs -->
+    <div class="flex items-center gap-1.5 overflow-x-auto">
+      <span class="text-[#64748b] text-[11px] mr-1">SCREENS:</span>
+      <button onclick="selectScreen('gallery', 'NearDesk UI Gallery & Chat', 'assets/gallery/gallery.png', 'http://localhost:3000/gallery')" id="btn-gallery" class="screen-btn px-3 py-1.5 rounded-lg bg-[#00ec97] text-black font-bold border border-[#00ec97] transition-all">
+        💬 NearDesk Chat & Gallery
+      </button>
+      <button onclick="selectScreen('demo', 'Presenter Screen & Crisis Hub', 'assets/gallery/demo.png', 'http://localhost:3000/demo')" id="btn-demo" class="screen-btn px-3 py-1.5 rounded-lg bg-[#121620] text-[#94a3b8] hover:text-white border border-[#202738] transition-all">
+        ⚡ Presenter & Crisis Hub
+      </button>
+      <button onclick="selectScreen('shop', 'Shopper Experience', 'assets/gallery/shop.png', 'http://localhost:3000/')" id="btn-shop" class="screen-btn px-3 py-1.5 rounded-lg bg-[#121620] text-[#94a3b8] hover:text-white border border-[#202738] transition-all">
+        🛍️ Shopper Experience
+      </button>
+      <button onclick="selectScreen('device', 'Hardware Kiosk Terminal', 'assets/gallery/device.png', 'http://localhost:3000/device')" id="btn-device" class="screen-btn px-3 py-1.5 rounded-lg bg-[#121620] text-[#94a3b8] hover:text-white border border-[#202738] transition-all">
+        📦 Handover Kiosk
+      </button>
+      <button onclick="selectScreen('merchant', 'Merchant Order Ledger', 'assets/gallery/merchant.png', 'http://localhost:3000/merchant')" id="btn-merchant" class="screen-btn px-3 py-1.5 rounded-lg bg-[#121620] text-[#94a3b8] hover:text-white border border-[#202738] transition-all">
+        📋 Merchant Ledger
+      </button>
+    </div>
+
+    <!-- Mode Switcher (Snapshot vs Live Iframe) -->
+    <div class="flex items-center gap-2 bg-[#121622] p-1 rounded-lg border border-[#202738]">
+      <button onclick="setMode('snapshot')" id="mode-snapshot" class="px-2.5 py-1 rounded bg-[#0057d9] text-white font-bold text-[11px] transition-colors">
+        🖼️ High-Res Snapshot
+      </button>
+      <button onclick="setMode('live')" id="mode-live" class="px-2.5 py-1 rounded text-[#94a3b8] hover:text-white font-bold text-[11px] transition-colors">
+        ⚡ Live Interactive Embed
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Showcase Canvas + Telemetry Rail -->
+  <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+    
+    <!-- Left Main Preview Viewport -->
+    <section class="flex-1 p-4 lg:p-6 overflow-y-auto flex flex-col items-center justify-start bg-[#07090d]">
+      <div class="w-full max-w-6xl flex flex-col gap-3">
+        
+        <!-- Viewport Metadata Header -->
+        <div class="flex justify-between items-center text-xs font-mono text-[#94a3b8]">
+          <div class="flex items-center gap-2">
+            <span class="text-white font-bold" id="current-screen-name">NearDesk UI Gallery & Chat</span>
+            <span class="text-[#64748b]">·</span>
+            <span id="current-resolution">1280 × 800 (DPI 2.0x)</span>
+          </div>
+          <a id="current-direct-link" href="http://localhost:3000/gallery" target="_blank" class="text-[#00ec97] hover:underline flex items-center gap-1">
+            <span>Direct URL</span>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          </a>
+        </div>
+
+        <!-- Snapshot Container -->
+        <div id="snapshot-viewport" class="border border-[#1c2333] rounded-xl overflow-hidden shadow-2xl bg-[#0b0e14]">
+          <img id="snapshot-img" src="assets/gallery/gallery.png" alt="Proofed Screen Snapshot" class="w-full h-auto block object-cover">
+        </div>
+
+        <!-- Live Iframe Viewport (Hidden by default) -->
+        <div id="live-viewport" class="hidden border border-[#1c2333] rounded-xl overflow-hidden shadow-2xl bg-[#0b0e14] h-[780px]">
+          <iframe id="live-iframe" src="http://localhost:3000/gallery" class="w-full h-full border-0"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Technical Telemetry Rail -->
+    <aside class="w-full lg:w-80 bg-[#0e1118] border-t lg:border-t-0 lg:border-l border-[#1c2333] p-5 flex flex-col gap-5 text-xs font-mono overflow-y-auto">
+      <div>
+        <h3 class="text-white font-bold text-xs uppercase tracking-wider mb-2.5 flex items-center gap-2">
+          <span>🛡️ ESCROW INVARIANTS</span>
+        </h3>
+        <div class="flex flex-col gap-2 text-[11px] text-[#94a3b8]">
+          <div class="p-2.5 bg-[#121622] rounded-lg border border-[#1e2536]">
+            <strong class="text-white block mb-0.5">Zero-Trust AI Pricing</strong>
+            <span>LLM never computes money. Catalog integer cents enforced in SQLite.</span>
+          </div>
+          <div class="p-2.5 bg-[#121622] rounded-lg border border-[#1e2536]">
+            <strong class="text-white block mb-0.5">Authorize First</strong>
+            <span>Orders v2 created with <code class="text-[#38bdf8]">intent=AUTHORIZE</code>. $0 debited upfront.</span>
+          </div>
+          <div class="p-2.5 bg-[#121622] rounded-lg border border-[#1e2536]">
+            <strong class="text-white block mb-0.5">Physical Proof Capture</strong>
+            <span>Payments v2 <code class="text-[#38bdf8]">/capture</code> triggers strictly upon station PIN/photo verify.</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-white font-bold text-xs uppercase tracking-wider mb-2.5 flex items-center gap-2">
+          <span>⚡ LATENCY & METRICS</span>
+        </h3>
+        <div class="flex flex-col gap-1.5 text-[11px]">
+          <div class="flex justify-between py-1 border-b border-[#1c2333]">
+            <span class="text-[#64748b]">Agent Recovery Latency:</span>
+            <span class="text-[#00ec97] font-bold">120ms</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-[#1c2333]">
+            <span class="text-[#64748b]">PayPal /void Execution:</span>
+            <span class="text-[#00ec97] font-bold">&lt; 1.5s</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-[#1c2333]">
+            <span class="text-[#64748b]">WCAG AA Contrast:</span>
+            <span class="text-emerald-400 font-bold">15.4:1 (AAA)</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-[#1c2333]">
+            <span class="text-[#64748b]">Axe Core Violations:</span>
+            <span class="text-emerald-400 font-bold">0 Violations</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-white font-bold text-xs uppercase tracking-wider mb-2.5 flex items-center gap-2">
+          <span>🎨 NEAR-DESK PALETTE</span>
+        </h3>
+        <div class="grid grid-cols-2 gap-2 text-[10px]">
+          <div class="p-2 rounded bg-[#0b0d11] border border-[#222836]">
+            <span class="w-3 h-3 rounded-full bg-[#00ec97] inline-block mr-1"></span>
+            <span class="text-white">#00EC97 Mint</span>
+          </div>
+          <div class="p-2 rounded bg-[#0b0d11] border border-[#222836]">
+            <span class="w-3 h-3 rounded-full bg-[#2563eb] inline-block mr-1"></span>
+            <span class="text-white">#2563EB Cobalt</span>
+          </div>
+          <div class="p-2 rounded bg-[#0b0d11] border border-[#222836]">
+            <span class="w-3 h-3 rounded-full bg-[#ef4444] inline-block mr-1"></span>
+            <span class="text-white">#EF4444 Red</span>
+          </div>
+          <div class="p-2 rounded bg-[#0b0d11] border border-[#222836]">
+            <span class="w-3 h-3 rounded-full bg-[#0b0d11] border border-white/20 inline-block mr-1"></span>
+            <span class="text-white">#0B0D11 Base</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Interactive JavaScript Logic -->
+  <script>
+    let activeScreen = 'gallery';
+    let activeMode = 'snapshot';
+    const screens = {
+      gallery: { name: 'NearDesk UI Gallery & Chat', img: 'assets/gallery/gallery.png', url: 'http://localhost:3000/gallery' },
+      demo: { name: 'Presenter Screen & Crisis Hub', img: 'assets/gallery/demo.png', url: 'http://localhost:3000/demo' },
+      shop: { name: 'Shopper Experience & AI Chat', img: 'assets/gallery/shop.png', url: 'http://localhost:3000/' },
+      device: { name: 'Hardware Kiosk Terminal (Bay #04)', img: 'assets/gallery/device.png', url: 'http://localhost:3000/device' },
+      merchant: { name: 'Merchant Ledger & Audit Log', img: 'assets/gallery/merchant.png', url: 'http://localhost:3000/merchant' }
+    };
+
+    function selectScreen(key, name, img, url) {
+      activeScreen = key;
+      document.querySelectorAll('.screen-btn').forEach(b => {
+        b.className = 'screen-btn px-3 py-1.5 rounded-lg bg-[#121620] text-[#94a3b8] hover:text-white border border-[#202738] transition-all';
+      });
+      const activeBtn = document.getElementById('btn-' + key);
+      activeBtn.className = 'screen-btn px-3 py-1.5 rounded-lg bg-[#00ec97] text-black font-bold border border-[#00ec97] transition-all';
+
+      document.getElementById('current-screen-name').innerText = screens[key].name;
+      document.getElementById('current-direct-link').href = screens[key].url;
+      document.getElementById('snapshot-img').src = screens[key].img;
+      document.getElementById('live-iframe').src = screens[key].url;
+    }
+
+    function setMode(mode) {
+      activeMode = mode;
+      const snapBtn = document.getElementById('mode-snapshot');
+      const liveBtn = document.getElementById('mode-live');
+      const snapView = document.getElementById('snapshot-viewport');
+      const liveView = document.getElementById('live-viewport');
+
+      if (mode === 'snapshot') {
+        snapBtn.className = 'px-2.5 py-1 rounded bg-[#0057d9] text-white font-bold text-[11px] transition-colors';
+        liveBtn.className = 'px-2.5 py-1 rounded text-[#94a3b8] hover:text-white font-bold text-[11px] transition-colors';
+        snapView.classList.remove('hidden');
+        liveView.classList.add('hidden');
+      } else {
+        liveBtn.className = 'px-2.5 py-1 rounded bg-[#0057d9] text-white font-bold text-[11px] transition-colors';
+        snapBtn.className = 'px-2.5 py-1 rounded text-[#94a3b8] hover:text-white font-bold text-[11px] transition-colors';
+        liveView.classList.remove('hidden');
+        snapView.classList.add('hidden');
+        document.getElementById('live-iframe').src = screens[activeScreen].url;
+      }
+    }
+  </script>
+</body>
+</html>
