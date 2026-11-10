@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MoneyLegend } from "./MoneyLegend";
 
 const LINKS = [
   { href: "/", label: "Shop" },
@@ -11,7 +10,7 @@ const LINKS = [
   { href: "/demo", label: "Presenter" },
 ];
 
-export function SiteHeader({ name, tagline }: { name: string; tagline?: string }) {
+export function SiteHeader({ name }: { name: string; tagline?: string }) {
   const pathname = usePathname();
   return (
     <header className="topbar">
@@ -19,10 +18,7 @@ export function SiteHeader({ name, tagline }: { name: string; tagline?: string }
         <span className="mark" aria-hidden="true">
           <span className="mark-notch" />
         </span>
-        <span className="brand-copy">
-          <h1>{name}</h1>
-          {tagline ? <p className="tagline">Authorize now. Capture after proof.</p> : null}
-        </span>
+        <h1>{name}</h1>
       </Link>
       <nav className="nav" aria-label="Primary">
         {LINKS.map((link) => {
@@ -33,7 +29,6 @@ export function SiteHeader({ name, tagline }: { name: string; tagline?: string }
             </Link>
           );
         })}
-        <MoneyLegend className="header-legend" />
       </nav>
     </header>
   );

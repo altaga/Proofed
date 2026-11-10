@@ -21,7 +21,7 @@ export function AppShell({
       <SiteHeader name={name} tagline={tagline} />
       <div className="shell-main">{children}</div>
       {!kiosk && !presenter && (
-        <footer className="site-footer">Sandbox · PayPal Orders v2 AUTHORIZE · MiniMax-M3</footer>
+        <footer className="site-footer">Sandbox · PayPal · MiniMax-M3</footer>
       )}
     </div>
   );

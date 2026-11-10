@@ -51,12 +51,12 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
   await page.goto("/");
   await expect(page.getByTestId("page-shop")).toBeVisible();
   await expect(page.getByTestId("transaction-panel")).toBeVisible();
-  await expect(page.locator(".product-card").first()).toBeVisible({ timeout: 15_000 });
   try {
     await page.getByRole("button", { name: "Send" }).click();
     await expect(page.locator(".agent-step:not(.pending)").first()).toBeVisible({ timeout: 90_000 });
     await expect(page.getByTestId("agent-log")).toBeVisible();
     await expect(page.getByTestId("transaction-panel")).toContainText("$12.00", { timeout: 15_000 });
+    await expect(page.locator(".product-card").first()).toBeVisible({ timeout: 15_000 });
   } catch {
     // Still capture the shop layout if the model is slow or unavailable.
   }
@@ -96,7 +96,7 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
     await page.goto("/device");
     await expect(page.getByTestId("page-pickup")).toBeVisible();
     await page.locator(".kiosk-code").fill(authorizedOrder.pickup_code);
-    await page.getByRole("button", { name: "Confirm handover and capture" }).click();
+    await page.getByRole("button", { name: "Hand over & charge" }).click();
     await expect(page.locator(".oknote")).toContainText("CAPTURED", { timeout: 90_000 });
     await expect(page.getByTestId("transaction-panel")).toBeVisible();
     await page.waitForTimeout(700);
@@ -109,7 +109,7 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
     await page.getByText(order.id).first().click();
     await expect(page.getByTestId("order-drawer")).toBeVisible();
     await expect(page.getByTestId("order-drawer").getByTestId("transaction-panel")).toBeVisible();
-    await expect(page.getByTestId("order-drawer").getByText("Event log")).toBeVisible();
+    await expect(page.getByTestId("order-drawer").getByText("What happened")).toBeVisible();
     await expect(page.getByTestId("order-drawer").locator(".agent-step").first()).toBeVisible();
     await snap(page, "merchant");
     await assertContrast(page, "merchant");

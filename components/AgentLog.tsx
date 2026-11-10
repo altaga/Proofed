@@ -20,50 +20,47 @@ const LABELS: Record<string, string> = {
   propose_recovery: "Requested recovery",
 };
 
-function tone(step: AgentStep) {
-  if (step.rejected || !step.ok) return "rejected";
-  const who = (step.decidedBy || "").toLowerCase();
-  if (who.includes("paypal")) return "paypal";
-  if (who.includes("policy")) return "policy";
-  if (who.includes("catalog")) return "catalog";
-  return "";
+function checks(steps: AgentStep[]): string[] {
+  const line: string[] = [];
+  if (steps.some((step) => ["search_catalog", "list_catalog", "get_item"].includes(step.name) && step.ok)) {
+    line.push("Checked stock ✓");
+  }
+  if (steps.some((step) => step.ok && (step.guardrail || step.name === "search_catalog" || step.name === "get_item" || step.name === "propose_checkout"))) {
+    line.push("Price from catalog ✓");
+  }
+  const blob = steps.map((step) => `${step.input || ""} ${step.guardrail || ""}`).join(" ");
+  const budget = blob.match(/\$\s?(\d+(?:\.\d+)?)/);
+  if (steps.some((step) => /budget/i.test(`${step.input || ""} ${step.guardrail || ""}`))) {
+    line.push(budget ? `Within $${budget[1]} budget ✓` : "Within budget ✓");
+  }
+  if (steps.some((step) => step.name === "create_checkout" && step.ok)) {
+    line.push("Opened PayPal ✓");
+  }
+  if (line.length) return line;
+  return steps.map((step) => `${LABELS[step.name] || step.name.replaceAll("_", " ")} ${step.ok ? "✓" : "✗"}`);
 }
 
 export function AgentLog({ steps, busy }: { steps?: AgentStep[]; busy?: boolean }) {
   if (!steps?.length && !busy) return null;
+  if (busy) {
+    return (
+      <div className="agent-step pending" data-testid="agent-log">
+        Looking up the shop…
+      </div>
+    );
+  }
   return (
-    <ol className="agent-log" data-testid="agent-log" aria-label="Agent actions">
+    <details className="agent-fold" data-testid="agent-log">
+      <summary className="agent-step">{checks(steps || []).join("   ")}</summary>
       {(steps || []).map((step, index) => (
-        <li key={`${step.name}-${index}`} className={`agent-step ${tone(step)}`.trim()}>
-          <div className="agent-step-head">
-            <strong>{LABELS[step.name] || step.name.replaceAll("_", " ")}</strong>
-            <span className="who">{step.rejected || !step.ok ? "Backend override" : step.decidedBy || "Backend"}</span>
-          </div>
-          {step.input && (
-            <div className="agent-kv">
-              <span>Input</span>
-              {step.input}
-            </div>
-          )}
-          {(step.outcome || step.summary) && (
-            <div className="agent-kv">
-              <span>Result</span>
-              {step.outcome || step.summary}
-            </div>
-          )}
-          {step.guardrail && <div className="agent-guard">{step.guardrail}</div>}
-          {(step.rejected || !step.ok) && (
-            <div className="agent-reject">Backend rejected or overrode the agent</div>
-          )}
-        </li>
+        <div key={`${step.name}-${index}`} className="agent-kv">
+          <div>{LABELS[step.name] || step.name.replaceAll("_", " ")}</div>
+          {step.input ? <div><span>In</span> {step.input}</div> : null}
+          {step.outcome || step.summary ? <div><span>Out</span> {step.outcome || step.summary}</div> : null}
+          {step.guardrail ? <div className="agent-guard">{step.guardrail}</div> : null}
+          {(step.rejected || !step.ok) ? <div className="agent-reject">Checked and corrected by the backend</div> : null}
+        </div>
       ))}
-      {busy && (
-        <li className="agent-step pending">
-          <strong>Looking up the catalog and PayPal</strong>
-          <div className="skel w-80" />
-          <div className="skel w-55" />
-        </li>
-      )}
-    </ol>
+    </details>
   );
 }

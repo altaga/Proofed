@@ -7,9 +7,7 @@ export default function Page() {
     <main data-testid="page-shop">
       <section className="page-head">
         <h2>{cfg.venueName}</h2>
-        <p className="lede">
-          Ask for an item and a budget. Checkout opens a PayPal hold; capture waits for pickup.
-        </p>
+        <p className="lede">Ask for something you like. Pay when the price looks right.</p>
       </section>
       <ShopperApp />
     </main>

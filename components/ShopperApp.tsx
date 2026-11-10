@@ -44,14 +44,8 @@ type Quote = {
   lines: Array<{ sku: string; name: string; qty: number; unit_price_cents: number; available: number }>;
 };
 
-const PROMPTS = [
-  "I have a $20 budget. Do you have a keychain?",
-  "Is the water bottle in stock?",
-  "Checkout the enamel pin if it fits a $20 budget.",
-];
-
 export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean; showReceipt?: boolean }) {
-  const receipt = showReceipt ?? !compact;
+  const receipt = showReceipt ?? true;
   const [config, setConfig] = useState<{ name: string; venueName: string; paypalClientId: string } | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatItem[]>([
@@ -86,11 +80,13 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
         .then((response) => response.json())
         .then((payload) => {
           if (Array.isArray(payload.messages) && payload.messages.length > 0) {
-            setMessages(payload.messages.map((item: ChatItem) => ({
+            const next = payload.messages.map((item: ChatItem) => ({
               role: item.role,
               content: item.content,
               toolTrace: item.toolTrace,
-            })));
+            }));
+            setMessages(next);
+            setDraft("");
           }
         })
         .catch(() => undefined);
@@ -102,14 +98,31 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
   }, [sessionId]);
 
   useEffect(() => {
+    if (quote || !catalog.length) return;
+    const text = messages.flatMap((item) => item.toolTrace || []).map((step) => `${step.outcome || ""} ${step.summary || ""}`).join(" ");
+    const found = catalog.find((item) => text.includes(item.name));
+    if (!found) return;
+    const cents = Math.round(Number(found.formatted_price.replace(/[^0-9.]/g, "")) * 100);
+    setQuote({
+      ok: true,
+      formatted_total: found.formatted_price,
+      lines: [{ sku: found.sku, name: found.name, qty: 1, unit_price_cents: cents, available: found.available }],
+    });
+  }, [messages, catalog, quote]);
+
+  useEffect(() => {
     const node = transRef.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [messages, busy]);
+  }, [messages, busy, quote, order]);
 
   const needsPaypal = useMemo(
     () => Boolean(order && order.status === "CREATED" && order.paypal_order_id && config?.paypalClientId),
     [order, config],
   );
+
+  const lastAssistant = [...messages].reverse().findIndex((item) => item.role === "assistant");
+  const lastAssistantIndex = lastAssistant === -1 ? -1 : messages.length - 1 - lastAssistant;
+  const quoted = quote?.lines?.[0];
 
   async function sendMessage(message: string) {
     if (!message || busy) return;
@@ -152,112 +165,84 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
 
   return (
     <div className={compact ? "compact" : undefined}>
-      <div className={receipt ? "shop-layout" : undefined}>
-        <section className="card chat">
-          <div className="transcript" ref={transRef}>
-            {messages.map((item, index) => (
-              <div key={`${item.role}-${index}`}>
-                <div className={`bubble ${item.role}`}>{item.role === "assistant" ? <SafeMarkdown text={item.content} /> : item.content}</div>
-                {item.role === "assistant" && item.toolTrace ? <AgentLog steps={item.toolTrace} /> : null}
-              </div>
-            ))}
-            {busy && <AgentLog busy />}
-          </div>
-          <div className="prompt-row">
-            {PROMPTS.map((prompt) => (
-              <button key={prompt} type="button" className="prompt-chip" onClick={() => setDraft(prompt)}>
-                {prompt}
-              </button>
-            ))}
-          </div>
-          <form className="composer" onSubmit={send}>
-            <textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="A keychain and a postcard, budget $25"
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void send();
-                }
-              }}
-            />
-            <button className="primary lg" type="submit" disabled={busy}>
-              {busy ? <LoaderCircle size={18} /> : <Send size={18} />}
-              {busy ? "Working" : "Send"}
-            </button>
-          </form>
-          {error && (
-            <div className="err" style={{ marginTop: 8 }}>
-              {error}
-              {lastUserMessage && (
-                <div className="actions">
-                  <button className="ghost" type="button" onClick={() => void sendMessage(lastUserMessage)}>
-                    <RotateCcw size={16} /> Retry last message
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+      {receipt ? <TransactionPanel order={order} quote={quote} venueName={config?.venueName} /> : null}
 
-        {receipt && (
-          <aside>
-            <TransactionPanel order={order} quote={quote} venueName={config?.venueName} />
-            {quote && (
-              <div className="card" style={{ marginTop: 10 }}>
-                <h3>Quote lines</h3>
-                <div className="list">
-                  {quote.lines.map((line) => (
-                    <div className="row" key={line.sku}>
-                      <div>
-                        <strong>{line.name}</strong>
-                        <div className="mono">{line.sku} × {line.qty} · {line.available} available</div>
+      <section className="chat">
+        <div className="transcript" ref={transRef}>
+          {messages.map((item, index) => (
+            <div key={`${item.role}-${index}`}>
+              <div className={`bubble ${item.role}`}>{item.role === "assistant" ? <SafeMarkdown text={item.content} /> : item.content}</div>
+              {item.role === "assistant" && item.toolTrace ? <AgentLog steps={item.toolTrace} /> : null}
+              {index === lastAssistantIndex && quoted ? (
+                <div className="product-card quote-card">
+                  <img src={`/products/${quoted.sku}.svg`} alt="" />
+                  <div>
+                    <strong>{quoted.name}</strong>
+                    <div className="price">${(quoted.unit_price_cents / 100).toFixed(2)}</div>
+                    {needsPaypal && order?.paypal_order_id && config ? (
+                      <div className="paypal-box">
+                        <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Pay with PayPal</p>
+                        <PayPalApprove
+                          clientId={config.paypalClientId}
+                          orderId={order.id}
+                          paypalOrderId={order.paypal_order_id}
+                          onAuthorized={(next) => {
+                            setOrder(next as PublicOrder);
+                            setToast("PayPal placed a hold — pick up when you’re ready");
+                            window.setTimeout(() => setToast(null), 3500);
+                          }}
+                          onError={setError}
+                        />
                       </div>
-                      <div className="mono">${(line.unit_price_cents / 100).toFixed(2)}</div>
-                    </div>
-                  ))}
-                  <div className="row">
-                    <strong>Total</strong>
-                    <strong className="mono">{quote.formatted_total}</strong>
+                    ) : null}
                   </div>
-                  {!quote.ok && quote.errors?.map((item) => (
-                    <div key={item} className="err">{item}</div>
-                  ))}
                 </div>
+              ) : null}
+            </div>
+          ))}
+          {busy && <AgentLog busy />}
+        </div>
+        <form className="composer" onSubmit={send}>
+          <textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="A keychain and a postcard, budget $25"
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                void send();
+              }
+            }}
+          />
+          <button className="primary lg" type="submit" disabled={busy} style={{ width: "auto" }}>
+            {busy ? <LoaderCircle size={18} /> : <Send size={18} />}
+            {busy ? "Working" : "Send"}
+          </button>
+        </form>
+        {error && (
+          <div className="err">
+            {error}
+            {lastUserMessage && (
+              <div className="actions">
+                <button className="ghost" type="button" onClick={() => void sendMessage(lastUserMessage)}>
+                  <RotateCcw size={16} /> Retry last message
+                </button>
               </div>
             )}
-            {order?.pickup_code && (
-              <div className="oknote" style={{ marginTop: 10 }}>
-                Pickup code <div className="code">{order.pickup_code}</div>
-                Show this at Pickup after the hold is placed.
-              </div>
-            )}
-            {needsPaypal && order?.paypal_order_id && config && (
-              <div className="paypal-box">
-                <p>Approve the PayPal authorization. Funds are held, not captured.</p>
-                <PayPalApprove
-                  clientId={config.paypalClientId}
-                  orderId={order.id}
-                  paypalOrderId={order.paypal_order_id}
-                  onAuthorized={(next) => {
-                    setOrder(next as PublicOrder);
-                    setToast("Hold placed on the shopper’s PayPal");
-                    window.setTimeout(() => setToast(null), 3500);
-                  }}
-                  onError={setError}
-                />
-              </div>
-            )}
-          </aside>
+          </div>
         )}
-      </div>
+        {order?.pickup_code && (
+          <div className="oknote">
+            Your pickup code is <span className="mono">{order.pickup_code}</span>
+          </div>
+        )}
+      </section>
 
       <Toast message={toast} tone="hold" />
 
       {!compact && (
-        <section className="card" style={{ marginTop: 14 }}>
-          <h3>Shelf</h3>
+        <details className="browse">
+          <summary>Browse items</summary>
           <div className="product-grid">
             {catalog.map((item) => (
               <ProductCard
@@ -267,7 +252,7 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
               />
             ))}
           </div>
-        </section>
+        </details>
       )}
     </div>
   );

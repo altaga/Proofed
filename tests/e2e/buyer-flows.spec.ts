@@ -114,8 +114,7 @@ test("approves, reconciles, authorizes, captures at /device, then refunds", asyn
 
   await buyerPage.goto("/device");
   await buyerPage.locator(".kiosk-code").fill(authorizedOrder.pickup_code as string);
-  await buyerPage.locator("textarea").fill("Handed to visitor at kiosk-1");
-  await buyerPage.getByRole("button", { name: "Confirm handover and capture" }).click();
+  await buyerPage.getByRole("button", { name: "Hand over & charge" }).click();
   await expect(buyerPage.locator(".oknote")).toContainText("CAPTURED", { timeout: 90_000 });
 
   const captured = await getAppOrder(request, created.id);
@@ -181,8 +180,8 @@ test("approves, authorizes, reports a station jam at /device, then substitutes",
 
   await buyerPage.goto("/device");
   await buyerPage.locator(".kiosk-code").fill(authorizedOrder.pickup_code as string);
-  await buyerPage.locator("select").selectOption("jam");
-  await buyerPage.getByRole("button", { name: "Report delivery failure" }).click();
+  await buyerPage.getByRole("button", { name: "Problem with pickup?" }).click();
+  await buyerPage.getByRole("button", { name: "Station jammed" }).click();
   await expect(buyerPage.getByText("DELIVERY_FAILED").first()).toBeVisible({ timeout: 30_000 });
 
   const failed = await getAppOrder(request, created.id);

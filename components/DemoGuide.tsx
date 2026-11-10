@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ShopperApp } from "./ShopperApp";
 import { DeviceKiosk } from "./DeviceKiosk";
-import { TransactionPanel } from "./TransactionPanel";
+import { PlainTimeline } from "./PlainTimeline";
 import type { TxOrder } from "./tx-model";
 
 export function DemoGuide({ venueName }: { name?: string; tagline?: string; venueName: string }) {
@@ -34,10 +34,9 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
       <section className="page-head">
         <h2>Presenter</h2>
         <p className="lede">
-          Follow one live transaction. Shop on the left, pickup on the right, money state above.
+          Shop on the left. Pickup on the right. {venueName ? `${venueName}.` : ""}
         </p>
       </section>
-      <TransactionPanel order={latest} venueName={venueName} compact />
       <div className="presenter-grid">
         <section className="presenter-pane">
           <h3>Shop</h3>
@@ -48,6 +47,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
           <DeviceKiosk compact />
         </section>
       </div>
+      <PlainTimeline order={latest} />
     </div>
   );
 }

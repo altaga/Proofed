@@ -4,9 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Check, RefreshCcw, X } from "lucide-react";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
-import { TransactionPanel } from "./TransactionPanel";
 import { Toast } from "./Toast";
-import { MoneyLedger } from "./MoneyLedger";
 
 type PublicOrder = {
   id: string;
@@ -31,29 +29,14 @@ type PublicOrder = {
 type Alternative = CatalogProduct & { price_cents?: number };
 
 const REASONS = [
-  { value: "jam", label: "Station jam", hint: "Keep the hold; retry or substitute." },
-  { value: "out_of_stock", label: "Out of stock", hint: "Recommend a substitute within budget." },
-  { value: "item_damaged", label: "Item damaged", hint: "Recommend a substitute within budget." },
-  { value: "customer_absent", label: "Customer absent", hint: "Hold remains until timeout or void." },
+  { value: "jam", label: "Station jammed" },
+  { value: "out_of_stock", label: "Item unavailable" },
+  { value: "item_damaged", label: "Item damaged" },
 ];
 
-async function fileToBase64(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  bytes.forEach((byte) => {
-    binary += String.fromCharCode(byte);
-  });
-  return btoa(binary);
-}
-
-export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolean; showReceipt?: boolean }) {
-  const receipt = showReceipt ?? !compact;
+export function DeviceKiosk({ compact = false }: { compact?: boolean; showReceipt?: boolean }) {
   const [code, setCode] = useState("");
-  const [note, setNote] = useState("");
-  const [reason, setReason] = useState("jam");
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [queue, setQueue] = useState<PublicOrder[]>([]);
+  const [showProblems, setShowProblems] = useState(false);
   const [result, setResult] = useState<PublicOrder | null>(null);
   const [replacement, setReplacement] = useState<PublicOrder | null>(null);
   const [alternatives, setAlternatives] = useState<Alternative[]>([]);
@@ -62,28 +45,22 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ action: "substitute" | "retry" | "cancel"; items?: Alternative } | null>(null);
-  const [venueName, setVenueName] = useState("Merchant");
   const [toast, setToast] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const response = await fetch("/api/device/queue");
-    const payload = await response.json();
-    if (response.ok) setQueue(payload.orders || []);
-    if (compact) {
-      const ordersRes = await fetch("/api/orders");
-      const ordersPayload = await ordersRes.json();
-      const latest = (ordersPayload.orders || [])[0] as PublicOrder | undefined;
-      if (latest && ["CAPTURED", "VOIDED", "REFUNDED", "DELIVERY_FAILED", "AUTHORIZED"].includes(latest.status)) {
-        setResult((current) => {
-          if (current && current.id === latest.id && current.status === latest.status) return current;
-          return latest;
-        });
-      }
+    if (!compact) return;
+    const ordersRes = await fetch("/api/orders");
+    const ordersPayload = await ordersRes.json();
+    const latest = (ordersPayload.orders || [])[0] as PublicOrder | undefined;
+    if (latest && ["CAPTURED", "VOIDED", "REFUNDED", "DELIVERY_FAILED", "AUTHORIZED"].includes(latest.status)) {
+      setResult((current) => {
+        if (current && current.id === latest.id && current.status === latest.status) return current;
+        return latest;
+      });
     }
   }, [compact]);
 
   useEffect(() => {
-    fetch("/api/config").then((r) => r.json()).then((cfg) => { if (cfg.venueName) setVenueName(cfg.venueName); }).catch(() => undefined);
     refresh().catch(() => undefined);
     const timer = setInterval(() => {
       refresh().catch(() => undefined);
@@ -105,25 +82,20 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
     setError(null);
     setMessage(null);
     try {
-      const body: Record<string, unknown> = {
-        pickupCode: code.trim().toUpperCase(),
-        note,
-        ...extra,
-      };
-      if (photo) {
-        body.photoBase64 = await fileToBase64(photo);
-        body.photoMime = photo.type || "image/jpeg";
-      }
       const response = await fetch(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          pickupCode: code.trim().toUpperCase(),
+          note: "",
+          ...extra,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Request failed");
       setResult(payload.order);
       if (payload.order?.status === "CAPTURED") {
-        setToast("PayPal capture confirmed");
+        setToast("Charged with PayPal");
         window.setTimeout(() => setToast(null), 3500);
       }
       if (payload.order?.status === "DELIVERY_FAILED") {
@@ -175,13 +147,7 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
     setMessage(null);
     setError(null);
     setCode("");
-    setNote("");
-  }
-
-  function useOrder(order: PublicOrder) {
-    setCode(order.pickup_code || "");
-    setResult(order);
-    if (order.status === "DELIVERY_FAILED") void loadRecovery(order.id);
+    setShowProblems(false);
   }
 
   const screen = result?.status === "CAPTURED" ? "success"
@@ -189,39 +155,32 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
     : result?.status === "DELIVERY_FAILED" ? "failed"
     : "form";
 
-  const panel = receipt && result ? (
-    <div style={{ marginBottom: 12 }}>
-      <TransactionPanel order={result} venueName={venueName} compact={compact} />
-    </div>
-  ) : null;
-
   return (
     <div className={`kiosk-frame${compact ? " compact" : ""}`}>
       <Toast message={toast} tone="ok" />
       {screen === "success" && result && (
-        <div className="kiosk-result success">
-          <div className="kiosk-burst ok" aria-hidden="true"><Check size={40} strokeWidth={3.2} /></div>
-          <h2>Captured</h2>
-          {compact ? <MoneyLedger order={result} /> : null}
-          <p className="oknote">{result.id} is now <span className={`status ${result.status}`}>{result.status}</span>. Total {result.formatted_total}.</p>
-          <div className="actions">
+        <div className="kiosk-result success" data-testid={compact ? undefined : "transaction-panel"}>
+          <div className="kiosk-mark ok" aria-hidden="true"><Check size={36} strokeWidth={3} /></div>
+          <h2>Charged {result.formatted_total}</h2>
+          <p className="oknote">This payment is now <span className={`status ${result.status}`}>{result.status}</span>. Total {result.formatted_total}.</p>
+          <div className="actions" style={{ justifyContent: "center" }}>
             <button className="primary" onClick={reset}>Next customer</button>
           </div>
         </div>
       )}
       {screen === "closed" && result && (
         <div className="kiosk-result failure">
-          <div className="kiosk-burst bad" aria-hidden="true"><X size={40} strokeWidth={3.2} /></div>
+          <div className="kiosk-mark bad" aria-hidden="true"><X size={36} strokeWidth={3} /></div>
           <h2>Hold released</h2>
-          <p className="oknote">{result.id} is now <span className={`status ${result.status}`}>{result.status}</span>.</p>
+          <p className="lede">Released {result.formatted_total}.</p>
+          <p className="oknote">This payment is now <span className={`status ${result.status}`}>{result.status}</span>.</p>
           {message && <p>{message}</p>}
           {replacement && (
             <div className="oknote">
               Replacement order <span className="mono">{replacement.id}</span> ({replacement.formatted_total}) is ready.
-              Approve the new PayPal authorization in Shop.
+              Approve the new PayPal payment in Shop.
             </div>
           )}
-          {compact ? <MoneyLedger order={result} /> : null}
           <div className="actions" style={{ justifyContent: "center" }}>
             <button className="primary lg" onClick={reset}>Next customer</button>
           </div>
@@ -230,27 +189,27 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
 
       {screen === "failed" && result && (
         <div className="kiosk-result failure">
-          <div className="kiosk-burst bad" aria-hidden="true"><X size={40} strokeWidth={3.2} /></div>
-          <h2>Handover failed</h2>
+          <div className="kiosk-mark bad" aria-hidden="true"><X size={36} strokeWidth={3} /></div>
+          <h2>Pickup problem</h2>
           <p className="oknote">
             {result.id} is now <span className={`status ${result.status}`}>{result.status}</span>
             {result.failure_reason ? ` (${result.failure_reason})` : ""}. Total {result.formatted_total}.
           </p>
-          <p>The PayPal authorization is still held. Choose retry, a substitute within budget, or void the hold.</p>
-          {recommended && <p className="warnnote">Recommended: {recommended}</p>}
+          <p>Nothing was charged. You can try again, swap the item, or release the hold.</p>
+          {recommended && <p className="warnnote">Suggested: {recommended}</p>}
           {message && <p className="oknote">{message}</p>}
           {error && <div className="err">{error}</div>}
           <div className="actions" style={{ justifyContent: "center" }}>
             <button className="ok" disabled={busy} onClick={() => setPending({ action: "retry" })}>
-              <RefreshCcw size={16} /> Retry same item
+              <RefreshCcw size={16} /> Try again
             </button>
             <button className="danger" disabled={busy} onClick={() => setPending({ action: "cancel" })}>
-              Void the hold
+              Release hold
             </button>
           </div>
           {alternatives.length > 0 && (
             <div style={{ marginTop: 24, textAlign: "left" }}>
-              <h3>Substitutes within the original budget</h3>
+              <h3>Swap for something else</h3>
               <div className="product-grid">
                 {alternatives.map((item) => (
                   <div key={item.sku}>
@@ -271,111 +230,73 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
         </div>
       )}
 
-      {panel}
-
       {screen === "form" && (
-        <div className="grid-2">
-          <section className="card">
-            <h3>Scan or type pickup code</h3>
-            <form onSubmit={(event: FormEvent) => event.preventDefault()}>
-              <div className="code-entry">
-                <div className="code-boxes" aria-hidden="true">
-                  {Array.from({ length: 6 }, (_, index) => (
-                    <span
-                      key={index}
-                      className={`code-box${code[index] ? " filled" : ""}${code.length === index ? " caret" : ""}`}
-                    >
-                      {code[index] || ""}
-                    </span>
-                  ))}
-                </div>
-                <input
-                  className="kiosk-code"
-                  value={code}
-                  maxLength={6}
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-label="Pickup code"
-                  placeholder="Enter 6-character code"
-                  onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
-                />
-              </div>
-              <textarea
-                className="field"
-                style={{ width: "100%", marginTop: 12, minHeight: 72 }}
-                placeholder="Optional handover note"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-              />
-              <label className="file-pick">
-                <input type="file" accept="image/*" onChange={(event) => setPhoto(event.target.files?.[0] ?? null)} />
-                {photo ? photo.name : "Attach evidence photo"}
-              </label>
-              <div className="actions">
-                <button className="ok lg" disabled={busy || !code} onClick={() => post("/api/device/confirm", {})}>
-                  Confirm handover and capture
-                </button>
-              </div>
-              <h3 style={{ marginTop: 28 }}>If handover failed</h3>
-              <select value={reason} onChange={(event) => setReason(event.target.value)} style={{ marginBottom: 12 }}>
-                {REASONS.map((item) => (
-                  <option key={item.value} value={item.value}>{item.label}</option>
-                ))}
-              </select>
-              <div className="reason-grid">
-                {REASONS.map((item) => (
-                  <button
-                    type="button"
-                    key={item.value}
-                    className={`reason-btn${reason === item.value ? " selected" : ""}`}
-                    onClick={() => setReason(item.value)}
-                  >
-                    <strong>{item.label}</strong>
-                    <div>{item.hint}</div>
-                  </button>
-                ))}
-              </div>
-              <div className="actions">
-                <button className="danger" disabled={busy || !code} onClick={() => post("/api/device/fail", { reason })}>
-                  Report delivery failure
-                </button>
-              </div>
-            </form>
-            {error && <div className="err" style={{ marginTop: 12 }}>{error}</div>}
-            {result && result.status !== "DELIVERY_FAILED" && result.status !== "CAPTURED" && (
-              <div className="oknote" style={{ marginTop: 12 }}>
-                {result.id} is now <span className={`status ${result.status}`}>{result.status}</span>
-                {result.failure_reason ? ` (${result.failure_reason})` : ""}. Total {result.formatted_total}.
-              </div>
-            )}
-          </section>
-          <aside className="card">
-            <h3>Station queue</h3>
-            <div className="list">
-              {queue.length === 0 && <p>No authorized pickups waiting.</p>}
-              {queue.map((order) => (
-                <button key={order.id} type="button" className="queue-item" onClick={() => useOrder(order)}>
-                  <strong className="mono">{order.pickup_code}</strong> · {order.formatted_total}
-                  <div className={`status ${order.status}`}>{order.status}</div>
-                  <div>{order.items.map((item) => `${item.name} × ${item.qty}`).join(", ")}</div>
+        <form onSubmit={(event: FormEvent) => event.preventDefault()}>
+          <h3 style={{ textAlign: "center", fontSize: "1.25rem", margin: "0 0 8px" }}>Enter pickup code</h3>
+          <div className="code-entry">
+            <div className="code-boxes" aria-hidden="true">
+              {Array.from({ length: 6 }, (_, index) => (
+                <span
+                  key={index}
+                  className={`code-box${code[index] ? " filled" : ""}${code.length === index ? " caret" : ""}`}
+                >
+                  {code[index] || ""}
+                </span>
+              ))}
+            </div>
+            <input
+              className="kiosk-code"
+              value={code}
+              maxLength={6}
+              autoComplete="off"
+              spellCheck={false}
+              aria-label="Pickup code"
+              placeholder="Enter 6-character code"
+              onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
+            />
+          </div>
+          <button className="primary lg" disabled={busy || !code} onClick={() => post("/api/device/confirm", {})}>
+            Hand over & charge
+          </button>
+          <button
+            type="button"
+            className="link-btn problem-link"
+            onClick={() => setShowProblems((value) => !value)}
+          >
+            Problem with pickup?
+          </button>
+          {showProblems && (
+            <div className="reason-list">
+              {REASONS.map((item) => (
+                <button
+                  type="button"
+                  key={item.value}
+                  className="reason-btn"
+                  disabled={busy || !code}
+                  onClick={() => {
+                    void post("/api/device/fail", { reason: item.value });
+                  }}
+                >
+                  {item.label}
                 </button>
               ))}
             </div>
-          </aside>
-        </div>
+          )}
+          {error && <div className="err" style={{ marginTop: 12 }}>{error}</div>}
+        </form>
       )}
 
       <ConfirmDialog
         open={Boolean(pending)}
-        title={pending?.action === "substitute" ? "Confirm substitution" : pending?.action === "cancel" ? "Void this hold?" : "Retry handover?"}
+        title={pending?.action === "substitute" ? "Confirm substitution" : pending?.action === "cancel" ? "Release this hold?" : "Try again?"}
         body={
           pending?.action === "substitute"
-            ? `This VOIDs the current PayPal authorization and creates a new AUTHORIZE order for ${pending.items?.name ?? "the substitute"}.`
+            ? `This releases the current hold and starts a new PayPal payment for ${pending.items?.name ?? "the substitute"}.`
             : pending?.action === "cancel"
-              ? "This calls PayPal Payments v2 to void the authorization. The customer will not be charged."
-              : "The same authorization stays active so the station can try again."
+              ? "This releases the hold. The customer will not be charged."
+              : "The same hold stays in place so you can try again."
         }
-        confirmLabel={pending?.action === "substitute" ? "Confirm substitution" : pending?.action === "cancel" ? "Void the hold" : "Retry"}
+        confirmLabel={pending?.action === "substitute" ? "Confirm substitution" : pending?.action === "cancel" ? "Release hold" : "Retry"}
         danger={pending?.action === "cancel"}
         busy={busy}
         onCancel={() => setPending(null)}

@@ -285,3 +285,125 @@ export function buildTxSteps(order: TxOrder, events: TxEvent[] = []): TxStep[] {
   }
   return steps;
 }
+
+
+export function statusWord(status?: string | null): string {
+  switch (status) {
+    case "CREATED":
+    case "APPROVED":
+      return "Ready";
+    case "AUTHORIZED":
+    case "DELIVERY_CONFIRMED":
+      return "Held";
+    case "CAPTURED":
+      return "Charged";
+    case "VOIDED":
+    case "CANCELLED":
+      return "Released";
+    case "REFUNDED":
+      return "Refunded";
+    case "DELIVERY_FAILED":
+    case "FAILED":
+    case "EXPIRED":
+      return "Problem";
+    default:
+      return status || "";
+  }
+}
+
+export function compactStatus(order?: TxOrder | null, quote?: TxQuote | null): string {
+  if (order) {
+    const amt = order.formatted_total;
+    switch (order.status) {
+      case "CREATED":
+        return `${amt} · waiting for PayPal`;
+      case "APPROVED":
+        return `${amt} · approved, placing hold`;
+      case "AUTHORIZED":
+      case "DELIVERY_CONFIRMED":
+        return `${amt} held · waiting for pickup`;
+      case "CAPTURED":
+        return `${amt} charged`;
+      case "VOIDED":
+      case "CANCELLED":
+        return `${amt} released`;
+      case "REFUNDED":
+        return `${amt} refunded`;
+      case "DELIVERY_FAILED":
+        return `${amt} held · pickup problem`;
+      default:
+        return `${amt} · ${order.status}`;
+    }
+  }
+  if (quote?.formatted_total) {
+    return `${quote.formatted_total} · ready to pay`;
+  }
+  return "No payment yet";
+}
+
+export function eventEnglish(event: TxEvent, amount?: string): string {
+  const amt = amount ? ` ${amount}` : "";
+  switch (event.event) {
+    case "ORDER_CREATED":
+    case "PAYPAL_ORDER_CREATED":
+      return "Agent found item";
+    case "ORDER_APPROVED":
+    case "PAYPAL_APPROVED":
+    case "PAYPAL_ORDER_APPROVED":
+      return `Shopper approved in PayPal${amt ? ` —${amt} ready to hold` : ""}`;
+    case "PAYPAL_AUTHORIZED":
+    case "ORDER_AUTHORIZED":
+      return `Shopper approved in PayPal${amt ? ` —${amt} held` : ""}`;
+    case "DELIVERY_CONFIRMED":
+    case "HANDOVER_CONFIRMED":
+      return "Kiosk confirmed handover";
+    case "PAYPAL_CAPTURED":
+    case "ORDER_CAPTURED":
+      return `PayPal charged${amt}`;
+    case "DELIVERY_FAILED":
+      return "Pickup had a problem";
+    case "PAYPAL_VOIDED":
+    case "ORDER_VOIDED":
+      return `PayPal released the hold${amt}`;
+    case "PAYPAL_REFUNDED":
+    case "ORDER_REFUNDED":
+      return `PayPal refunded${amt}`;
+    case "RECOVERY_SUBSTITUTE":
+      return "Item substituted; new payment started";
+    default:
+      return event.event.replaceAll("_", " ").toLowerCase();
+  }
+}
+
+export function friendlyStepLabel(step: TxStep, amount?: string): string {
+  const amt = amount || "";
+  switch (step.key) {
+    case "quote":
+      return "Agent found item";
+    case "hold":
+      return amt ? `Shopper approved in PayPal — ${amt} held` : "Shopper approved in PayPal";
+    case "handover":
+      return step.state === "branch" ? "Pickup had a problem" : "Kiosk confirmed handover";
+    case "captured":
+      return amt ? `PayPal charged ${amt}` : "PayPal charged";
+    case "voided":
+      return "Hold released";
+    case "refunded":
+      return amt ? `PayPal refunded ${amt}` : "PayPal refunded";
+    case "substituted":
+      return "Item substituted";
+    default:
+      return step.label;
+  }
+}
+
+export function storyEvents(events: TxEvent[], amount?: string): Array<TxEvent & { text: string }> {
+  const sorted = [...events].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const out: Array<TxEvent & { text: string }> = [];
+  for (const item of sorted) {
+    const text = eventEnglish(item, amount);
+    if (out.length && out[out.length - 1].text === text) continue;
+    out.push({ ...item, text });
+  }
+  return out;
+}
