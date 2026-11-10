@@ -41,12 +41,12 @@ export type NearDeskMessage = {
 };
 
 const PROMPT_PRESETS = [
-  "Quiero un cargador USB-C de 100W y un cable para mi laptop",
-  "Recomiéndame café de especialidad o matcha por menos de $30",
-  "Busco un termo o botella de 32oz para el gimnasio",
-  "Cámara de timbre inteligente para la entrada de casa",
-  "Tengo $20 de presupuesto, qué snacks o café tienes?",
-  "Liberar retención de PayPal y cancelar orden",
+  "I need a 100W USB-C GaN fast charger and a braided cable",
+  "Recommend specialty coffee beans or matcha under $30",
+  "Looking for an insulated 32oz water bottle for the gym",
+  "Smart 2K video doorbell for the front porch",
+  "I have a $20 budget, what snacks or coffee do you have?",
+  "Release PayPal hold and cancel order",
 ];
 
 const DEFAULT_MESSAGES: NearDeskMessage[] = [
@@ -159,7 +159,7 @@ export function NearDeskChat({
                 {
                   id: `fail-alert-${Date.now()}`,
                   role: "assistant",
-                  content: `🚨 **Alerta de Entrega: Verificación Fallida**\n\nEl sistema de visión del repartidor detectó que el paquete se dejó en la puerta equivocada o con daño (${serverOrder.failure_reason || "Address Mismatch"}).\n\nTu dinero **sigue 100% protegido en PayPal ($0.00 cobrados)**. ¿Qué prefieres que hagamos?`,
+                  content: `🚨 **Delivery Alert: Verification Failed**\n\nThe courier's porch vision system detected that the package was dropped at the wrong doorstep or sustained impact damage (${serverOrder.failure_reason || "Address Mismatch"}).\n\nYour funds **remain 100% safe on PayPal ($0.00 charged)**. How would you like to proceed?`,
                   tier: "PHYSICAL-GUARD",
                   timestamp: Date.now(),
                   order: serverOrder,
@@ -192,7 +192,7 @@ export function NearDeskChat({
         {
           id: `void-done-${Date.now()}`,
           role: "assistant",
-          content: `✅ **Retención de PayPal Cancelada Exitosamente**\n\nSe llamó a la API PayPal Sandbox \`/void\`. Tu retención fue liberada al instante. **Saldo cobrado: $0.00**.\n\nTe hemos acreditado el código de disculpa **VOUCHER-SORRY5** ($5.00 USD) para tu siguiente pedido.`,
+          content: `✅ **PayPal Authorization Successfully Released**\n\nCalled PayPal Sandbox API \`/void\`. Your authorization hold was released instantly. **Total charged: $0.00**.\n\nWe have credited concierge apology voucher **VOUCHER-SORRY5** ($5.00 USD) to your account for the inconvenience.`,
           tier: "ZERO-CAPTURE-SETTLED",
           timestamp: Date.now(),
           order: data.order,
@@ -210,7 +210,7 @@ export function NearDeskChat({
       {
         id: `redisp-${Date.now()}`,
         role: "assistant",
-        content: `🔄 **Re-despacho Ordenado al Repartidor**\n\nNotificación enviada a la terminal del repartidor: *"Destino corregido: 744 Maple Street, Apt 2B (portón blanco)"*.\n\nTu retención de PayPal se mantiene en hold seguro hasta que se certifique la entrega correcta.`,
+        content: `🔄 **Courier Re-dispatch Ordered**\n\nNotification dispatched to courier terminal: *"Corrected destination: 744 Maple Street, Apt 2B (white gate)"*.\n\nYour PayPal authorization hold remains safely escrowed until verified delivery.`,
         tier: "COURIER-DISPATCH",
         timestamp: Date.now(),
       },
@@ -507,14 +507,14 @@ export function NearDeskChat({
                           className="failure-action-btn btn-release-void"
                           onClick={() => void handleActionVoid(msg.order?.id)}
                         >
-                          ⚡ Cancelar y Liberar Fondos PayPal ($0 cobrados) + $5 Voucher
+                          ⚡ Cancel & Release PayPal Hold ($0 Charged) + $5 Voucher
                         </button>
                         <button
                           type="button"
                           className="failure-action-btn btn-redispatch"
                           onClick={() => void handleActionRedispatch(msg.order?.id)}
                         >
-                          🔄 Re-despachar a puerta correcta (744 Maple St)
+                          🔄 Re-dispatch to Correct Doorstep (744 Maple St)
                         </button>
                       </div>
                     </div>
