@@ -3,6 +3,9 @@ import { expect, test } from "@playwright/test";
 
 const pages = [
   { path: "/", testId: "page-shop" },
+  { path: "/client", testId: "page-client" },
+  { path: "/delivery", testId: "page-delivery" },
+  { path: "/backend", testId: "page-backend" },
   { path: "/device", testId: "page-pickup" },
   { path: "/merchant", testId: "page-merchant" },
   { path: "/demo", testId: "page-presenter" },

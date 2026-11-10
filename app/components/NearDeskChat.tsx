@@ -36,15 +36,17 @@ export type NearDeskMessage = {
     pickup_code?: string | null;
     paypal_order_id?: string | null;
     paypal_authorization_id?: string | null;
+    failure_reason?: string | null;
   };
 };
 
 const PROMPT_PRESETS = [
-  "I have a $20 budget. Do you have a keychain?",
-  "I'd like the Venue Enamel Pin (DC-PIN-01) within budget.",
-  "Check stock for the water bottle (DC-BTL-01).",
-  "Simulate Solenoid Jam on Bay #04 & recover",
-  "Release PayPal hold and refund balance",
+  "Quiero un cargador USB-C de 100W y un cable para mi laptop",
+  "Recomiéndame café de especialidad o matcha por menos de $30",
+  "Busco un termo o botella de 32oz para el gimnasio",
+  "Cámara de timbre inteligente para la entrada de casa",
+  "Tengo $20 de presupuesto, qué snacks o café tienes?",
+  "Liberar retención de PayPal y cancelar orden",
 ];
 
 const DEFAULT_MESSAGES: NearDeskMessage[] = [
@@ -113,10 +115,107 @@ export function NearDeskChat({
   const [messages, setMessages] = useState<NearDeskMessage[]>(DEFAULT_MESSAGES);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [autonomyMode, setAutonomyMode] = useState<"interactive" | "autopilot">("interactive");
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({ "msg-2-0": true });
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Poll for delivery status changes on active order
+  useEffect(() => {
+    const checkStatus = async () => {
+      const lastOrderMsg = [...messages].reverse().find((m) => m.order?.id);
+      if (!lastOrderMsg?.order?.id) return;
+      const orderId = lastOrderMsg.order.id;
+
+      try {
+        const res = await fetch("/api/orders");
+        const data = await res.json();
+        const serverOrder = (data.orders || []).find((o: { id: string }) => o.id === orderId);
+        if (serverOrder && serverOrder.status !== lastOrderMsg.order.status) {
+          // If status changed to DELIVERY_FAILED
+          if (serverOrder.status === "DELIVERY_FAILED") {
+            if (autonomyMode === "autopilot") {
+              // Execute auto-void immediately
+              await fetch("/api/paypal/void", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ orderId, reason: "Auto-pilot autonomous void on delivery failure" }),
+              });
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `fail-auto-${Date.now()}`,
+                  role: "assistant",
+                  content: `🚨 **Autonomous Delivery Alert (Auto-Pilot Executed)**\n\nPorch camera detected delivery failure (${serverOrder.failure_reason || "Door mismatch"}).\n\nBecause you configured **Auto-Pilot Mode**, your PayPal hold was **automatically released** in 1.2s. **$0.00 charged**. A $5.00 apology credit has been added to your profile.`,
+                  tier: "AUTO-PILOT-VOID",
+                  timestamp: Date.now(),
+                  order: { ...serverOrder, status: "VOIDED" },
+                },
+              ]);
+            } else {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `fail-alert-${Date.now()}`,
+                  role: "assistant",
+                  content: `🚨 **Alerta de Entrega: Verificación Fallida**\n\nEl sistema de visión del repartidor detectó que el paquete se dejó en la puerta equivocada o con daño (${serverOrder.failure_reason || "Address Mismatch"}).\n\nTu dinero **sigue 100% protegido en PayPal ($0.00 cobrados)**. ¿Qué prefieres que hagamos?`,
+                  tier: "PHYSICAL-GUARD",
+                  timestamp: Date.now(),
+                  order: serverOrder,
+                },
+              ]);
+            }
+          }
+        }
+      } catch {
+        // Quiet
+      }
+    };
+
+    const interval = setInterval(() => void checkStatus(), 4000);
+    return () => clearInterval(interval);
+  }, [messages, autonomyMode]);
+
+  async function handleActionVoid(orderId?: string) {
+    if (!orderId) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/paypal/void", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, reason: "Client requested instant void in chat" }),
+      });
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `void-done-${Date.now()}`,
+          role: "assistant",
+          content: `✅ **Retención de PayPal Cancelada Exitosamente**\n\nSe llamó a la API PayPal Sandbox \`/void\`. Tu retención fue liberada al instante. **Saldo cobrado: $0.00**.\n\nTe hemos acreditado el código de disculpa **VOUCHER-SORRY5** ($5.00 USD) para tu siguiente pedido.`,
+          tier: "ZERO-CAPTURE-SETTLED",
+          timestamp: Date.now(),
+          order: data.order,
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleActionRedispatch(orderId?: string) {
+    if (!orderId) return;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `redisp-${Date.now()}`,
+        role: "assistant",
+        content: `🔄 **Re-despacho Ordenado al Repartidor**\n\nNotificación enviada a la terminal del repartidor: *"Destino corregido: 744 Maple Street, Apt 2B (portón blanco)"*.\n\nTu retención de PayPal se mantiene en hold seguro hasta que se certifique la entrega correcta.`,
+        tier: "COURIER-DISPATCH",
+        timestamp: Date.now(),
+      },
+    ]);
+  }
 
   useEffect(() => {
     fetch("/api/config")
@@ -205,11 +304,29 @@ export function NearDeskChat({
       <div className="neardesk-chat-header">
         <div className="neardesk-header-left">
           <span className="neardesk-status-dot" />
-          <span className="neardesk-title mono">PROOFED_AGENTIC_OPERATOR // LIVE STREAM</span>
+          <span className="neardesk-title mono">PROOFED_MARKETPLACE_AGENT // LIVE CHAT</span>
+          <span className="neardesk-catalog-pill mono">68+ PRODUCTS</span>
         </div>
         <div className="neardesk-header-right mono">
-          <span className="neardesk-badge-pill">INTENT=AUTHORIZE</span>
-          <span className="neardesk-badge-pill">ZERO_TRUST_PRICING</span>
+          <div className="autonomy-toggle-group" role="group" aria-label="Autonomous Contingency Policy">
+            <span className="autonomy-label">POLICY:</span>
+            <button
+              type="button"
+              className={`autonomy-pill ${autonomyMode === "interactive" ? "active" : ""}`}
+              onClick={() => setAutonomyMode("interactive")}
+              title="If delivery fails, agent presents interactive choice cards in chat"
+            >
+              💬 Interactive
+            </button>
+            <button
+              type="button"
+              className={`autonomy-pill ${autonomyMode === "autopilot" ? "active" : ""}`}
+              onClick={() => setAutonomyMode("autopilot")}
+              title="If delivery fails, agent automatically releases PayPal hold in 1.2s and credits $5 voucher"
+            >
+              ⚡ Auto-Void ($0)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -368,6 +485,37 @@ export function NearDeskChat({
                       <div className="auth-code mono">
                         <span>PIN:</span>
                         <strong>{msg.order.pickup_code}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* If Delivery Failed (Wrong Doorstep or Damaged) */}
+                  {msg.order?.status === "DELIVERY_FAILED" && (
+                    <div className="quote-failure-box" role="alert">
+                      <div className="failure-box-header">
+                        <AlertCircle size={16} />
+                        <span className="failure-box-title mono">DELIVERY VERIFICATION FAILED</span>
+                        <span className="failure-status-pill mono">HOLD SAFE · $0 CHARGED</span>
+                      </div>
+                      <p className="failure-desc">
+                        Porch AI vision rejected delivery ({msg.order.failure_reason || "Door # mismatch"}).
+                        Funds remain held on PayPal; zero dollars debited. Select autonomous resolution:
+                      </p>
+                      <div className="failure-actions-grid">
+                        <button
+                          type="button"
+                          className="failure-action-btn btn-release-void"
+                          onClick={() => void handleActionVoid(msg.order?.id)}
+                        >
+                          ⚡ Cancelar y Liberar Fondos PayPal ($0 cobrados) + $5 Voucher
+                        </button>
+                        <button
+                          type="button"
+                          className="failure-action-btn btn-redispatch"
+                          onClick={() => void handleActionRedispatch(msg.order?.id)}
+                        >
+                          🔄 Re-despachar a puerta correcta (744 Maple St)
+                        </button>
                       </div>
                     </div>
                   )}
