@@ -158,7 +158,7 @@ test("approves, reconciles, authorizes, captures at /device, then refunds", asyn
   });
 });
 
-test("approves, authorizes, reports a station jam at /device, then voids", async ({ request }) => {
+test("approves, authorizes, reports a station jam at /device, then substitutes", async ({ request }) => {
   const created = await createShopOrder(request, "DC-PIN-01", 2000);
   expect(created.status).toBe("CREATED");
   expect(created.subtotal_cents).toBe(850);
@@ -183,34 +183,49 @@ test("approves, authorizes, reports a station jam at /device, then voids", async
   await buyerPage.locator(".kiosk-code").fill(authorizedOrder.pickup_code as string);
   await buyerPage.locator("select").selectOption("jam");
   await buyerPage.getByRole("button", { name: "Report delivery failure" }).click();
-  await expect(buyerPage.locator(".oknote")).toContainText("DELIVERY_FAILED", { timeout: 30_000 });
+  await expect(buyerPage.getByText("DELIVERY_FAILED")).toBeVisible({ timeout: 30_000 });
 
   const failed = await getAppOrder(request, created.id);
   expect(failed.status).toBe("DELIVERY_FAILED");
   expect(failed.failure_reason).toBe("jam");
 
-  const voided = await jsonFetch(request, "/api/paypal/void", {
-    method: "POST",
-    data: { orderId: created.id, confirm: true, reason: "station_jam" },
-  });
-  expect(voided.ok, `void failed ${voided.status}: ${JSON.stringify(voided.body)}`).toBe(true);
-  const voidedOrder = voided.body.order as PublicOrder;
-  expect(voidedOrder.status).toBe("VOIDED");
+  const substitute = buyerPage.getByRole("button", { name: /Substitute with/ }).first();
+  await expect(substitute).toBeVisible({ timeout: 30_000 });
+  await substitute.click();
+  await buyerPage.getByRole("button", { name: "Confirm substitution" }).click();
+  await expect(buyerPage.getByRole("heading", { name: "Hold released" })).toBeVisible({ timeout: 90_000 });
+  await expect(buyerPage.getByText(/Replacement order/)).toBeVisible();
+
+  const voided = await getAppOrder(request, created.id);
+  expect(voided.status).toBe("VOIDED");
 
   const remoteVoid = await getPaypalAuthorization(authorizedOrder.paypal_authorization_id as string);
   expect(remoteVoid.status).toBe("VOIDED");
+
+  const listed = await jsonFetch(request, "/api/orders");
+  expect(listed.ok).toBe(true);
+  const replacement = (listed.body.orders as PublicOrder[]).find(
+    (item) => item.id !== created.id && item.status === "CREATED" && item.paypal_order_id,
+  );
+  expect(replacement, "expected a replacement AUTHORIZE order").toBeTruthy();
+  const remoteReplacement = await getPaypalOrder(replacement!.paypal_order_id as string);
+  expect(remoteReplacement.status).toBe("CREATED");
+  expect(remoteReplacement.intent).toBe("AUTHORIZE");
 
   const rec = await jsonFetch(request, "/api/jobs/reconcile", { method: "POST" });
   expect(rec.ok).toBe(true);
   const final = await getAppOrder(request, created.id);
   expect(final.status).toBe("VOIDED");
 
-  console.log("e2e jam+void", {
+  console.log("e2e jam+substitute", {
     appOrderId: created.id,
     paypalOrderId: created.paypal_order_id,
     authorizationId: authorizedOrder.paypal_authorization_id,
     authorizationStatusBeforeVoid: remoteAuth.status,
     authorizationStatusAfterVoid: remoteVoid.status,
+    replacementOrderId: replacement?.id,
+    replacementPaypalOrderId: replacement?.paypal_order_id,
+    replacementPaypalStatus: remoteReplacement.status,
     finalAppStatus: final.status,
   });
 });

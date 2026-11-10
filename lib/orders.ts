@@ -1050,13 +1050,19 @@ export async function investigateFailure(orderId: string) {
     sku: item.sku,
     name: item.name,
     price_cents: item.price_cents,
+    formatted_price: formatMoney(item.price_cents, order.currency),
     available: availableStock(item.sku),
+    image: `/products/${item.sku}.svg`,
   }));
   let recommended: "retry" | "substitute" | "cancel" = "cancel";
-  if (order.status === "DELIVERY_FAILED" && order.paypal_authorization_id) recommended = "retry";
+  const reason = order.failure_reason || "";
+  if (order.status === "DELIVERY_FAILED" && order.paypal_authorization_id) {
+    recommended = ["out_of_stock", "item_damaged"].includes(reason) ? "substitute" : "retry";
+  }
   if (["EXPIRED", "VOIDED", "FAILED", "CANCELLED"].includes(order.status) && alternatives.length) {
     recommended = "substitute";
   }
+  if (recommended === "substitute" && alternatives.length === 0) recommended = "cancel";
   if (order.status === "CAPTURED") recommended = "cancel";
   return {
     order,
@@ -1177,6 +1183,35 @@ export async function reconcileOrders(limit = 25) {
   }
 
   return { checked: results.length, pickupTimeoutMinutes: cfg.pickupTimeoutMinutes, results };
+}
+
+
+export function merchantStats() {
+  const orders = listOrders();
+  const cfg = getProjectConfig();
+  const sum = (statuses: string[]) =>
+    orders.filter((order) => statuses.includes(order.status)).reduce((total, order) => total + order.subtotal_cents, 0);
+  const count = (statuses: string[]) => orders.filter((order) => statuses.includes(order.status)).length;
+  const failureReasons: Record<string, number> = {};
+  for (const order of orders) {
+    if (order.failure_reason) {
+      failureReasons[order.failure_reason] = (failureReasons[order.failure_reason] || 0) + 1;
+    }
+  }
+  const heldStatuses = ["AUTHORIZED", "DELIVERY_CONFIRMED", "DELIVERY_FAILED"];
+  return {
+    currency: cfg.currency,
+    order_count: orders.length,
+    held: { count: count(heldStatuses), cents: sum(heldStatuses), formatted: formatMoney(sum(heldStatuses), cfg.currency) },
+    captured: { count: count(["CAPTURED"]), cents: sum(["CAPTURED"]), formatted: formatMoney(sum(["CAPTURED"]), cfg.currency) },
+    voided: {
+      count: count(["VOIDED", "CANCELLED"]),
+      cents: sum(["VOIDED", "CANCELLED"]),
+      formatted: formatMoney(sum(["VOIDED", "CANCELLED"]), cfg.currency),
+    },
+    refunded: { count: count(["REFUNDED"]), cents: sum(["REFUNDED"]), formatted: formatMoney(sum(["REFUNDED"]), cfg.currency) },
+    failure_reasons: failureReasons,
+  };
 }
 
 export function publicOrderView(order: OrderDetails) {

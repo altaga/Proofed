@@ -11,6 +11,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"]],
+  testIgnore: process.env.SCREENSHOTS ? ["**/buyer-flows.spec.ts"] : ["**/screenshots.spec.ts"],
   outputDir: "./test-artifacts/playwright-output",
   use: {
     baseURL,

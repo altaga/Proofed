@@ -64,9 +64,20 @@ npm run dev           # http://localhost:3000
 
 Pages:
 
-- `/` — shopper chat and PayPal buttons
-- `/device` — pickup station
-- `/merchant` — merchant desk (AG Grid)
+- `/demo` — concept in three steps and a live success/failure demo guide
+- `/` — shopper chat, live shelf, PayPal Smart Buttons
+- `/device` — fullscreen pickup kiosk
+- `/merchant` — merchant desk (KPIs + AG Grid + order drawer)
+
+Screenshots (captured from the running app):
+
+![Demo](docs/screenshots/demo.png)
+
+![Shop](docs/screenshots/shop.png)
+
+![Pickup station](docs/screenshots/device.png)
+
+![Merchant desk](docs/screenshots/merchant.png)
 
 Rename the product in one place:
 
@@ -128,7 +139,9 @@ Buyer approval cannot be skipped for PayPal Wallet. Sandbox card `payment_source
 npm test              # state machine + pricing/stock policy
 npm run test:paypal   # live PayPal sandbox (create/GET/idempotency; authorize-before-approval)
 npm run test:agent    # live MiniMax-M3 tool calling
-npm run test:e2e      # Playwright: sandbox buyer approves, then capture/void/refund
+npm run test:e2e      # Playwright: sandbox buyer approves, then capture/refund/substitute
+npm run screenshots   # refresh docs/screenshots/*.png from the running UI
+npm run demo:reset    # wipe orders/chats and restore seed stock
 npm run test:all
 ```
 

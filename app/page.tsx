@@ -6,7 +6,8 @@ export default function Page() {
   return (
     <main>
       <section className="hero">
-        <h2>Shop the {cfg.venueName} without paying until handover is proven.</h2>
+        <p className="kicker">{cfg.venueName}</p>
+        <h2>Shop without paying until handover is proven.</h2>
         <p>
           Tell the assistant what you want and your budget. It checks live stock, places a PayPal
           authorization — not a capture — and the kiosk captures only after it records pickup evidence.

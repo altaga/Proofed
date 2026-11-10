@@ -9,22 +9,26 @@ import {
   themeQuartz,
   type RowClickedEvent,
 } from "ag-grid-community";
+import { RefreshCcw, X } from "lucide-react";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { sandboxOrderUrl, sandboxPaymentUrl } from "@/lib/sandbox-links";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const gridTheme = themeQuartz.withParams({
-  backgroundColor: "#fffaf1",
-  foregroundColor: "#1b1712",
-  headerBackgroundColor: "#1c2a3a",
+  backgroundColor: "#fffaf2",
+  foregroundColor: "#161310",
+  headerBackgroundColor: "#152033",
   headerTextColor: "#f4ebd8",
-  accentColor: "#9b2c1c",
-  borderColor: "rgba(27,23,18,0.12)",
+  accentColor: "#c2410c",
+  borderColor: "rgba(22,19,16,0.1)",
 });
 
 type PublicOrder = {
   id: string;
   status: string;
   formatted_total: string;
+  subtotal_cents?: number;
   pickup_code: string | null;
   paypal_order_id: string | null;
   paypal_authorization_id: string | null;
@@ -48,20 +52,43 @@ type EventRow = {
   created_at: string;
 };
 
+type Stats = {
+  order_count: number;
+  held: { count: number; formatted: string };
+  captured: { count: number; formatted: string };
+  voided: { count: number; formatted: string };
+  refunded: { count: number; formatted: string };
+  failure_reasons: Record<string, number>;
+};
+
+function StatusCell(props: { value?: string }) {
+  if (!props.value) return null;
+  return <span className={`status ${props.value}`}>{props.value}</span>;
+}
+
 export function MerchantDesk() {
   const [orders, setOrders] = useState<PublicOrder[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
   const [selected, setSelected] = useState<PublicOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<{ path: string; extra: Record<string, unknown>; label: string; danger?: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [orderRes, eventRes] = await Promise.all([fetch("/api/orders"), fetch("/api/events")]);
+    const [orderRes, eventRes, statsRes] = await Promise.all([
+      fetch("/api/orders"),
+      fetch("/api/events"),
+      fetch("/api/stats"),
+    ]);
     const orderPayload = await orderRes.json();
     const eventPayload = await eventRes.json();
+    const statsPayload = await statsRes.json();
     if (!orderRes.ok) throw new Error(orderPayload.error || "Could not load orders");
     setOrders(orderPayload.orders || []);
     setEvents(eventPayload.events || []);
+    if (statsRes.ok) setStats(statsPayload.stats);
     setSelected((current) => {
       if (!current) return current;
       return (orderPayload.orders || []).find((item: PublicOrder) => item.id === current.id) ?? current;
@@ -79,7 +106,7 @@ export function MerchantDesk() {
   const columns = useMemo<ColDef<PublicOrder>[]>(
     () => [
       { field: "id", headerName: "Order", flex: 1.4, minWidth: 160 },
-      { field: "status", headerName: "Status", flex: 1, minWidth: 140 },
+      { field: "status", headerName: "Status", flex: 1, minWidth: 150, cellRenderer: StatusCell },
       { field: "formatted_total", headerName: "Amount", width: 110 },
       { field: "pickup_code", headerName: "Pickup", width: 120 },
       { field: "paypal_order_id", headerName: "PayPal order", flex: 1.2, minWidth: 160 },
@@ -90,33 +117,68 @@ export function MerchantDesk() {
     [],
   );
 
-  async function act(path: string, extra: Record<string, unknown>, label: string) {
+  async function runAction(path: string, extra: Record<string, unknown>, label: string) {
     if (!selected) return;
-    if (!window.confirm(`${label} order ${selected.id}? This calls the real PayPal sandbox API.`)) return;
+    setBusy(true);
     setError(null);
     setNotice(null);
-    const response = await fetch(path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: selected.id, confirm: true, ...extra }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error || `${label} failed`);
-      return;
+    try {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: selected.id, confirm: true, ...extra }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload.error || `${label} failed`);
+        return;
+      }
+      setNotice(`${label} succeeded.`);
+      if (payload.order) setSelected(payload.order);
+      await refresh();
+    } finally {
+      setBusy(false);
+      setConfirm(null);
     }
-    setNotice(`${label} succeeded.`);
-    setSelected(payload.order);
-    await refresh();
   }
+
+  const selectedEvents = events.filter((item) => !selected || item.order_id === selected.id);
 
   return (
     <div>
+      <div className="kpi-row">
+        <div className="card kpi">
+          <div className="label">Held</div>
+          <div className="value">{stats?.held.formatted ?? "—"}</div>
+          <div className="sub">{stats?.held.count ?? 0} authorized / in handover</div>
+        </div>
+        <div className="card kpi">
+          <div className="label">Captured</div>
+          <div className="value">{stats?.captured.formatted ?? "—"}</div>
+          <div className="sub">{stats?.captured.count ?? 0} completed pickups</div>
+        </div>
+        <div className="card kpi">
+          <div className="label">Voided</div>
+          <div className="value">{stats?.voided.formatted ?? "—"}</div>
+          <div className="sub">{stats?.voided.count ?? 0} released holds</div>
+        </div>
+        <div className="card kpi">
+          <div className="label">Refunded</div>
+          <div className="value">{stats?.refunded.formatted ?? "—"}</div>
+          <div className="sub">
+            {stats?.refunded.count ?? 0} refunds
+            {stats && Object.keys(stats.failure_reasons).length > 0
+              ? ` · ${Object.entries(stats.failure_reasons).map(([reason, count]) => `${reason} ${count}`).join(", ")}`
+              : ""}
+          </div>
+        </div>
+      </div>
+
       <div className="card" style={{ marginBottom: 18 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
           <h3 style={{ margin: 0 }}>Orders</h3>
           <div className="actions" style={{ margin: 0 }}>
-            <button className="ghost" onClick={() => refresh()}>Refresh</button>
+            <button className="ghost" onClick={() => refresh()}><RefreshCcw size={16} /> Refresh</button>
             <button
               className="ghost"
               onClick={async () => {
@@ -142,22 +204,53 @@ export function MerchantDesk() {
         </div>
       </div>
 
-      <div className="grid-2">
-        <section className="card">
-          <h3>Selected order</h3>
-          {error && <div className="err">{error}</div>}
-          {notice && <div className="oknote">{notice}</div>}
-          {!selected && <p>Select a row to inspect PayPal ids, evidence, and take action.</p>}
-          {selected && (
-            <div className="detail">
+      {error && <div className="err" style={{ marginBottom: 12 }}>{error}</div>}
+      {notice && <div className="oknote" style={{ marginBottom: 12 }}>{notice}</div>}
+
+      {selected && (
+        <div className="drawer-backdrop" onClick={() => setSelected(null)}>
+          <aside className="drawer" onClick={(event) => event.stopPropagation()} aria-label="Order detail">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ margin: 0 }}>Order detail</h3>
+              <button className="ghost" type="button" onClick={() => setSelected(null)} aria-label="Close"><X size={16} /></button>
+            </div>
+            <div className="detail" style={{ marginTop: 16 }}>
               <div><span>ID</span> <span className="mono">{selected.id}</span></div>
               <div>Status <span className={`status ${selected.status}`}>{selected.status}</span> · {selected.formatted_total}</div>
               <div>Items {selected.items.map((item) => `${item.name} × ${item.qty}`).join(", ")}</div>
               <div>Pickup <span className="mono">{selected.pickup_code || "—"}</span></div>
-              <div>PayPal order <span className="mono">{selected.paypal_order_id || "—"}</span></div>
-              <div>Authorization <span className="mono">{selected.paypal_authorization_id || "—"}</span></div>
-              <div>Capture <span className="mono">{selected.paypal_capture_id || "—"}</span></div>
-              <div>Refund <span className="mono">{selected.paypal_refund_id || "—"}</span></div>
+              <div>
+                PayPal order{" "}
+                {selected.paypal_order_id ? (
+                  <a className="linkish mono" href={sandboxOrderUrl(selected.paypal_order_id)} target="_blank" rel="noreferrer">
+                    {selected.paypal_order_id}
+                  </a>
+                ) : "—"}
+              </div>
+              <div>
+                Authorization{" "}
+                {selected.paypal_authorization_id ? (
+                  <a className="linkish mono" href={sandboxPaymentUrl(selected.paypal_authorization_id)} target="_blank" rel="noreferrer">
+                    {selected.paypal_authorization_id}
+                  </a>
+                ) : "—"}
+              </div>
+              <div>
+                Capture{" "}
+                {selected.paypal_capture_id ? (
+                  <a className="linkish mono" href={sandboxPaymentUrl(selected.paypal_capture_id)} target="_blank" rel="noreferrer">
+                    {selected.paypal_capture_id}
+                  </a>
+                ) : "—"}
+              </div>
+              <div>
+                Refund{" "}
+                {selected.paypal_refund_id ? (
+                  <a className="linkish mono" href={sandboxPaymentUrl(selected.paypal_refund_id)} target="_blank" rel="noreferrer">
+                    {selected.paypal_refund_id}
+                  </a>
+                ) : "—"}
+              </div>
               {selected.failure_reason && <div className="err">{selected.failure_reason}</div>}
               <div>
                 Evidence
@@ -169,19 +262,14 @@ export function MerchantDesk() {
                 ))}
               </div>
               <div className="actions">
-                <button className="ok" onClick={() => act("/api/paypal/capture", {}, "Capture")}>Capture</button>
-                <button className="danger" onClick={() => act("/api/paypal/void", { reason: "merchant_void" }, "Void")}>Void</button>
-                <button className="ghost" onClick={() => act("/api/paypal/refund", {}, "Refund")}>Refund</button>
+                <button className="ok" onClick={() => setConfirm({ path: "/api/paypal/capture", extra: {}, label: "Capture" })}>Capture</button>
+                <button className="danger" onClick={() => setConfirm({ path: "/api/paypal/void", extra: { reason: "merchant_void" }, label: "Void", danger: true })}>Void</button>
+                <button className="ghost" onClick={() => setConfirm({ path: "/api/paypal/refund", extra: {}, label: "Refund" })}>Refund</button>
               </div>
             </div>
-          )}
-        </section>
-        <section className="card">
-          <h3>Event log</h3>
-          <div className="transcript" style={{ maxHeight: 360 }}>
-            {events
-              .filter((item) => !selected || item.order_id === selected.id)
-              .map((item) => (
+            <h3 style={{ marginTop: 28 }}>Event log</h3>
+            <div className="transcript" style={{ maxHeight: 360 }}>
+              {selectedEvents.map((item) => (
                 <div key={item.id} className="bubble assistant">
                   <strong>{item.event}</strong> · {item.actor}
                   <div className="mono">
@@ -189,9 +277,23 @@ export function MerchantDesk() {
                   </div>
                 </div>
               ))}
-          </div>
-        </section>
-      </div>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={Boolean(confirm)}
+        title={`${confirm?.label} this order?`}
+        body={`This calls the real PayPal sandbox API for ${selected?.id ?? "the selected order"}.`}
+        confirmLabel={`Confirm ${confirm?.label ?? "action"}`}
+        danger={confirm?.danger}
+        busy={busy}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          if (confirm) void runAction(confirm.path, confirm.extra, confirm.label);
+        }}
+      />
     </div>
   );
 }

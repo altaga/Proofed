@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Fraunces, Source_Sans_3 } from "next/font/google";
+import { Fraunces, IBM_Plex_Mono, Source_Sans_3 } from "next/font/google";
 import { getProjectConfig } from "@/lib/config";
+import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
 const serif = Fraunces({ subsets: ["latin"], variable: "--font-serif" });
 const sans = Source_Sans_3({ subsets: ["latin"], variable: "--font-sans" });
+const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "600"], variable: "--font-mono" });
 
 export function generateMetadata(): Metadata {
   const cfg = getProjectConfig();
@@ -19,24 +21,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   const cfg = getProjectConfig();
   return (
     <html lang="en">
-      <body className={`${serif.variable} ${sans.variable}`}>
-        <div className="shell">
-          <header className="topbar">
-            <a className="brand" href="/">
-              <div className="seal">{cfg.name.slice(0, 1)}</div>
-              <div>
-                <h1>{cfg.name}</h1>
-                <p>{cfg.tagline}</p>
-              </div>
-            </a>
-            <nav className="nav">
-              <a href="/">Shop</a>
-              <a href="/device">Pickup station</a>
-              <a href="/merchant">Merchant desk</a>
-            </nav>
-          </header>
+      <body className={`${serif.variable} ${sans.variable} ${mono.variable}`}>
+        <AppShell name={cfg.name} tagline={cfg.tagline}>
           {children}
-        </div>
+        </AppShell>
       </body>
     </html>
   );

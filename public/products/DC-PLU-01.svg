@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff1ea"/>
+      <stop offset="100%" stop-color="#f3e6d0"/>
+    </linearGradient>
+    <linearGradient id="ac" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4a89a"/>
+      <stop offset="100%" stop-color="#7c2d12"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="480" rx="36" fill="url(#bg)"/>
+  <rect x="18" y="18" width="604" height="444" rx="28" fill="none" stroke="rgba(20,17,14,0.08)" stroke-width="2"/>
+  <circle cx="86" cy="78" r="18" fill="none" stroke="#f4a89a" stroke-width="3" opacity="0.45"/>
+  <circle cx="554" cy="402" r="22" fill="none" stroke="#152033" stroke-width="3" opacity="0.18"/>
+  
+  <ellipse cx="320" cy="250" rx="120" ry="108" fill="#f4a89a"/>
+  <ellipse cx="248" cy="156" rx="32" ry="40" fill="#f4a89a"/>
+  <ellipse cx="392" cy="156" rx="32" ry="40" fill="#f4a89a"/>
+  <circle cx="286" cy="236" r="12" fill="#152033"/>
+  <circle cx="354" cy="236" r="12" fill="#152033"/>
+  <ellipse cx="320" cy="278" rx="22" ry="14" fill="#c2410c"/>
+  <text x="320" y="410" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#152033">Limited Plush</text>
+
+</svg>

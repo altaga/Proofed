@@ -227,6 +227,19 @@ export async function approveOnPaypal(page: Page, approvalUrl: string, paypalOrd
       continue;
     }
 
+    const bodyText = (await page.locator("body").innerText().catch(() => "")).toLowerCase();
+    if (
+      url.includes("/checkoutweb/genericError") ||
+      bodyText.includes("you've been inactive") ||
+      bodyText.includes("logged you out") ||
+      bodyText.includes("restart the payment process")
+    ) {
+      if (cooldown("reopen-after-timeout", 10_000)) {
+        await page.goto(approvalUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
+        continue;
+      }
+    }
+
     await assertNotBlocked(page);
 
     const cookieClicked = await clickFirstVisible(page, [

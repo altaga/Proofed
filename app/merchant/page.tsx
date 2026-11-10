@@ -6,8 +6,12 @@ export default function MerchantPage() {
   return (
     <main>
       <section className="hero">
-        <h2>{cfg.venueName} merchant desk</h2>
-        <p>Live orders, PayPal identifiers, evidence hashes, and the append-only event log. Manual capture, void, and refund always ask for confirmation and call the real PayPal APIs.</p>
+        <p className="kicker">{cfg.venueName}</p>
+        <h2>Merchant desk</h2>
+        <p>
+          Live orders, PayPal identifiers, evidence hashes, and the append-only event log. KPIs are computed
+          from the database. Manual capture, void, and refund ask for confirmation and call sandbox for real.
+        </p>
       </section>
       <MerchantDesk />
     </main>

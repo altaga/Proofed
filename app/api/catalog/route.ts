@@ -12,6 +12,7 @@ export async function GET(request: Request) {
       ...item,
       available: availableStock(item.sku),
       formatted_price: formatMoney(item.price_cents, cfg.currency),
+      image: `/products/${item.sku}.svg`,
     }));
     return jsonOk({ items, currency: cfg.currency });
   } catch (error) {

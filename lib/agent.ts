@@ -10,7 +10,7 @@ export type ChatMessage = { role: "user" | "assistant" | "system"; content: stri
 export type AgentTurnResult = {
   sessionId: string;
   reply: string;
-  toolTrace: Array<{ name: string; ok: boolean }>;
+  toolTrace: Array<{ name: string; ok: boolean; summary: string }>;
   quote?: unknown;
   order?: ReturnType<typeof publicOrderView>;
   replacement?: ReturnType<typeof publicOrderView>;
@@ -132,6 +132,58 @@ async function minimaxChat(messages: unknown[], timeoutMs = 45_000): Promise<Min
   }
 }
 
+
+function summarizeTool(execution: { name: string; ok: boolean; result: unknown }): { name: string; ok: boolean; summary: string } {
+  const result = (execution.result ?? {}) as Record<string, unknown>;
+  if (!execution.ok) {
+    const error = typeof result.error === "string" ? result.error : "Tool failed";
+    return { name: execution.name, ok: false, summary: error };
+  }
+  const items = Array.isArray(result.items) ? result.items : [];
+  switch (execution.name) {
+    case "search_catalog":
+    case "list_catalog":
+      return { name: execution.name, ok: true, summary: `Found ${items.length} catalog item${items.length === 1 ? "" : "s"}` };
+    case "get_item":
+      return { name: execution.name, ok: true, summary: typeof result.name === "string" ? result.name : "Item lookup" };
+    case "propose_checkout": {
+      const formatted = typeof result.formatted_total === "string" ? result.formatted_total : "";
+      const ok = result.ok === true;
+      const errors = Array.isArray(result.errors) ? result.errors.join(" ") : "";
+      return {
+        name: execution.name,
+        ok: true,
+        summary: ok ? `Quote ${formatted} within live stock and budget` : errors || "Quote rejected",
+      };
+    }
+    case "create_checkout": {
+      const order = (result.order ?? {}) as Record<string, unknown>;
+      return {
+        name: execution.name,
+        ok: true,
+        summary: `Created PayPal AUTHORIZE hold ${typeof order.formatted_total === "string" ? order.formatted_total : ""}`.trim(),
+      };
+    }
+    case "get_order_status": {
+      const status = typeof result.status === "string" ? result.status : "unknown";
+      return { name: execution.name, ok: true, summary: `Order is ${status}` };
+    }
+    case "investigate_failure": {
+      const recommended = typeof result.recommended === "string" ? result.recommended : "review";
+      return { name: execution.name, ok: true, summary: `Recommended recovery: ${recommended}` };
+    }
+    case "propose_recovery": {
+      return {
+        name: execution.name,
+        ok: true,
+        summary: typeof result.message === "string" ? result.message : "Recovery executed",
+      };
+    }
+    default:
+      return { name: execution.name, ok: true, summary: "Tool completed" };
+  }
+}
+
 function extractArtifacts(executions: Array<{ name: string; ok: boolean; result: unknown }>) {
   let quote: unknown;
   let order: ReturnType<typeof publicOrderView> | undefined;
@@ -209,7 +261,7 @@ export async function runAgentTurn(input: {
         ? error.message
         : "The assistant could not complete that turn. No payment was invented or changed.";
     saveMessage(sessionId, "assistant", fallback, executions);
-    return { sessionId, reply: fallback, toolTrace: executions.map(({ name, ok }) => ({ name, ok })) };
+    return { sessionId, reply: fallback, toolTrace: executions.map(summarizeTool) };
   }
 
   if (!finalText) {
@@ -224,7 +276,7 @@ export async function runAgentTurn(input: {
   return {
     sessionId,
     reply: finalText,
-    toolTrace: executions.map(({ name, ok }) => ({ name, ok })),
+    toolTrace: executions.map(summarizeTool),
     ...artifacts,
   };
 }
