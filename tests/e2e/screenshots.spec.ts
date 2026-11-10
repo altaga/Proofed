@@ -39,6 +39,7 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
     await page.getByRole("button", { name: "Send" }).click();
     await expect(page.locator(".agent-step:not(.pending)").first()).toBeVisible({ timeout: 90_000 });
     await expect(page.getByTestId("agent-log")).toBeVisible();
+    await expect(page.getByTestId("transaction-panel")).toContainText("$12.00", { timeout: 15_000 });
   } catch {
     // Still capture the shop layout if the model is slow or unavailable.
   }
@@ -80,6 +81,7 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
     await page.getByRole("button", { name: "Confirm handover and capture" }).click();
     await expect(page.locator(".oknote")).toContainText("CAPTURED", { timeout: 90_000 });
     await expect(page.getByTestId("transaction-panel")).toBeVisible();
+    await page.waitForTimeout(700);
     await snap(page, "device");
 
     await page.goto("/merchant");
@@ -88,6 +90,8 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
     await page.getByText(order.id).first().click();
     await expect(page.getByTestId("order-drawer")).toBeVisible();
     await expect(page.getByTestId("order-drawer").getByTestId("transaction-panel")).toBeVisible();
+    await expect(page.getByTestId("order-drawer").getByText("Event log")).toBeVisible();
+    await expect(page.getByTestId("order-drawer").locator(".agent-step").first()).toBeVisible();
     await snap(page, "merchant");
   } else {
     await page.goto("/device");
@@ -110,6 +114,6 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
   await expect(page.getByTestId("page-presenter")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Presenter" })).toBeVisible();
   await expect(page.getByTestId("transaction-panel")).toBeVisible();
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1500);
   await snap(page, "demo");
 });

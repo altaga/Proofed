@@ -1,11 +1,13 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, RotateCcw, Send } from "lucide-react";
 import { PayPalApprove } from "./PayPalApprove";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
 import { AgentLog, type AgentStep } from "./AgentLog";
 import { TransactionPanel } from "./TransactionPanel";
+import { SafeMarkdown } from "./SafeMarkdown";
+import { Toast } from "./Toast";
 
 type ChatItem = {
   role: "user" | "assistant";
@@ -65,6 +67,8 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
   const [order, setOrder] = useState<PublicOrder | null>(null);
   const [catalog, setCatalog] = useState<CatalogProduct[]>([]);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const transRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/config")
@@ -76,12 +80,31 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
       .then((payload) => setCatalog(payload.items || []))
       .catch(() => undefined);
     const saved = window.localStorage.getItem("shop.session");
-    if (saved) setSessionId(saved);
+    if (saved) {
+      setSessionId(saved);
+      fetch(`/api/agent/session?sessionId=${encodeURIComponent(saved)}`)
+        .then((response) => response.json())
+        .then((payload) => {
+          if (Array.isArray(payload.messages) && payload.messages.length > 0) {
+            setMessages(payload.messages.map((item: ChatItem) => ({
+              role: item.role,
+              content: item.content,
+              toolTrace: item.toolTrace,
+            })));
+          }
+        })
+        .catch(() => undefined);
+    }
   }, []);
 
   useEffect(() => {
     if (sessionId) window.localStorage.setItem("shop.session", sessionId);
   }, [sessionId]);
+
+  useEffect(() => {
+    const node = transRef.current;
+    if (node) node.scrollTop = node.scrollHeight;
+  }, [messages, busy]);
 
   const needsPaypal = useMemo(
     () => Boolean(order && order.status === "CREATED" && order.paypal_order_id && config?.paypalClientId),
@@ -131,10 +154,10 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
     <div className={compact ? "compact" : undefined}>
       <div className={receipt ? "shop-layout" : undefined}>
         <section className="card chat">
-          <div className="transcript">
+          <div className="transcript" ref={transRef}>
             {messages.map((item, index) => (
               <div key={`${item.role}-${index}`}>
-                <div className={`bubble ${item.role}`}>{item.content}</div>
+                <div className={`bubble ${item.role}`}>{item.role === "assistant" ? <SafeMarkdown text={item.content} /> : item.content}</div>
                 {item.role === "assistant" && item.toolTrace ? <AgentLog steps={item.toolTrace} /> : null}
               </div>
             ))}
@@ -217,7 +240,11 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
                   clientId={config.paypalClientId}
                   orderId={order.id}
                   paypalOrderId={order.paypal_order_id}
-                  onAuthorized={(next) => setOrder(next as PublicOrder)}
+                  onAuthorized={(next) => {
+                    setOrder(next as PublicOrder);
+                    setToast("Hold placed on the shopper’s PayPal");
+                    window.setTimeout(() => setToast(null), 3500);
+                  }}
                   onError={setError}
                 />
               </div>
@@ -225,6 +252,8 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
           </aside>
         )}
       </div>
+
+      <Toast message={toast} tone="hold" />
 
       {!compact && (
         <section className="card" style={{ marginTop: 14 }}>

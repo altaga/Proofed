@@ -2,7 +2,7 @@ import { DeviceKiosk } from "@/components/DeviceKiosk";
 
 export default function DevicePage() {
   return (
-    <main data-testid="page-pickup">
+    <main className="kiosk-stage" data-testid="page-pickup">
       <section className="page-head">
         <h2>Pickup</h2>
         <p className="lede">

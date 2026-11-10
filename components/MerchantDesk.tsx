@@ -12,6 +12,7 @@ import {
 import { RefreshCcw, X } from "lucide-react";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { TransactionPanel } from "./TransactionPanel";
+import { formatWhen } from "./tx-model";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -113,13 +114,13 @@ export function MerchantDesk() {
 
   const columns = useMemo<ColDef<PublicOrder>[]>(
     () => [
-      { field: "id", headerName: "Order", flex: 1.4, minWidth: 160 },
+      { field: "id", headerName: "Order", flex: 1.4, minWidth: 160, tooltipField: "id" },
       { field: "status", headerName: "Status", flex: 1, minWidth: 150, cellRenderer: StatusCell },
       { field: "formatted_total", headerName: "Amount", width: 110 },
       { field: "pickup_code", headerName: "Pickup", width: 120 },
-      { field: "paypal_order_id", headerName: "PayPal order", flex: 1.2, minWidth: 160 },
-      { field: "paypal_authorization_id", headerName: "Authorization", flex: 1.1, minWidth: 150 },
-      { field: "paypal_capture_id", headerName: "Capture", flex: 1.1, minWidth: 140 },
+      { field: "paypal_order_id", headerName: "PayPal order", flex: 1.2, minWidth: 160, tooltipField: "paypal_order_id" },
+      { field: "paypal_authorization_id", headerName: "Authorization", flex: 1.1, minWidth: 150, tooltipField: "paypal_authorization_id" },
+      { field: "paypal_capture_id", headerName: "Capture", flex: 1.1, minWidth: 140, tooltipField: "paypal_capture_id" },
       { field: "updated_at", headerName: "Updated", flex: 1, minWidth: 170 },
     ],
     [],
@@ -213,6 +214,7 @@ export function MerchantDesk() {
               columnDefs={columns}
               rowSelection="single"
               animateRows
+              tooltipShowDelay={200}
               onRowClicked={(event: RowClickedEvent<PublicOrder>) => setSelected(event.data ?? null)}
             />
           </div>
@@ -229,39 +231,32 @@ export function MerchantDesk() {
               <h3 style={{ margin: 0 }}>Order detail</h3>
               <button className="ghost" type="button" onClick={() => setSelected(null)} aria-label="Close"><X size={16} /></button>
             </div>
-            <div style={{ marginTop: 14 }}>
-              <TransactionPanel order={selected} events={selectedEvents} venueName={venueName} />
+            <div style={{ marginTop: 10 }}>
+              <TransactionPanel order={selected} events={selectedEvents} venueName={venueName} compact />
             </div>
-            <div className="detail" style={{ marginTop: 16 }}>
+            <div className="detail" style={{ marginTop: 10 }}>
               {selected.failure_reason && <div className="err">{selected.failure_reason}</div>}
-              <div>
-                Evidence
-                {selected.evidence.length === 0 && " — none yet"}
-                {selected.evidence.map((item) => (
-                  <div key={item.id} className="mono">
-                    {item.kind} · {item.photo_sha256 || "no photo"} · {item.note || ""}
-                  </div>
-                ))}
+              <div className="tx-note">
+                Evidence: {selected.evidence.length === 0 ? "none yet" : selected.evidence.map((item) => item.kind.replaceAll("_", " ")).join(", ")}
+                {selected.evidence[0]?.photo_sha256 ? " · photo hash saved" : ""}
               </div>
-              <div className="actions">
+              <div className="actions" style={{ marginTop: 8 }}>
                 <button className="ok" onClick={() => setConfirm({ path: "/api/paypal/capture", extra: {}, label: "Capture" })}>Capture</button>
                 <button className="danger" onClick={() => setConfirm({ path: "/api/paypal/void", extra: { reason: "merchant_void" }, label: "Void", danger: true })}>Void</button>
                 <button className="ghost" onClick={() => setConfirm({ path: "/api/paypal/refund", extra: {}, label: "Refund" })}>Refund</button>
               </div>
             </div>
-            <h3 style={{ marginTop: 28 }}>Event log</h3>
-            <div className="transcript" style={{ maxHeight: 360 }}>
+            <h3 style={{ marginTop: 12 }}>Event log</h3>
+            <div className="transcript" style={{ maxHeight: 280 }}>
               {selectedEvents.map((item) => (
                 <div key={item.id} className="agent-step">
                   <div className="agent-step-head">
                     <strong>{item.event}</strong>
                     <span className="who">{item.actor}</span>
                   </div>
-                  <div className="agent-kv">
-                    <span>State</span>
-                    {item.from_status || "—"} → {item.to_status || "—"}
+                  <div className="tx-meta">
+                    {item.from_status || "—"} → {item.to_status || "—"} · {formatWhen(item.created_at)}
                   </div>
-                  <div className="tx-meta">{item.created_at}</div>
                 </div>
               ))}
             </div>

@@ -16,6 +16,9 @@ export function SiteHeader({ name }: { name: string; tagline?: string }) {
   return (
     <header className="topbar">
       <Link className="brand" href="/demo">
+        <span className="mark" aria-hidden="true">
+          <span className="mark-notch" />
+        </span>
         <h1>{name}</h1>
       </Link>
       <nav className="nav" aria-label="Primary">

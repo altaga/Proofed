@@ -34,4 +34,14 @@ describe.skipIf(!haveLlm)("MiniMax-M3 agent e2e", () => {
     const blob = JSON.stringify(result).toLowerCase();
     expect(blob).toMatch(/0 available|out of stock|no stock|only 0/);
   }, 90_000);
+
+  it("passes the shopper's $20 budget as 2000 cents, not $200", async () => {
+    const result = await runAgentTurn({
+      message: "I have a $20 budget. Do you have a keychain? Use your tools; do not guess.",
+    });
+    const blob = JSON.stringify(result.toolTrace);
+    expect(blob).not.toMatch(/\$200/);
+    expect(result.toolTrace.some((item) => (item.input || "").includes("budget $20.00"))).toBe(true);
+    expect(JSON.stringify(result.quote ?? {})).toMatch(/12/);
+  }, 90_000);
 });

@@ -3,7 +3,9 @@ import { getDb, nowIso, rowToObject } from "./db";
 import { newId } from "./ids";
 import { agentToolDefinitions, executeAgentTool } from "./agent-tools";
 import { visibleAssistantText } from "./text";
-import { publicOrderView, type OrderDetails } from "./orders";
+import { publicOrderView, publicQuote, type OrderDetails } from "./orders";
+import { quoteItems } from "./policy";
+import { correctToolArgs, parseBudgetCents, parseBudgetCentsFromMessages } from "./budget";
 
 export type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 
@@ -52,7 +54,8 @@ function systemPrompt() {
     `You are the in-store shopping assistant for ${cfg.venueName}, powered by ${cfg.name}.`,
     "Customers speak naturally and may name a budget. Help them pick items that are actually in stock.",
     "You MUST call tools to read prices, stock, and order state. Never invent a price, SKU, stock count, pickup code, or PayPal id.",
-    "Never send a money amount to a tool. Tools accept only sku + qty (and optional budget_cents). The backend computes totals.",
+    "Never send a money amount to a tool except optional budget_cents or max_price_cents as integer cents ($20 is 2000, never 20 or 20000). The backend recomputes totals and will correct a mistaken budget.",
+    "Write concise sentences. You may bold item names with markdown like **Pudgy Keychain**. Do not leave raw or unpaired asterisks.",
     "Typical flow: search or list the catalog → propose_checkout → after the customer agrees, create_checkout.",
     "After create_checkout, tell them to approve the PayPal button in this page. That places a hold (AUTHORIZE), not a capture.",
     "Capture happens only after the pickup station records handover evidence.",
@@ -153,6 +156,40 @@ export type ToolTraceItem = {
   rejected?: boolean;
 };
 
+export function listSessionTranscript(sessionId: string): Array<{
+  role: string;
+  content: string;
+  toolTrace?: ToolTraceItem[];
+}> {
+  return getDb()
+    .prepare(
+      "SELECT role, content, tool_trace_json FROM agent_messages WHERE session_id = $sessionId AND role IN ('user','assistant') ORDER BY id ASC",
+    )
+    .all({ sessionId })
+    .map((row) => {
+      const rec = rowToObject<{ role: string; content: string; tool_trace_json?: string | null }>(row);
+      let toolTrace: ToolTraceItem[] | undefined;
+      if (rec.tool_trace_json) {
+        try {
+          const parsed = JSON.parse(rec.tool_trace_json);
+          if (Array.isArray(parsed)) {
+            toolTrace = parsed.map((item) => {
+              if (item && typeof item === "object" && "result" in item && "name" in item) {
+                return summarizeTool(item as { name: string; ok: boolean; result: unknown; args?: unknown });
+              }
+              return item as ToolTraceItem;
+            });
+          }
+        } catch {
+          toolTrace = undefined;
+        }
+      }
+      return { role: rec.role, content: rec.content, toolTrace };
+    });
+}
+
+
+
 function formatToolInput(args: unknown): string {
   if (!args || typeof args !== "object") return "No input";
   const rec = args as Record<string, unknown>;
@@ -161,8 +198,13 @@ function formatToolInput(args: unknown): string {
   if (typeof rec.sku === "string") parts.push(`SKU ${rec.sku}`);
   if (typeof rec.order_id === "string") parts.push(`order ${rec.order_id}`);
   if (typeof rec.action === "string") parts.push(`action ${rec.action}`);
-  if (typeof rec.budget_cents === "number") parts.push(`budget $${(rec.budget_cents / 100).toFixed(2)}`);
-  if (typeof rec.max_price_cents === "number") parts.push(`max $${(rec.max_price_cents / 100).toFixed(2)}`);
+  const budgetValue =
+    typeof rec.budget_cents === "number"
+      ? rec.budget_cents
+      : typeof rec.max_price_cents === "number"
+        ? rec.max_price_cents
+        : undefined;
+  if (typeof budgetValue === "number") parts.push(`budget $${(budgetValue / 100).toFixed(2)}`);
   if (Array.isArray(rec.items)) {
     parts.push(
       rec.items
@@ -211,7 +253,7 @@ function summarizeTool(execution: { name: string; ok: boolean; result: unknown; 
     .slice(0, 3)
     .map((item) => {
       const row = item as { name?: string; formatted_price?: string; sku?: string };
-      return [row.name || row.sku, row.formatted_price].filter(Boolean).join(" ");
+      return [row.name || row.sku, row.formatted_price].filter(Boolean).join(" · ");
     })
     .join(", ");
 
@@ -314,14 +356,24 @@ function summarizeTool(execution: { name: string; ok: boolean; result: unknown; 
   }
 }
 
-function extractArtifacts(executions: Array<{ name: string; ok: boolean; result: unknown }>) {
+function extractArtifacts(
+  executions: Array<{ name: string; ok: boolean; result: unknown }>,
+  budgetCents?: number,
+) {
   let quote: unknown;
   let order: ReturnType<typeof publicOrderView> | undefined;
   let replacement: ReturnType<typeof publicOrderView> | undefined;
+  const catalogItems: Array<Record<string, unknown>> = [];
   for (const execution of executions) {
     if (!execution.ok) continue;
     const result = execution.result as Record<string, unknown>;
     if (execution.name === "propose_checkout") quote = result;
+    if (execution.name === "get_item" && typeof result.sku === "string") catalogItems.push(result);
+    if ((execution.name === "search_catalog" || execution.name === "list_catalog") && Array.isArray(result.items)) {
+      for (const item of result.items) {
+        if (item && typeof item === "object") catalogItems.push(item as Record<string, unknown>);
+      }
+    }
     if (result && typeof result === "object") {
       if (result.order && typeof result.order === "object") {
         order = result.order as ReturnType<typeof publicOrderView>;
@@ -329,6 +381,16 @@ function extractArtifacts(executions: Array<{ name: string; ok: boolean; result:
       if (result.replacement && typeof result.replacement === "object") {
         replacement = result.replacement as ReturnType<typeof publicOrderView>;
       }
+    }
+  }
+  if (!quote && catalogItems.length > 0) {
+    const pick =
+      catalogItems.find((item) => Number(item.available ?? item.stock_on_hand ?? 0) > 0) ?? catalogItems[0];
+    if (typeof pick.sku === "string") {
+      quote = {
+        ...publicQuote(quoteItems([{ sku: pick.sku, qty: 1 }], budgetCents, getProjectConfig().currency)),
+        pending: true,
+      };
     }
   }
   return { quote, order, replacement };
@@ -371,8 +433,11 @@ export async function runAgentTurn(input: {
           } catch {
             args = {};
           }
-          const execution = await executeAgentTool(name, args);
-          executions.push({ ...execution, args });
+          const shopperBudget =
+            parseBudgetCents(text) ?? parseBudgetCentsFromMessages(history);
+          const corrected = correctToolArgs(name, args, shopperBudget);
+          const execution = await executeAgentTool(name, corrected);
+          executions.push({ ...execution, args: corrected });
           messages.push({
             role: "tool",
             tool_call_id: call.id,
@@ -391,7 +456,7 @@ export async function runAgentTurn(input: {
         ? error.message
         : "The assistant could not complete that turn. No payment was invented or changed.";
     saveMessage(sessionId, "assistant", fallback, executions);
-    return { sessionId, reply: fallback, toolTrace: executions.map(summarizeTool) };
+    return { sessionId, reply: fallback, toolTrace: executions.map(summarizeTool), ...extractArtifacts(executions, parseBudgetCents(text) ?? parseBudgetCentsFromMessages(history)) };
   }
 
   if (!finalText) {
@@ -401,8 +466,9 @@ export async function runAgentTurn(input: {
         : "I could not produce a reply just then. Please try again.";
   }
 
-  saveMessage(sessionId, "assistant", finalText, executions);
-  const artifacts = extractArtifacts(executions);
+  saveMessage(sessionId, "assistant", finalText, executions.map(summarizeTool));
+  const shopperBudget = parseBudgetCents(text) ?? parseBudgetCentsFromMessages(history);
+  const artifacts = extractArtifacts(executions, shopperBudget);
   return {
     sessionId,
     reply: finalText,

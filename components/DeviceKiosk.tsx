@@ -5,6 +5,7 @@ import { Ban, CircleAlert, RefreshCcw } from "lucide-react";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
 import { TransactionPanel } from "./TransactionPanel";
+import { Toast } from "./Toast";
 
 type PublicOrder = {
   id: string;
@@ -61,12 +62,24 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ action: "substitute" | "retry" | "cancel"; items?: Alternative } | null>(null);
   const [venueName, setVenueName] = useState("Merchant");
+  const [toast, setToast] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/device/queue");
     const payload = await response.json();
     if (response.ok) setQueue(payload.orders || []);
-  }, []);
+    if (compact) {
+      const ordersRes = await fetch("/api/orders");
+      const ordersPayload = await ordersRes.json();
+      const latest = (ordersPayload.orders || [])[0] as PublicOrder | undefined;
+      if (latest && ["CAPTURED", "VOIDED", "REFUNDED", "DELIVERY_FAILED", "AUTHORIZED"].includes(latest.status)) {
+        setResult((current) => {
+          if (current && current.id === latest.id && current.status === latest.status) return current;
+          return latest;
+        });
+      }
+    }
+  }, [compact]);
 
   useEffect(() => {
     fetch("/api/config").then((r) => r.json()).then((cfg) => { if (cfg.venueName) setVenueName(cfg.venueName); }).catch(() => undefined);
@@ -108,6 +121,10 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Request failed");
       setResult(payload.order);
+      if (payload.order?.status === "CAPTURED") {
+        setToast("PayPal capture confirmed");
+        window.setTimeout(() => setToast(null), 3500);
+      }
       if (payload.order?.status === "DELIVERY_FAILED") {
         await loadRecovery(payload.order.id);
       }
@@ -179,6 +196,7 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
 
   return (
     <div className={`kiosk-frame${compact ? " compact" : ""}`}>
+      <Toast message={toast} tone="ok" />
       {screen === "success" && result && (
         <div className="kiosk-result success">
           <h2>Captured</h2>
@@ -260,7 +278,7 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
                 className="kiosk-code"
                 value={code}
                 maxLength={8}
-                placeholder="A2K9QX"
+                placeholder="Enter 6-character code"
                 onChange={(event) => setCode(event.target.value.toUpperCase())}
               />
               <textarea
@@ -270,7 +288,10 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
               />
-              <input type="file" accept="image/*" style={{ marginTop: 12 }} onChange={(event) => setPhoto(event.target.files?.[0] ?? null)} />
+              <label className="file-pick">
+                <input type="file" accept="image/*" onChange={(event) => setPhoto(event.target.files?.[0] ?? null)} />
+                {photo ? photo.name : "Attach evidence photo"}
+              </label>
               <div className="actions">
                 <button className="ok lg" disabled={busy || !code} onClick={() => post("/api/device/confirm", {})}>
                   Confirm handover and capture
@@ -314,8 +335,8 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
             <div className="list">
               {queue.length === 0 && <p>No authorized pickups waiting.</p>}
               {queue.map((order) => (
-                <button key={order.id} className="ghost" style={{ textAlign: "left" }} onClick={() => useOrder(order)}>
-                  <strong>{order.pickup_code}</strong> · {order.formatted_total}
+                <button key={order.id} type="button" className="queue-item" onClick={() => useOrder(order)}>
+                  <strong className="mono">{order.pickup_code}</strong> · {order.formatted_total}
                   <div className={`status ${order.status}`}>{order.status}</div>
                   <div>{order.items.map((item) => `${item.name} × ${item.qty}`).join(", ")}</div>
                 </button>

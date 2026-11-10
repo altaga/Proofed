@@ -14,12 +14,13 @@ export function AppShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const kiosk = pathname === "/device";
   const presenter = pathname === "/demo";
   return (
-    <div className={`shell${presenter ? " presenter-shell" : ""}`}>
+    <div className={`shell${kiosk ? " kiosk-shell" : ""}${presenter ? " presenter-shell" : ""}`}>
       <SiteHeader name={name} tagline={tagline} />
-      {children}
-      {!presenter && (
+      <div className="shell-main">{children}</div>
+      {!kiosk && !presenter && (
         <footer className="site-footer">Sandbox · PayPal Orders v2 AUTHORIZE · MiniMax-M3</footer>
       )}
     </div>

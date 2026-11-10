@@ -59,8 +59,9 @@ export function AgentLog({ steps, busy }: { steps?: AgentStep[]; busy?: boolean 
       ))}
       {busy && (
         <li className="agent-step pending">
-          <strong className="loading-dots">Looking up the catalog and PayPal</strong>
-          <div className="agent-kv">The model can only pass SKUs. Amounts come from the database.</div>
+          <strong>Looking up the catalog and PayPal</strong>
+          <div className="skel w-80" />
+          <div className="skel w-55" />
         </li>
       )}
     </ol>
