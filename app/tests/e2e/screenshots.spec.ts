@@ -1,10 +1,12 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { approveOnPaypal, redactSecrets, resolveApprovalLink, safeScreenshot } from "./helpers";
 
-const outDir = path.join(process.cwd(), "docs", "screenshots");
+const outDir = existsSync(path.join(process.cwd(), "docs"))
+  ? path.join(process.cwd(), "docs", "screenshots")
+  : path.join(process.cwd(), "..", "docs", "screenshots");
 const haveBuyer = Boolean(process.env.PAYPAL_BUYER_EMAIL && process.env.PAYPAL_BUYER_PASSWORD);
 const havePaypal = Boolean(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET);
 

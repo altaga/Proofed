@@ -24,8 +24,15 @@ old_name = os.environ["OLD_NAME"]
 new_name = os.environ["NEW_NAME"]
 old_slug = os.environ["OLD_SLUG"]
 new_slug = os.environ["NEW_SLUG"]
-for rel in ("README.md", "docs/DEMO_SCRIPT.md", "package.json"):
-    file = root / rel
+targets = [
+    root / "package.json",
+    root / "README.md",
+    root.parent / "README.md",
+    root.parent / "package.json",
+    root.parent / "docs" / "DEMO_SCRIPT.md",
+    root / "docs" / "DEMO_SCRIPT.md",
+]
+for file in targets:
     if file.exists():
         text = file.read_text()
         text = text.replace(old_name, new_name).replace(old_slug, new_slug)
