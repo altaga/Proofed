@@ -16,11 +16,16 @@ export function AppShell({
   const pathname = usePathname();
   const kiosk = pathname === "/device";
   const presenter = pathname === "/demo";
+  const isClient = pathname === "/client";
   return (
-    <div className={`shell${kiosk ? " kiosk-shell" : ""}${presenter ? " presenter-shell" : ""}`}>
+    <div
+      className={`shell${kiosk ? " kiosk-shell" : ""}${presenter ? " presenter-shell" : ""}${
+        isClient ? " client-shell" : ""
+      }`}
+    >
       <SiteHeader name={name} tagline={tagline} />
       <div className="shell-main">{children}</div>
-      {!kiosk && !presenter && (
+      {!kiosk && !presenter && !isClient && (
         <footer className="site-footer">Sandbox · PayPal · MiniMax-M3</footer>
       )}
     </div>
