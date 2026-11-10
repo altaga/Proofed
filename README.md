@@ -126,12 +126,15 @@ Buyer approval cannot be skipped for PayPal Wallet. Sandbox card `payment_source
 
 ```bash
 npm test              # state machine + pricing/stock policy
-npm run test:paypal   # live PayPal sandbox
+npm run test:paypal   # live PayPal sandbox (create/GET/idempotency; authorize-before-approval)
 npm run test:agent    # live MiniMax-M3 tool calling
+npm run test:e2e      # Playwright: sandbox buyer approves, then capture/void/refund
 npm run test:all
 ```
 
 No mocked PayPal or MiniMax clients. If a credential is missing, those files skip instead of faking a pass.
+
+`npm run test:e2e` needs a sandbox Personal buyer in `PAYPAL_BUYER_EMAIL` and `PAYPAL_BUYER_PASSWORD`, plus the merchant REST credentials. After `npm install`, run `npx playwright install chromium` once. It opens the real `sandbox.paypal.com` approve/payer-action link, logs in, then drives `/device` and the authorize/capture/void/refund APIs. Results are checked against PayPal REST GET. Playwright traces, videos, and automatic screenshots are off so credentials are not written to disk; failure screenshots in `test-artifacts/` clear email/password fields first.
 
 ## What is new since 1 October 2026
 

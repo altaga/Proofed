@@ -309,6 +309,24 @@ export async function refundPaypalCapture(
   return data;
 }
 
+export async function getPaypalCapture(captureId: string): Promise<PaypalCapture> {
+  const { data } = await paypalFetch<PaypalCapture>(`/v2/payments/captures/${captureId}`);
+  return data;
+}
+
+export async function getPaypalRefund(refundId: string): Promise<PaypalRefund> {
+  const { data } = await paypalFetch<PaypalRefund>(`/v2/payments/refunds/${refundId}`);
+  return data;
+}
+
+export function approvalLink(order: PaypalOrder): string | null {
+  const links = order.links ?? [];
+  const found = links.find((item) => item.rel === "approve" || item.rel === "payer-action");
+  if (found?.href) return found.href;
+  if (order.id) return `https://www.sandbox.paypal.com/checkoutnow?token=${order.id}`;
+  return null;
+}
+
 export function firstAuthorization(order: PaypalOrder) {
   return order.purchase_units?.[0]?.payments?.authorizations?.[0];
 }

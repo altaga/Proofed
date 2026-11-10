@@ -7,6 +7,8 @@ export default defineConfig({
     testTimeout: 90_000,
     hookTimeout: 90_000,
     fileParallelism: false,
+    include: ["tests/**/*.test.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/tests/e2e/**"],
   },
   resolve: {
     alias: {

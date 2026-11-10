@@ -16,7 +16,7 @@ out_dir = Path("/workspace/paypal-hack-dist")
 out_dir.mkdir(parents=True, exist_ok=True)
 zip_path = out_dir / f"{slug}-{stamp}.zip"
 
-skip_dirs = {".git", "node_modules", ".next", "data", "dist", "coverage"}
+skip_dirs = {".git", "node_modules", ".next", "data", "dist", "coverage", "test-artifacts", "playwright-report", "test-results", "blob-report"}
 skip_names = {".env", ".env.local"}
 skip_suffixes = {".sqlite", ".sqlite-shm", ".sqlite-wal"}
 
