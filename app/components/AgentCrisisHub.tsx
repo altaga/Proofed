@@ -206,7 +206,7 @@ export function AgentCrisisHub({
             title="Simulate locker latch failure at station"
           >
             <Zap size={14} />
-            <span>⚡ Solenoid Jam</span>
+            <span>Solenoid Jam</span>
           </button>
 
           <button
@@ -217,7 +217,7 @@ export function AgentCrisisHub({
             title="Simulate crushed parcel or impact damage"
           >
             <PackageX size={14} />
-            <span>💥 Parcel Damaged</span>
+            <span>Parcel Damaged</span>
           </button>
 
           <button
@@ -228,7 +228,7 @@ export function AgentCrisisHub({
             title="Simulate bot delivery at wrong doorstep coordinates"
           >
             <MapPin size={14} />
-            <span>📍 Wrong Doorstep</span>
+            <span>Wrong Doorstep</span>
           </button>
 
           <button
@@ -250,7 +250,7 @@ export function AgentCrisisHub({
             title="Execute clean physical handover and trigger PayPal capture"
           >
             <CheckCircle2 size={14} />
-            <span>✨ Normal Handover</span>
+            <span>Normal Handover</span>
           </button>
         </div>
       </div>
@@ -392,7 +392,7 @@ export function AgentCrisisHub({
       {apologyVoucher && (
         <div className="concierge-voucher-card" role="status">
           <div className="voucher-left">
-            <span className="voucher-icon">🎁</span>
+            
             <div>
               <strong>Autonomous Concierge Apology Voucher Issued</strong>
               <p>Because delivery failed, the agent automatically granted a $5 credit to maintain customer loyalty.</p>

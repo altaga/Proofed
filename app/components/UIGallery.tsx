@@ -301,7 +301,7 @@ export function UIGallery() {
               </div>
               <div className={`wallet-cell ${currentOrder.status === "AUTHORIZED" || currentOrder.status === "DELIVERY_FAILED" ? "cell-hold-active" : ""}`}>
                 <span className="wallet-cell-label">
-                  {currentOrder.status === "AUTHORIZED" ? "🔒 ACTIVE PAYPAL HOLD" : "ACTIVE PAYPAL HOLD"}
+                  {currentOrder.status === "AUTHORIZED" ? "ACTIVE PAYPAL HOLD" : "ACTIVE PAYPAL HOLD"}
                 </span>
                 <span className="wallet-cell-val mono">
                   {currentOrder.status === "AUTHORIZED" || currentOrder.status === "DELIVERY_FAILED" ? `-${currentOrder.formatted_total}` : "$0.00"}

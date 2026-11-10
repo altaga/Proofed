@@ -147,7 +147,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
           </div>
           <div className={`wallet-cell ${isHeld ? "cell-hold-active" : ""}`}>
             <span className="wallet-cell-label">
-              {isHeld ? "🔒 ACTIVE PAYPAL HOLD" : "ACTIVE PAYPAL HOLD"}
+              {isHeld ? "ACTIVE PAYPAL HOLD" : "ACTIVE PAYPAL HOLD"}
             </span>
             <span className="wallet-cell-val mono">
               {isHeld ? `-${latest.formatted_total}` : "$0.00"}

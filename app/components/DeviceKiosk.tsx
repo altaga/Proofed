@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Check, RefreshCcw, X } from "lucide-react";
+import { AlertTriangle, Check, RefreshCcw, X } from "lucide-react";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
 import { Toast } from "./Toast";
@@ -205,7 +205,7 @@ export function DeviceKiosk({
         <div className="terminal-status-indicator">
           <span className="terminal-pulse" />
           <span>
-            {deliveryMode === "home" ? "🏡 RESIDENTIAL DOORSTEP · 742 EVERGREEN TERRACE" : "STATION #04 · NORTH VENUE LOCKER"}
+            {deliveryMode === "home" ? "RESIDENTIAL DOORSTEP · 742 EVERGREEN TERRACE" : "STATION #04 · NORTH VENUE LOCKER"}
           </span>
         </div>
         <div className="terminal-sensor-pill">
@@ -300,7 +300,7 @@ export function DeviceKiosk({
                   </div>
                   <div className="porch-mat-area">
                     <div className="porch-package-box">
-                      <span className="package-ribbon">📦 PARCEL AT DOORSTEP</span>
+                      <span className="package-ribbon">PARCEL AT DOORSTEP</span>
                       <span className="package-dest mono">DROP: FRONT WELCOME MAT</span>
                     </div>
                   </div>
@@ -401,7 +401,7 @@ export function DeviceKiosk({
                     void post("/api/device/fail", { reason: item.value });
                   }}
                 >
-                  <span className="reason-icon">⚠️</span>
+                  <span className="reason-icon"><AlertTriangle size={14} aria-hidden="true" /></span>
                   <span>{item.label}</span>
                 </button>
               ))}

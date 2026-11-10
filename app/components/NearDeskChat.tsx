@@ -54,7 +54,7 @@ const DEFAULT_MESSAGES: NearDeskMessage[] = [
     id: "msg-0",
     role: "assistant",
     content:
-      "Proofed Agentic Commerce Operator initialized.\n\nFulfillment policy: zero-trust catalog pricing (integer cents calculated strictly by backend policy engine). Customer funds are authorized with PayPal `intent=AUTHORIZE`. Physical capture triggers only upon verified physical handover.",
+      "Hi — tell me what you need and your budget. Prices always come from the catalog, and PayPal only holds the amount; you're charged once the item is actually handed over.",
     tier: "ZERO-TRUST-POLICY",
     timestamp: Date.now() - 1000 * 60 * 3,
   },
@@ -147,7 +147,7 @@ export function NearDeskChat({
                 {
                   id: `fail-auto-${Date.now()}`,
                   role: "assistant",
-                  content: `🚨 **Autonomous Delivery Alert (Auto-Pilot Executed)**\n\nPorch camera detected delivery failure (${serverOrder.failure_reason || "Door mismatch"}).\n\nBecause you configured **Auto-Pilot Mode**, your PayPal hold was **automatically released** in 1.2s. **$0.00 charged**. A $5.00 apology credit has been added to your profile.`,
+                  content: `**Autonomous Delivery Alert (Auto-Pilot Executed)**\n\nPorch camera detected delivery failure (${serverOrder.failure_reason || "Door mismatch"}).\n\nBecause you configured **Auto-Pilot Mode**, your PayPal hold was **automatically released** in 1.2s. **$0.00 charged**. A $5.00 apology credit has been added to your profile.`,
                   tier: "AUTO-PILOT-VOID",
                   timestamp: Date.now(),
                   order: { ...serverOrder, status: "VOIDED" },
@@ -159,7 +159,7 @@ export function NearDeskChat({
                 {
                   id: `fail-alert-${Date.now()}`,
                   role: "assistant",
-                  content: `🚨 **Delivery Alert: Verification Failed**\n\nThe courier's porch vision system detected that the package was dropped at the wrong doorstep or sustained impact damage (${serverOrder.failure_reason || "Address Mismatch"}).\n\nYour funds **remain 100% safe on PayPal ($0.00 charged)**. How would you like to proceed?`,
+                  content: `**Delivery Alert: Verification Failed**\n\nThe courier's porch vision system detected that the package was dropped at the wrong doorstep or sustained impact damage (${serverOrder.failure_reason || "Address Mismatch"}).\n\nYour funds **remain 100% safe on PayPal ($0.00 charged)**. How would you like to proceed?`,
                   tier: "PHYSICAL-GUARD",
                   timestamp: Date.now(),
                   order: serverOrder,
@@ -192,7 +192,7 @@ export function NearDeskChat({
         {
           id: `void-done-${Date.now()}`,
           role: "assistant",
-          content: `✅ **PayPal Authorization Successfully Released**\n\nCalled PayPal Sandbox API \`/void\`. Your authorization hold was released instantly. **Total charged: $0.00**.\n\nWe have credited concierge apology voucher **VOUCHER-SORRY5** ($5.00 USD) to your account for the inconvenience.`,
+          content: `**PayPal Authorization Successfully Released**\n\nCalled PayPal Sandbox API \`/void\`. Your authorization hold was released instantly. **Total charged: $0.00**.\n\nWe have credited concierge apology voucher **VOUCHER-SORRY5** ($5.00 USD) to your account for the inconvenience.`,
           tier: "ZERO-CAPTURE-SETTLED",
           timestamp: Date.now(),
           order: data.order,
@@ -210,7 +210,7 @@ export function NearDeskChat({
       {
         id: `redisp-${Date.now()}`,
         role: "assistant",
-        content: `🔄 **Courier Re-dispatch Ordered**\n\nNotification dispatched to courier terminal: *"Corrected destination: 744 Maple Street, Apt 2B (white gate)"*.\n\nYour PayPal authorization hold remains safely escrowed until verified delivery.`,
+        content: `**Courier Re-dispatch Ordered**\n\nNotification dispatched to courier terminal: *"Corrected destination: 744 Maple Street, Apt 2B (white gate)"*.\n\nYour PayPal authorization hold remains safely escrowed until verified delivery.`,
         tier: "COURIER-DISPATCH",
         timestamp: Date.now(),
       },
@@ -304,22 +304,21 @@ export function NearDeskChat({
       <div className="neardesk-chat-header">
         <div className="neardesk-header-left">
           <span className="neardesk-status-dot" />
-          <span className="neardesk-title mono desktop-only">PROOFED_MARKETPLACE_AGENT // LIVE CHAT</span>
-          <span className="neardesk-title mono mobile-only">AGENT CHAT</span>
-          <span className="neardesk-catalog-pill mono desktop-only">68+ PRODUCTS</span>
-          <span className="neardesk-catalog-pill mono mobile-only">68+</span>
+          <span className="neardesk-title desktop-only">Proofed Assistant</span>
+          <span className="neardesk-title mobile-only">Assistant</span>
+          <span className="neardesk-catalog-pill mono desktop-only">68 products</span>
+          
         </div>
         <div className="neardesk-header-right mono">
           <div className="autonomy-toggle-group" role="group" aria-label="Autonomous Contingency Policy">
-            <span className="autonomy-label desktop-only">POLICY:</span>
+            <span className="autonomy-label desktop-only">On failure</span>
             <button
               type="button"
               className={`autonomy-pill ${autonomyMode === "interactive" ? "active" : ""}`}
               onClick={() => setAutonomyMode("interactive")}
               title="If delivery fails, agent presents interactive choice cards in chat"
             >
-              <span className="desktop-only">💬 Interactive</span>
-              <span className="mobile-only">Interactive</span>
+              Interactive
             </button>
             <button
               type="button"
@@ -327,8 +326,7 @@ export function NearDeskChat({
               onClick={() => setAutonomyMode("autopilot")}
               title="If delivery fails, agent automatically releases PayPal hold in 1.2s and credits $5 voucher"
             >
-              <span className="desktop-only">⚡ Auto-Void ($0)</span>
-              <span className="mobile-only">⚡ Auto-Void</span>
+              Auto-void
             </button>
           </div>
         </div>
@@ -343,7 +341,7 @@ export function NearDeskChat({
               {/* Micro Meta Header */}
               <div className="neardesk-msg-meta mono">
                 <span className={`neardesk-role-label ${isUser ? "role-user" : "role-agent"}`}>
-                  {isUser ? "Operator (Shopper)" : "Proofed AI Agent"}
+                  {isUser ? "You" : "Proofed"}
                 </span>
                 {msg.tier && <span className="neardesk-tier-tag">{msg.tier}</span>}
                 <span className="meta-sep">·</span>
@@ -483,7 +481,7 @@ export function NearDeskChat({
                   {msg.order?.status === "AUTHORIZED" && msg.order.pickup_code && (
                     <div className="quote-authorized-badge">
                       <div className="auth-left">
-                        <span className="auth-pill mono">🔒 HOLD ACTIVE · $0 DEBITED</span>
+                        <span className="auth-pill mono">Hold active · $0 charged</span>
                         <span className="auth-sub">Funds safely escrowed on PayPal</span>
                       </div>
                       <div className="auth-code mono">
@@ -498,8 +496,8 @@ export function NearDeskChat({
                     <div className="quote-failure-box" role="alert">
                       <div className="failure-box-header">
                         <AlertCircle size={16} />
-                        <span className="failure-box-title mono">DELIVERY VERIFICATION FAILED</span>
-                        <span className="failure-status-pill mono">HOLD SAFE · $0 CHARGED</span>
+                        <span className="failure-box-title mono">Delivery not verified</span>
+                        <span className="failure-status-pill mono">$0 charged</span>
                       </div>
                       <p className="failure-desc">
                         Porch AI vision rejected delivery ({msg.order.failure_reason || "Door # mismatch"}).
@@ -511,14 +509,14 @@ export function NearDeskChat({
                           className="failure-action-btn btn-release-void"
                           onClick={() => void handleActionVoid(msg.order?.id)}
                         >
-                          ⚡ Cancel & Release PayPal Hold ($0 Charged) + $5 Voucher
+                          Release hold — nothing charged
                         </button>
                         <button
                           type="button"
                           className="failure-action-btn btn-redispatch"
                           onClick={() => void handleActionRedispatch(msg.order?.id)}
                         >
-                          🔄 Re-dispatch to Correct Doorstep (744 Maple St)
+                          Redeliver to 744 Maple St
                         </button>
                       </div>
                     </div>
@@ -532,7 +530,7 @@ export function NearDeskChat({
         {loading && (
           <div className="neardesk-loading-indicator mono">
             <Sparkles className="spin" size={13} />
-            <span>Processing reasoning routine & policy guardrails...</span>
+            <span>Checking catalog and policy…</span>
           </div>
         )}
 
@@ -541,7 +539,7 @@ export function NearDeskChat({
 
       {/* Suggested Quick Prompts (NearDesk Style) */}
       <div className="neardesk-prompts-bar">
-        <span className="prompts-label mono">PROMPTS:</span>
+        <span className="prompts-label mono">Try</span>
         <div className="prompts-scroll">
           {PROMPT_PRESETS.map((preset, idx) => (
             <button
@@ -569,7 +567,7 @@ export function NearDeskChat({
                 void handleSend();
               }
             }}
-            placeholder="Instruct Proofed agent (e.g. 'I have a $20 budget. Propose a keychain')..."
+            placeholder="Ask for a product, e.g. a keychain under $20"
             rows={1}
             className="neardesk-textarea"
           />

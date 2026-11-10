@@ -4861,3 +4861,20 @@ main[data-testid="page-client"] {
   .ix-row, .ix-go, .ix-btn { transition: none; }
   .ix-row:hover { padding-left: 0; padding-right: 0; }
 }
+
+/* =========================================================================
+   QUIET PASS — strip terminal/glow theatrics from the client chat
+   ========================================================================= */
+.neardesk-status-dot { width: 6px; height: 6px; background: #3FB27F; box-shadow: none; }
+.neardesk-title { font-family: var(--font-sans), Inter, sans-serif; font-size: 0.9rem; letter-spacing: -0.01em; font-weight: 600; color: #F4F1EA; text-transform: none; }
+.neardesk-catalog-pill { background: transparent; border: 1px solid #2E2B25; color: #ABA598; font-weight: 500; margin-left: 4px; }
+.neardesk-tier-tag { display: none; }
+.neardesk-role-label { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.autonomy-label { text-transform: none; letter-spacing: 0; }
+.autonomy-pill.active { box-shadow: none; background: #23201B; color: #F4F1EA; }
+.scenario-pill.active { box-shadow: none; }
+.btn-take-photo:hover { box-shadow: none; }
+.hud-bbox-good, .hud-bbox-bad, .hud-bbox-warning { box-shadow: none; }
+.neardesk-chat-container { box-shadow: none; }
+.prompts-label { text-transform: none; letter-spacing: 0; }
+.failure-action-btn { text-align: left; font-weight: 500; }
