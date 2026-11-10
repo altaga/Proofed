@@ -11,17 +11,19 @@ import {
 } from "ag-grid-community";
 import { RefreshCcw, X } from "lucide-react";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { sandboxOrderUrl, sandboxPaymentUrl } from "@/lib/sandbox-links";
+import { TransactionPanel } from "./TransactionPanel";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const gridTheme = themeQuartz.withParams({
-  backgroundColor: "#fffaf2",
-  foregroundColor: "#161310",
-  headerBackgroundColor: "#152033",
-  headerTextColor: "#f4ebd8",
-  accentColor: "#c2410c",
-  borderColor: "rgba(22,19,16,0.1)",
+  backgroundColor: "#ffffff",
+  foregroundColor: "#111216",
+  headerBackgroundColor: "#f4f5f7",
+  headerTextColor: "#111216",
+  accentColor: "#0a5cff",
+  borderColor: "#d8dce3",
+  headerFontWeight: 600,
+  fontSize: 13,
 });
 
 type PublicOrder = {
@@ -75,12 +77,14 @@ export function MerchantDesk() {
   const [notice, setNotice] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ path: string; extra: Record<string, unknown>; label: string; danger?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [venueName, setVenueName] = useState("Merchant");
 
   const refresh = useCallback(async () => {
-    const [orderRes, eventRes, statsRes] = await Promise.all([
+    const [orderRes, eventRes, statsRes, configRes] = await Promise.all([
       fetch("/api/orders"),
       fetch("/api/events"),
       fetch("/api/stats"),
+      fetch("/api/config"),
     ]);
     const orderPayload = await orderRes.json();
     const eventPayload = await eventRes.json();
@@ -89,6 +93,10 @@ export function MerchantDesk() {
     setOrders(orderPayload.orders || []);
     setEvents(eventPayload.events || []);
     if (statsRes.ok) setStats(statsPayload.stats);
+    if (configRes.ok) {
+      const configPayload = await configRes.json();
+      if (configPayload.venueName) setVenueName(configPayload.venueName);
+    }
     setSelected((current) => {
       if (!current) return current;
       return (orderPayload.orders || []).find((item: PublicOrder) => item.id === current.id) ?? current;
@@ -147,22 +155,22 @@ export function MerchantDesk() {
   return (
     <div>
       <div className="kpi-row">
-        <div className="card kpi">
+        <div className="card kpi held">
           <div className="label">Held</div>
           <div className="value">{stats?.held.formatted ?? "—"}</div>
           <div className="sub">{stats?.held.count ?? 0} authorized / in handover</div>
         </div>
-        <div className="card kpi">
+        <div className="card kpi captured">
           <div className="label">Captured</div>
           <div className="value">{stats?.captured.formatted ?? "—"}</div>
           <div className="sub">{stats?.captured.count ?? 0} completed pickups</div>
         </div>
-        <div className="card kpi">
+        <div className="card kpi voided">
           <div className="label">Voided</div>
           <div className="value">{stats?.voided.formatted ?? "—"}</div>
           <div className="sub">{stats?.voided.count ?? 0} released holds</div>
         </div>
-        <div className="card kpi">
+        <div className="card kpi refunded">
           <div className="label">Refunded</div>
           <div className="value">{stats?.refunded.formatted ?? "—"}</div>
           <div className="sub">
@@ -192,16 +200,23 @@ export function MerchantDesk() {
             </button>
           </div>
         </div>
-        <div style={{ height: 380, width: "100%", marginTop: 12 }}>
-          <AgGridReact<PublicOrder>
-            theme={gridTheme}
-            rowData={orders}
-            columnDefs={columns}
-            rowSelection="single"
-            animateRows
-            onRowClicked={(event: RowClickedEvent<PublicOrder>) => setSelected(event.data ?? null)}
-          />
-        </div>
+        {orders.length === 0 ? (
+          <div className="empty-state" style={{ marginTop: 12 }}>
+            <h3>No orders yet</h3>
+            <p>Open Shop, ask for a keychain with a $20 budget, approve the PayPal hold, then this table fills with live sandbox orders.</p>
+          </div>
+        ) : (
+          <div style={{ height: 360, width: "100%", marginTop: 12 }}>
+            <AgGridReact<PublicOrder>
+              theme={gridTheme}
+              rowData={orders}
+              columnDefs={columns}
+              rowSelection="single"
+              animateRows
+              onRowClicked={(event: RowClickedEvent<PublicOrder>) => setSelected(event.data ?? null)}
+            />
+          </div>
+        )}
       </div>
 
       {error && <div className="err" style={{ marginBottom: 12 }}>{error}</div>}
@@ -209,48 +224,15 @@ export function MerchantDesk() {
 
       {selected && (
         <div className="drawer-backdrop" onClick={() => setSelected(null)}>
-          <aside className="drawer" onClick={(event) => event.stopPropagation()} aria-label="Order detail">
+          <aside className="drawer" data-testid="order-drawer" onClick={(event) => event.stopPropagation()} aria-label="Order detail">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3 style={{ margin: 0 }}>Order detail</h3>
               <button className="ghost" type="button" onClick={() => setSelected(null)} aria-label="Close"><X size={16} /></button>
             </div>
+            <div style={{ marginTop: 14 }}>
+              <TransactionPanel order={selected} events={selectedEvents} venueName={venueName} />
+            </div>
             <div className="detail" style={{ marginTop: 16 }}>
-              <div><span>ID</span> <span className="mono">{selected.id}</span></div>
-              <div>Status <span className={`status ${selected.status}`}>{selected.status}</span> · {selected.formatted_total}</div>
-              <div>Items {selected.items.map((item) => `${item.name} × ${item.qty}`).join(", ")}</div>
-              <div>Pickup <span className="mono">{selected.pickup_code || "—"}</span></div>
-              <div>
-                PayPal order{" "}
-                {selected.paypal_order_id ? (
-                  <a className="linkish mono" href={sandboxOrderUrl(selected.paypal_order_id)} target="_blank" rel="noreferrer">
-                    {selected.paypal_order_id}
-                  </a>
-                ) : "—"}
-              </div>
-              <div>
-                Authorization{" "}
-                {selected.paypal_authorization_id ? (
-                  <a className="linkish mono" href={sandboxPaymentUrl(selected.paypal_authorization_id)} target="_blank" rel="noreferrer">
-                    {selected.paypal_authorization_id}
-                  </a>
-                ) : "—"}
-              </div>
-              <div>
-                Capture{" "}
-                {selected.paypal_capture_id ? (
-                  <a className="linkish mono" href={sandboxPaymentUrl(selected.paypal_capture_id)} target="_blank" rel="noreferrer">
-                    {selected.paypal_capture_id}
-                  </a>
-                ) : "—"}
-              </div>
-              <div>
-                Refund{" "}
-                {selected.paypal_refund_id ? (
-                  <a className="linkish mono" href={sandboxPaymentUrl(selected.paypal_refund_id)} target="_blank" rel="noreferrer">
-                    {selected.paypal_refund_id}
-                  </a>
-                ) : "—"}
-              </div>
               {selected.failure_reason && <div className="err">{selected.failure_reason}</div>}
               <div>
                 Evidence
@@ -270,11 +252,16 @@ export function MerchantDesk() {
             <h3 style={{ marginTop: 28 }}>Event log</h3>
             <div className="transcript" style={{ maxHeight: 360 }}>
               {selectedEvents.map((item) => (
-                <div key={item.id} className="bubble assistant">
-                  <strong>{item.event}</strong> · {item.actor}
-                  <div className="mono">
-                    {item.from_status || "—"} → {item.to_status || "—"} · {item.created_at}
+                <div key={item.id} className="agent-step">
+                  <div className="agent-step-head">
+                    <strong>{item.event}</strong>
+                    <span className="who">{item.actor}</span>
                   </div>
+                  <div className="agent-kv">
+                    <span>State</span>
+                    {item.from_status || "—"} → {item.to_status || "—"}
+                  </div>
+                  <div className="tx-meta">{item.created_at}</div>
                 </div>
               ))}
             </div>

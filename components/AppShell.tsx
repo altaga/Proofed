@@ -14,15 +14,13 @@ export function AppShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
-  const kiosk = pathname === "/device";
+  const presenter = pathname === "/demo";
   return (
-    <div className={`shell${kiosk ? " kiosk-shell" : ""}`}>
+    <div className={`shell${presenter ? " presenter-shell" : ""}`}>
       <SiteHeader name={name} tagline={tagline} />
       {children}
-      {!kiosk && (
-        <footer className="site-footer">
-          {name} never invents a PayPal amount. Catalog prices, stock, and payment states come from SQLite and live sandbox GETs.
-        </footer>
+      {!presenter && (
+        <footer className="site-footer">Sandbox · PayPal Orders v2 AUTHORIZE · MiniMax-M3</footer>
       )}
     </div>
   );

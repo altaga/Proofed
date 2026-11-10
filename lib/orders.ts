@@ -1246,6 +1246,11 @@ export function publicOrderView(order: OrderDetails) {
     })),
     created_at: order.created_at,
     updated_at: order.updated_at,
+    authorized_at: order.authorized_at,
+    delivered_at: order.delivered_at,
+    captured_at: order.captured_at,
+    voided_at: order.voided_at,
+    refunded_at: order.refunded_at,
   };
 }
 

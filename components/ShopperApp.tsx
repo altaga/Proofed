@@ -4,13 +4,13 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { LoaderCircle, RotateCcw, Send } from "lucide-react";
 import { PayPalApprove } from "./PayPalApprove";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
-import { OrderTimeline } from "./OrderTimeline";
-import { ToolSteps, type ToolStep } from "./ToolSteps";
+import { AgentLog, type AgentStep } from "./AgentLog";
+import { TransactionPanel } from "./TransactionPanel";
 
 type ChatItem = {
   role: "user" | "assistant";
   content: string;
-  toolTrace?: ToolStep[];
+  toolTrace?: AgentStep[];
 };
 
 type PublicOrder = {
@@ -26,6 +26,13 @@ type PublicOrder = {
   paypal_refund_id?: string | null;
   failure_reason: string | null;
   items: Array<{ sku: string; name: string; qty: number; unit_price_cents: number; line_total_cents: number }>;
+  created_at?: string;
+  updated_at?: string;
+  authorized_at?: string | null;
+  delivered_at?: string | null;
+  captured_at?: string | null;
+  voided_at?: string | null;
+  refunded_at?: string | null;
 };
 
 type Quote = {
@@ -41,14 +48,14 @@ const PROMPTS = [
   "Checkout the enamel pin if it fits a $20 budget.",
 ];
 
-export function ShopperApp() {
+export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean; showReceipt?: boolean }) {
+  const receipt = showReceipt ?? !compact;
   const [config, setConfig] = useState<{ name: string; venueName: string; paypalClientId: string } | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatItem[]>([
     {
       role: "assistant",
-      content:
-        "Welcome. Tell me what you would like from the shop and your budget. I look up live stock and prices — I never invent them.",
+      content: "What do you want from the shop, and what’s your budget?",
     },
   ]);
   const [draft, setDraft] = useState("I have a $20 budget. Do you have a keychain?");
@@ -121,25 +128,17 @@ export function ShopperApp() {
   }
 
   return (
-    <div>
-      <div className="grid-2">
+    <div className={compact ? "compact" : undefined}>
+      <div className={receipt ? "shop-layout" : undefined}>
         <section className="card chat">
           <div className="transcript">
             {messages.map((item, index) => (
               <div key={`${item.role}-${index}`}>
                 <div className={`bubble ${item.role}`}>{item.content}</div>
-                {item.role === "assistant" && item.toolTrace ? <ToolSteps steps={item.toolTrace} /> : null}
+                {item.role === "assistant" && item.toolTrace ? <AgentLog steps={item.toolTrace} /> : null}
               </div>
             ))}
-            {busy && (
-              <div className="tool-step">
-                <div className="icon-wrap"><LoaderCircle size={18} className="spin" /></div>
-                <div>
-                  <strong className="loading-dots">Working against live catalog and PayPal</strong>
-                  <span>The model can only pass SKUs. Amounts come from the database.</span>
-                </div>
-              </div>
-            )}
+            {busy && <AgentLog busy />}
           </div>
           <div className="prompt-row">
             {PROMPTS.map((prompt) => (
@@ -179,93 +178,68 @@ export function ShopperApp() {
           )}
         </section>
 
-        <aside className="card">
-          <h3>Live checkout</h3>
-          {quote && (
-            <div className="list">
-              {quote.lines.map((line) => (
-                <div className="row" key={line.sku}>
-                  <div>
-                    <strong>{line.name}</strong>
-                    <div className="mono">{line.sku} × {line.qty} · {line.available} available</div>
+        {receipt && (
+          <aside>
+            <TransactionPanel order={order} quote={quote} venueName={config?.venueName} />
+            {quote && (
+              <div className="card" style={{ marginTop: 10 }}>
+                <h3>Quote lines</h3>
+                <div className="list">
+                  {quote.lines.map((line) => (
+                    <div className="row" key={line.sku}>
+                      <div>
+                        <strong>{line.name}</strong>
+                        <div className="mono">{line.sku} × {line.qty} · {line.available} available</div>
+                      </div>
+                      <div className="mono">${(line.unit_price_cents / 100).toFixed(2)}</div>
+                    </div>
+                  ))}
+                  <div className="row">
+                    <strong>Total</strong>
+                    <strong className="mono">{quote.formatted_total}</strong>
                   </div>
-                  <div>${(line.unit_price_cents / 100).toFixed(2)}</div>
+                  {!quote.ok && quote.errors?.map((item) => (
+                    <div key={item} className="err">{item}</div>
+                  ))}
                 </div>
-              ))}
-              <div className="row">
-                <strong>Quote total</strong>
-                <strong>{quote.formatted_total}</strong>
               </div>
-              {!quote.ok && quote.errors?.map((item) => (
-                <div key={item} className="err">{item}</div>
-              ))}
-            </div>
-          )}
-          {order && (
-            <div className="detail" style={{ marginTop: 16 }}>
-              <OrderTimeline status={order.status} />
-              <div><span>Order</span> <span className="mono">{order.id}</span></div>
-              <div>Status <span className={`status ${order.status}`}>{order.status}</span></div>
-              <div>Total {order.formatted_total}</div>
-              {order.items?.length > 0 && (
-                <div>{order.items.map((item) => `${item.name} × ${item.qty}`).join(", ")}</div>
-              )}
-              {order.paypal_order_id && (
-                <div>PayPal order <span className="mono">{order.paypal_order_id}</span></div>
-              )}
-              {order.paypal_authorization_id && (
-                <div>Authorization <span className="mono">{order.paypal_authorization_id}</span></div>
-              )}
-              {order.paypal_capture_id && (
-                <div>Capture <span className="mono">{order.paypal_capture_id}</span></div>
-              )}
-              {order.paypal_refund_id && (
-                <div>Refund <span className="mono">{order.paypal_refund_id}</span></div>
-              )}
-              {order.pickup_code && (
-                <div className="oknote">
-                  Pickup code <div className="code">{order.pickup_code}</div>
-                  Show this at the pickup station. Capture happens only after handover evidence.
-                </div>
-              )}
-              {order.failure_reason && <div className="err">{order.failure_reason}</div>}
-            </div>
-          )}
-          {needsPaypal && order?.paypal_order_id && config && (
-            <div className="paypal-box">
-              <p>Approve a PayPal authorization. Funds are held, not captured.</p>
-              <PayPalApprove
-                clientId={config.paypalClientId}
-                orderId={order.id}
-                paypalOrderId={order.paypal_order_id}
-                onAuthorized={(next) => setOrder(next as PublicOrder)}
-                onError={setError}
-              />
-            </div>
-          )}
-          {!quote && !order && (
-            <p className="footer-note">
-              Quotes and totals always come from the shop database. The assistant cannot set a price.
-            </p>
-          )}
-        </aside>
+            )}
+            {order?.pickup_code && (
+              <div className="oknote" style={{ marginTop: 10 }}>
+                Pickup code <div className="code">{order.pickup_code}</div>
+                Show this at Pickup after the hold is placed.
+              </div>
+            )}
+            {needsPaypal && order?.paypal_order_id && config && (
+              <div className="paypal-box">
+                <p>Approve the PayPal authorization. Funds are held, not captured.</p>
+                <PayPalApprove
+                  clientId={config.paypalClientId}
+                  orderId={order.id}
+                  paypalOrderId={order.paypal_order_id}
+                  onAuthorized={(next) => setOrder(next as PublicOrder)}
+                  onError={setError}
+                />
+              </div>
+            )}
+          </aside>
+        )}
       </div>
 
-      <section className="card" style={{ marginTop: 22 }}>
-        <h3>Live shelf</h3>
-        <p className="footer-note" style={{ marginTop: 0 }}>
-          Artwork is local. Prices and stock are read from SQLite on every request.
-        </p>
-        <div className="product-grid">
-          {catalog.map((item) => (
-            <ProductCard
-              key={item.sku}
-              item={item}
-              onSelect={(picked) => setDraft(`I'd like the ${picked.name} (${picked.sku}) if it fits a $20 budget.`)}
-            />
-          ))}
-        </div>
-      </section>
+      {!compact && (
+        <section className="card" style={{ marginTop: 14 }}>
+          <h3>Shelf</h3>
+          <div className="product-grid">
+            {catalog.map((item) => (
+              <ProductCard
+                key={item.sku}
+                item={item}
+                onSelect={(picked) => setDraft(`I'd like the ${picked.name} (${picked.sku}) if it fits a $20 budget.`)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

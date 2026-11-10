@@ -64,10 +64,10 @@ npm run dev           # http://localhost:3000
 
 Pages:
 
-- `/demo` — concept in three steps and a live success/failure demo guide
-- `/` — shopper chat, live shelf, PayPal Smart Buttons
-- `/device` — fullscreen pickup kiosk
-- `/merchant` — merchant desk (KPIs + AG Grid + order drawer)
+- `/demo` — presenter view: live transaction receipt plus shop and pickup side by side
+- `/` — shopper chat, agent action log, transaction receipt, shelf, PayPal Smart Buttons
+- `/device` — pickup station with the same receipt and stepper
+- `/merchant` — order table, KPIs, and a detail drawer with receipt, stepper, and event log
 
 Screenshots (captured from the running app):
 
@@ -142,6 +142,8 @@ npm run test:agent    # live MiniMax-M3 tool calling
 npm run test:e2e      # Playwright: sandbox buyer approves, then capture/refund/substitute
 npm run screenshots   # refresh docs/screenshots/*.png from the running UI
 npm run demo:reset    # wipe orders/chats and restore seed stock
+# optional: npm run demo:reset -- --live-holds
+# creates two real CREATED PayPal AUTHORIZE orders (no mocks) so Merchant is not empty
 npm run test:all
 ```
 

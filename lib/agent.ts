@@ -10,7 +10,16 @@ export type ChatMessage = { role: "user" | "assistant" | "system"; content: stri
 export type AgentTurnResult = {
   sessionId: string;
   reply: string;
-  toolTrace: Array<{ name: string; ok: boolean; summary: string }>;
+  toolTrace: Array<{
+    name: string;
+    ok: boolean;
+    summary: string;
+    input?: string;
+    outcome?: string;
+    guardrail?: string;
+    decidedBy?: string;
+    rejected?: boolean;
+  }>;
   quote?: unknown;
   order?: ReturnType<typeof publicOrderView>;
   replacement?: ReturnType<typeof publicOrderView>;
@@ -133,27 +142,117 @@ async function minimaxChat(messages: unknown[], timeoutMs = 45_000): Promise<Min
 }
 
 
-function summarizeTool(execution: { name: string; ok: boolean; result: unknown }): { name: string; ok: boolean; summary: string } {
+export type ToolTraceItem = {
+  name: string;
+  ok: boolean;
+  summary: string;
+  input?: string;
+  outcome?: string;
+  guardrail?: string;
+  decidedBy?: string;
+  rejected?: boolean;
+};
+
+function formatToolInput(args: unknown): string {
+  if (!args || typeof args !== "object") return "No input";
+  const rec = args as Record<string, unknown>;
+  const parts: string[] = [];
+  if (typeof rec.query === "string") parts.push(`search “${rec.query}”`);
+  if (typeof rec.sku === "string") parts.push(`SKU ${rec.sku}`);
+  if (typeof rec.order_id === "string") parts.push(`order ${rec.order_id}`);
+  if (typeof rec.action === "string") parts.push(`action ${rec.action}`);
+  if (typeof rec.budget_cents === "number") parts.push(`budget $${(rec.budget_cents / 100).toFixed(2)}`);
+  if (typeof rec.max_price_cents === "number") parts.push(`max $${(rec.max_price_cents / 100).toFixed(2)}`);
+  if (Array.isArray(rec.items)) {
+    parts.push(
+      rec.items
+        .map((item) => {
+          const row = item as { sku?: string; qty?: number };
+          return `${row.sku ?? "?"} × ${row.qty ?? "?"}`;
+        })
+        .join(", "),
+    );
+  }
+  if (Array.isArray(rec.substitute_items)) {
+    parts.push(
+      rec.substitute_items
+        .map((item) => {
+          const row = item as { sku?: string; qty?: number };
+          return `${row.sku ?? "?"} × ${row.qty ?? "?"}`;
+        })
+        .join(", "),
+    );
+  }
+  return parts.join(" · ") || "No input";
+}
+
+function summarizeTool(execution: { name: string; ok: boolean; result: unknown; args?: unknown }): ToolTraceItem {
   const result = (execution.result ?? {}) as Record<string, unknown>;
+  const input = formatToolInput(execution.args);
+  const quoteRejected = execution.name === "propose_checkout" && result.ok === false;
+  const rejected = !execution.ok || quoteRejected;
+
   if (!execution.ok) {
     const error = typeof result.error === "string" ? result.error : "Tool failed";
-    return { name: execution.name, ok: false, summary: error };
+    return {
+      name: execution.name,
+      ok: false,
+      rejected: true,
+      input,
+      summary: error,
+      outcome: error,
+      guardrail: "Backend rejected or overrode the agent request",
+      decidedBy: "Backend",
+    };
   }
+
   const items = Array.isArray(result.items) ? result.items : [];
+  const itemNames = items
+    .slice(0, 3)
+    .map((item) => {
+      const row = item as { name?: string; formatted_price?: string; sku?: string };
+      return [row.name || row.sku, row.formatted_price].filter(Boolean).join(" ");
+    })
+    .join(", ");
+
   switch (execution.name) {
     case "search_catalog":
     case "list_catalog":
-      return { name: execution.name, ok: true, summary: `Found ${items.length} catalog item${items.length === 1 ? "" : "s"}` };
+      return {
+        name: execution.name,
+        ok: true,
+        input,
+        summary: `Found ${items.length} catalog item${items.length === 1 ? "" : "s"}`,
+        outcome: itemNames || `${items.length} items from the shop database`,
+        guardrail: "Price and stock from the catalog, not the model",
+        decidedBy: "Catalog",
+      };
     case "get_item":
-      return { name: execution.name, ok: true, summary: typeof result.name === "string" ? result.name : "Item lookup" };
+      return {
+        name: execution.name,
+        ok: true,
+        input,
+        summary: typeof result.name === "string" ? result.name : "Item lookup",
+        outcome: [result.name, result.formatted_price, result.available !== undefined ? `${result.available} available` : ""]
+          .filter(Boolean)
+          .join(" · "),
+        guardrail: "Price and stock from the catalog, not the model",
+        decidedBy: "Catalog",
+      };
     case "propose_checkout": {
       const formatted = typeof result.formatted_total === "string" ? result.formatted_total : "";
-      const ok = result.ok === true;
       const errors = Array.isArray(result.errors) ? result.errors.join(" ") : "";
       return {
         name: execution.name,
         ok: true,
-        summary: ok ? `Quote ${formatted} within live stock and budget` : errors || "Quote rejected",
+        rejected: quoteRejected,
+        input,
+        summary: quoteRejected ? errors || "Quote rejected" : `Quote ${formatted}`,
+        outcome: quoteRejected ? errors : `${formatted} priced from catalog cents`,
+        guardrail: quoteRejected
+          ? "Backend rejected the quote (stock, price, or budget)"
+          : "Backend priced the cart from catalog cents and checked the budget",
+        decidedBy: "Policy engine",
       };
     }
     case "create_checkout": {
@@ -161,26 +260,57 @@ function summarizeTool(execution: { name: string; ok: boolean; result: unknown }
       return {
         name: execution.name,
         ok: true,
-        summary: `Created PayPal AUTHORIZE hold ${typeof order.formatted_total === "string" ? order.formatted_total : ""}`.trim(),
+        input,
+        summary: `Opened a PayPal hold for ${typeof order.formatted_total === "string" ? order.formatted_total : "the quote"}`,
+        outcome: typeof order.paypal_order_id === "string" ? `PayPal order ${order.paypal_order_id}` : "PayPal AUTHORIZE order created",
+        guardrail: "Amount sent to PayPal came from the catalog, not the model",
+        decidedBy: "Backend + PayPal",
       };
     }
     case "get_order_status": {
       const status = typeof result.status === "string" ? result.status : "unknown";
-      return { name: execution.name, ok: true, summary: `Order is ${status}` };
+      return {
+        name: execution.name,
+        ok: true,
+        input,
+        summary: `Order is ${status}`,
+        outcome: status,
+        guardrail: "Status read from the shop database",
+        decidedBy: "Backend",
+      };
     }
     case "investigate_failure": {
       const recommended = typeof result.recommended === "string" ? result.recommended : "review";
-      return { name: execution.name, ok: true, summary: `Recommended recovery: ${recommended}` };
+      return {
+        name: execution.name,
+        ok: true,
+        input,
+        summary: `Recommended recovery: ${recommended}`,
+        outcome: `Policy recommended ${recommended}`,
+        guardrail: "Alternatives and recommendation from policy plus PayPal GET",
+        decidedBy: "Policy engine + PayPal",
+      };
     }
     case "propose_recovery": {
       return {
         name: execution.name,
         ok: true,
+        input,
         summary: typeof result.message === "string" ? result.message : "Recovery executed",
+        outcome: typeof result.message === "string" ? result.message : "Recovery executed",
+        guardrail: "Policy engine executed recovery; the model only chose the action",
+        decidedBy: "Policy engine + PayPal",
       };
     }
     default:
-      return { name: execution.name, ok: true, summary: "Tool completed" };
+      return {
+        name: execution.name,
+        ok: true,
+        input,
+        summary: "Tool completed",
+        outcome: "Completed",
+        decidedBy: "Backend",
+      };
   }
 }
 
@@ -218,7 +348,7 @@ export async function runAgentTurn(input: {
   const history = listSessionMessages(sessionId);
   const messages: unknown[] = [{ role: "system", content: systemPrompt() }, ...history];
 
-  const executions: Array<{ name: string; ok: boolean; result: unknown }> = [];
+  const executions: Array<{ name: string; ok: boolean; result: unknown; args?: unknown }> = [];
   let finalText = "";
 
   try {
@@ -242,7 +372,7 @@ export async function runAgentTurn(input: {
             args = {};
           }
           const execution = await executeAgentTool(name, args);
-          executions.push(execution);
+          executions.push({ ...execution, args });
           messages.push({
             role: "tool",
             tool_call_id: call.id,

@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Ban, CheckCircle2, CircleAlert, RefreshCcw } from "lucide-react";
+import { Ban, CircleAlert, RefreshCcw } from "lucide-react";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
+import { TransactionPanel } from "./TransactionPanel";
 
 type PublicOrder = {
   id: string;
@@ -11,9 +12,18 @@ type PublicOrder = {
   formatted_total: string;
   pickup_code: string | null;
   failure_reason: string | null;
+  paypal_order_id?: string | null;
   paypal_authorization_id?: string | null;
   paypal_capture_id?: string | null;
+  paypal_refund_id?: string | null;
   items: Array<{ name: string; qty: number; sku: string }>;
+  created_at?: string;
+  updated_at?: string;
+  authorized_at?: string | null;
+  delivered_at?: string | null;
+  captured_at?: string | null;
+  voided_at?: string | null;
+  refunded_at?: string | null;
 };
 
 type Alternative = CatalogProduct & { price_cents?: number };
@@ -35,7 +45,8 @@ async function fileToBase64(file: File): Promise<string> {
   return btoa(binary);
 }
 
-export function DeviceKiosk() {
+export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolean; showReceipt?: boolean }) {
+  const receipt = showReceipt ?? !compact;
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
   const [reason, setReason] = useState("jam");
@@ -49,6 +60,7 @@ export function DeviceKiosk() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ action: "substitute" | "retry" | "cancel"; items?: Alternative } | null>(null);
+  const [venueName, setVenueName] = useState("Merchant");
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/device/queue");
@@ -57,6 +69,7 @@ export function DeviceKiosk() {
   }, []);
 
   useEffect(() => {
+    fetch("/api/config").then((r) => r.json()).then((cfg) => { if (cfg.venueName) setVenueName(cfg.venueName); }).catch(() => undefined);
     refresh().catch(() => undefined);
     const timer = setInterval(() => {
       refresh().catch(() => undefined);
@@ -158,23 +171,26 @@ export function DeviceKiosk() {
     : result?.status === "DELIVERY_FAILED" ? "failed"
     : "form";
 
+  const panel = receipt && result ? (
+    <div style={{ marginBottom: 12 }}>
+      <TransactionPanel order={result} venueName={venueName} compact={compact} />
+    </div>
+  ) : null;
+
   return (
-    <div className="kiosk-frame">
+    <div className={`kiosk-frame${compact ? " compact" : ""}`}>
       {screen === "success" && result && (
         <div className="kiosk-result success">
-          <CheckCircle2 size={64} />
-          <h2>Handover proven</h2>
+          <h2>Captured</h2>
           <p className="oknote">{result.id} is now <span className={`status ${result.status}`}>{result.status}</span>. Total {result.formatted_total}.</p>
-          {result.paypal_capture_id && <p className="mono">Capture {result.paypal_capture_id}</p>}
-          <div className="actions" style={{ justifyContent: "center" }}>
-            <button className="primary lg" onClick={reset}>Next customer</button>
+          <div className="actions">
+            <button className="primary" onClick={reset}>Next customer</button>
           </div>
         </div>
       )}
-
       {screen === "closed" && result && (
         <div className="kiosk-result failure">
-          <Ban size={64} />
+          <Ban size={22} />
           <h2>Hold released</h2>
           <p className="oknote">{result.id} is now <span className={`status ${result.status}`}>{result.status}</span>.</p>
           {message && <p>{message}</p>}
@@ -192,7 +208,7 @@ export function DeviceKiosk() {
 
       {screen === "failed" && result && (
         <div className="kiosk-result failure">
-          <CircleAlert size={64} />
+          <CircleAlert size={22} />
           <h2>Handover failed</h2>
           <p className="oknote">
             {result.id} is now <span className={`status ${result.status}`}>{result.status}</span>
@@ -233,6 +249,8 @@ export function DeviceKiosk() {
         </div>
       )}
 
+      {panel}
+
       {screen === "form" && (
         <div className="grid-2">
           <section className="card">
@@ -247,7 +265,7 @@ export function DeviceKiosk() {
               />
               <textarea
                 className="field"
-                style={{ width: "100%", marginTop: 12, minHeight: 80, borderRadius: 12, padding: 10, background: "rgba(255,255,255,0.06)", color: "inherit", border: "1px solid rgba(255,255,255,0.12)" }}
+                style={{ width: "100%", marginTop: 12, minHeight: 72 }}
                 placeholder="Optional handover note"
                 value={note}
                 onChange={(event) => setNote(event.target.value)}

@@ -183,7 +183,7 @@ test("approves, authorizes, reports a station jam at /device, then substitutes",
   await buyerPage.locator(".kiosk-code").fill(authorizedOrder.pickup_code as string);
   await buyerPage.locator("select").selectOption("jam");
   await buyerPage.getByRole("button", { name: "Report delivery failure" }).click();
-  await expect(buyerPage.getByText("DELIVERY_FAILED")).toBeVisible({ timeout: 30_000 });
+  await expect(buyerPage.getByText("DELIVERY_FAILED").first()).toBeVisible({ timeout: 30_000 });
 
   const failed = await getAppOrder(request, created.id);
   expect(failed.status).toBe("DELIVERY_FAILED");
