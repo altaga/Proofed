@@ -5,6 +5,7 @@ import { RotateCcw, ShieldCheck, ShoppingBag, Terminal, ArrowRight, Home, Buildi
 import { ShopperApp } from "./ShopperApp";
 import { DeviceKiosk } from "./DeviceKiosk";
 import { PlainTimeline } from "./PlainTimeline";
+import { AgentCrisisHub } from "./AgentCrisisHub";
 import { Toast } from "./Toast";
 import type { TxOrder } from "./tx-model";
 
@@ -252,6 +253,14 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
           )}
         </section>
       )}
+
+      {/* Autonomous Agent Crisis & Recovery War Room */}
+      <AgentCrisisHub
+        order={latest}
+        deliveryMode={deliveryMode}
+        onOrderRefresh={loadOrders}
+        onSyncCode={(code) => setSyncedCode(code)}
+      />
 
       {/* Interactive 2-Pane Display */}
       <div className="presenter-grid">

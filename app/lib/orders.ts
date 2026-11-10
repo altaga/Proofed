@@ -679,6 +679,11 @@ export async function captureOrder(orderId: string, actor = "merchant"): Promise
     throw new PolicyError("NO_AUTHORIZATION", "This order has no PayPal authorization to capture.");
   }
 
+  if (order.paypal_authorization_id?.startsWith("AUTH-DEMO")) {
+    finalizeCapture(requireOrder(orderId), `CAP-DEMO-${newPickupCode()}`, actor);
+    return getOrderDetails(orderId);
+  }
+
   const cached = loadIdempotentResponse<{ id: string; status?: string }>("capture", orderId);
   if (cached?.id) {
     finalizeCapture(requireOrder(orderId), cached.id, actor);
@@ -843,7 +848,7 @@ export async function voidOrder(orderId: string, actor = "merchant", reason = "v
   }
   if (order.status === "CANCELLED") return getOrderDetails(orderId);
 
-  if (!order.paypal_authorization_id) {
+  if (!order.paypal_authorization_id || order.paypal_authorization_id.startsWith("AUTH-DEMO")) {
     withTransaction(() => {
       const current = requireOrder(orderId);
       releaseReservations(current.id);
@@ -1279,3 +1284,88 @@ export function publicQuote(result: ReturnType<typeof quoteItems>): PublicQuote 
 export function parseRequestedItems(items: unknown): RequestedItem[] {
   return quoteItems(items).lines.map((line) => ({ sku: line.sku, qty: line.qty }));
 }
+
+export function seedDemoHeldOrder(input?: { sku?: string; note?: string }): OrderDetails {
+  const cfg = getProjectConfig();
+  const sku = input?.sku || "DC-KEY-01";
+  const quote = quoteItems([{ sku, qty: 1 }], 2000, cfg.currency);
+  if (!quote.ok) throw new Error("Could not quote item for demo seed");
+  const orderId = newId("ord");
+  const pickupCode = newPickupCode();
+  const now = nowIso();
+  const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+  withTransaction(() => {
+    db()
+      .prepare(
+        `INSERT INTO orders (
+           id, status, buyer_note, budget_cents, currency, subtotal_cents, pickup_code,
+           fulfillment_station, paypal_order_id, paypal_authorization_id, authorized_at,
+           pickup_deadline_at, created_at, updated_at
+         ) VALUES (
+           $id, 'AUTHORIZED', $note, $budget, $currency, $subtotal, $pickup,
+           'kiosk-1', $pOrderId, $pAuthId, $now, $deadline, $now, $now
+         )`,
+      )
+      .run({
+        id: orderId,
+        note: input?.note || "Demo Crisis Simulation Order",
+        budget: 2000,
+        currency: cfg.currency,
+        subtotal: quote.subtotal_cents,
+        pickup: pickupCode,
+        pOrderId: `ORDER-DEMO-${orderId.slice(-6)}`,
+        pAuthId: `AUTH-DEMO-${orderId.slice(-6)}`,
+        now,
+        deadline,
+      });
+
+    for (const line of quote.lines) {
+      db()
+        .prepare(
+          `INSERT INTO order_items (order_id, sku, name, unit_price_cents, qty)
+           VALUES ($orderId, $sku, $name, $unit, $qty)`,
+        )
+        .run({
+          orderId,
+          sku: line.sku,
+          name: line.name,
+          unit: line.unit_price_cents,
+          qty: line.qty,
+        });
+
+      db()
+        .prepare(
+          `INSERT INTO stock_reservations (id, order_id, sku, qty, expires_at)
+           VALUES ($id, $orderId, $sku, $qty, $expires)`,
+        )
+        .run({
+          id: newId("res"),
+          orderId,
+          sku: line.sku,
+          qty: line.qty,
+          expires: deadline,
+        });
+    }
+
+    appendEvent({
+      orderId,
+      event: "ORDER_CREATED",
+      fromStatus: null,
+      toStatus: "CREATED",
+      actor: "system",
+      detail: { note: "demo_chaos_seed" },
+    });
+    appendEvent({
+      orderId,
+      event: "PAYPAL_AUTHORIZED",
+      fromStatus: "CREATED",
+      toStatus: "AUTHORIZED",
+      actor: "shopper",
+      detail: { paypal_authorization_id: `AUTH-DEMO-${orderId.slice(-6)}`, simulated: true },
+    });
+  });
+
+  return getOrderDetails(orderId);
+}
+

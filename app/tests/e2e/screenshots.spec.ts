@@ -141,4 +141,10 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
   await page.waitForTimeout(1500);
   await snap(page, "demo");
   await assertContrast(page, "demo");
+
+  await page.goto("/gallery");
+  await expect(page.getByTestId("page-gallery")).toBeVisible();
+  await page.waitForTimeout(1200);
+  await snap(page, "gallery");
+  await assertContrast(page, "gallery");
 });

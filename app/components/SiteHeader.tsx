@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/device", label: "Pickup" },
   { href: "/merchant", label: "Merchant" },
   { href: "/demo", label: "Presenter" },
+  { href: "/gallery", label: "UI Gallery" },
 ];
 
 export function SiteHeader({ name }: { name: string; tagline?: string }) {

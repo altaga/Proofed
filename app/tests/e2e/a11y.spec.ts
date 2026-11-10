@@ -6,6 +6,7 @@ const pages = [
   { path: "/device", testId: "page-pickup" },
   { path: "/merchant", testId: "page-merchant" },
   { path: "/demo", testId: "page-presenter" },
+  { path: "/gallery", testId: "page-gallery" },
 ];
 
 for (const item of pages) {

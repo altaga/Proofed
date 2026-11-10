@@ -26,13 +26,23 @@ Point at the receipt: Quote → Hold placed → Handover verified → Captured, 
 7. Status becomes **CAPTURED**. The money line says the shopper was charged. The capture id is on the receipt.
 8. Open **Merchant**, click the row, and show the same stepper, PayPal ids, evidence hash, and event log.
 
-## 1:20–2:25 — Failure and substitution
+## 1:20–2:25 — Failure and Autonomous Recovery (The Negative Path ROI)
 
-1. Back in Shop: `Please propose the water bottle, SKU DC-BTL-01.` The shelf card is out of stock (seeded with 0). The quote is rejected for a real reason — point at the red “Backend rejected or overrode the agent” line.
-2. Buy the enamel pin instead (`I'd like the Venue Enamel Pin (DC-PIN-01) if it fits a $20 budget.`), then approve PayPal again.
-3. On Pickup, choose **Station jam** and press **Report delivery failure**. Status is `DELIVERY_FAILED`; the receipt still says the amount is held.
-4. Press **Substitute with …** on a suggested item, then **Confirm substitution** (or ask the assistant to recover in Shop).
-5. The original authorization is VOIDED and a new AUTHORIZE order appears. Show “Hold released” / “Replacement order …” and the Substituted / Voided branches on the receipt.
+1. Show the **Autonomous Agent Crisis Hub** in the center of the screen:
+   "Physical fulfillment is chaotic: solenoids jam, parcels get crushed on doorsteps, drones drop at the wrong porch. In traditional commerce, the customer was debited $12 upfront and faces a 14-day bank chargeback dispute. In Proofed, the funds are merely authorized — and the autonomous agent takes over."
+2. Click **⚡ Solenoid Jam** (or **💥 Parcel Damaged**):
+   - The UI immediately transforms into the **Crisis War Room**:
+   - Point to the **Zero-Capture Security Shield**: "PayPal Payments v2 `/capture` is permanently locked. The buyer was debited $0.00."
+   - Point to the **Agent Live Neural Reasoning Stream**: logs real-time sensor fault, financial guard lockout, and recovery synthesis in under 120ms.
+3. Show the **3 Autonomous Countermeasure Cards**:
+   - **Countermeasure 1 (Hardware)**: Auto-reroutes to Locker Bay #08 without canceling the hold.
+   - **Countermeasure 2 (Catalog)**: Smart budget substitution (swaps broken $12 item for $8 Enamel Pin, returning $4.00 back to available buyer wallet).
+   - **Countermeasure 3 (Financial)**: One-click instant PayPal `/void`. Press **Instant PayPal /void (Release Hold)**.
+4. The hold is released live on the PayPal sandbox in under 1.5s!
+   - The Buyer Wallet widget immediately restores available capital to $250.00 ($0 charged).
+   - Point out the **Autonomous Concierge Apology Voucher** (`PRFD-CARE-XXXX`) issued to preserve customer loyalty.
+   - Contrast this with the side-by-side scorecard: "14 days dispute & $15 penalty vs 1.2s auto-void and $0 penalty."
+
 
 ## 2:25–2:50 — Controls
 
