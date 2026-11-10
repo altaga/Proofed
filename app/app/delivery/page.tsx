@@ -1,4 +1,4 @@
-import { DeliveryApp } from "@/components/DeliveryApp";
+﻿import { DeliveryApp } from "@/components/DeliveryApp";
 
 export const metadata = {
   title: "Delivery Terminal · Proofed",

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import {
@@ -171,7 +171,7 @@ export function UIGallery() {
                 tool executions, inline quotes, and prompt chips.
               </p>
             </div>
-            <span className="section-tag mono">ACCENT: #00EC97 EMERALD // SURFACE: #0B0D11</span>
+            <span className="section-tag mono">ACCENT: #FF7A3D EMERALD // SURFACE: #12110F</span>
           </div>
 
           <div className="gallery-chat-wrapper">
@@ -356,23 +356,23 @@ export function UIGallery() {
               <h4>Color Palette (Swiss Dark Telemetry)</h4>
               <div className="palette-swatches">
                 <div className="swatch-row">
-                  <span className="swatch-box" style={{ background: "#0B0D11" }} />
+                  <span className="swatch-box" style={{ background: "#12110F" }} />
                   <div className="swatch-info mono">
-                    <strong>#0B0D11</strong>
+                    <strong>#12110F</strong>
                     <span>Base Background (NearDesk Obsidian)</span>
                   </div>
                 </div>
                 <div className="swatch-row">
-                  <span className="swatch-box" style={{ background: "#101217" }} />
+                  <span className="swatch-box" style={{ background: "#181714" }} />
                   <div className="swatch-info mono">
-                    <strong>#101217</strong>
+                    <strong>#181714</strong>
                     <span>Layered Card Surface</span>
                   </div>
                 </div>
                 <div className="swatch-row">
-                  <span className="swatch-box" style={{ background: "#00EC97" }} />
+                  <span className="swatch-box" style={{ background: "#FF7A3D" }} />
                   <div className="swatch-info mono">
-                    <strong>#00EC97</strong>
+                    <strong>#FF7A3D</strong>
                     <span>NearDesk Mint / Handover Accent</span>
                   </div>
                 </div>
@@ -422,12 +422,12 @@ export function UIGallery() {
               <div className="a11y-audit-grid">
                 <div className="a11y-cell">
                   <span className="a11y-metric">15.4 : 1</span>
-                  <span className="a11y-label">Contrast: White on Obsidian (#0B0D11)</span>
+                  <span className="a11y-label">Contrast: White on Obsidian (#12110F)</span>
                   <span className="a11y-badge pass mono">AAA PASS</span>
                 </div>
                 <div className="a11y-cell">
                   <span className="a11y-metric">11.8 : 1</span>
-                  <span className="a11y-label">Contrast: Mint (#00EC97) on Dark Surface</span>
+                  <span className="a11y-label">Contrast: Mint (#FF7A3D) on Dark Surface</span>
                   <span className="a11y-badge pass mono">AAA PASS</span>
                 </div>
                 <div className="a11y-cell">

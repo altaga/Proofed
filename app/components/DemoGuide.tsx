@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { RotateCcw, ShieldCheck, ShoppingBag, Terminal, ArrowRight, Home, Building2 } from "lucide-react";

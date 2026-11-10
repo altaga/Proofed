@@ -1,4 +1,4 @@
-import { MerchantDesk } from "@/components/MerchantDesk";
+﻿import { MerchantDesk } from "@/components/MerchantDesk";
 
 export default function MerchantPage() {
   return (

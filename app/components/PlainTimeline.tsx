@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { formatWhen, storyEvents, type TxEvent, type TxOrder } from "./tx-model";

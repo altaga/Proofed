@@ -1,4 +1,4 @@
-import { DeviceKiosk } from "@/components/DeviceKiosk";
+﻿import { DeviceKiosk } from "@/components/DeviceKiosk";
 
 export default function DevicePage() {
   return (

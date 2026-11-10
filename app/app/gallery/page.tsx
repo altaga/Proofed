@@ -1,4 +1,4 @@
-import { UIGallery } from "@/components/UIGallery";
+﻿import { UIGallery } from "@/components/UIGallery";
 
 export default function GalleryPage() {
   return (

@@ -1,4 +1,4 @@
-import { NearDeskChat } from "@/components/NearDeskChat";
+﻿import { NearDeskChat } from "@/components/NearDeskChat";
 
 export const metadata = {
   title: "Client Marketplace Chat · Proofed",

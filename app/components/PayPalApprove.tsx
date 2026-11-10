@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 

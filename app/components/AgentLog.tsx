@@ -1,4 +1,4 @@
-export type AgentStep = {
+﻿export type AgentStep = {
   name: string;
   ok: boolean;
   summary?: string;

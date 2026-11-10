@@ -1,4 +1,4 @@
-export function MoneyLegend({ className = "" }: { className?: string }) {
+﻿export function MoneyLegend({ className = "" }: { className?: string }) {
   return (
     <ul className={`legend ${className}`.trim()} aria-label="Money states">
       <li><i className="swatch held" aria-hidden="true" /> Held</li>

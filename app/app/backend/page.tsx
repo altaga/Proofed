@@ -1,4 +1,4 @@
-import { BackendMonitor } from "@/components/BackendMonitor";
+﻿import { BackendMonitor } from "@/components/BackendMonitor";
 
 export const metadata = {
   title: "Backend Monitor · Proofed",

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, RotateCcw, Send } from "lucide-react";
