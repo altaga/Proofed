@@ -304,19 +304,22 @@ export function NearDeskChat({
       <div className="neardesk-chat-header">
         <div className="neardesk-header-left">
           <span className="neardesk-status-dot" />
-          <span className="neardesk-title mono">PROOFED_MARKETPLACE_AGENT // LIVE CHAT</span>
-          <span className="neardesk-catalog-pill mono">68+ PRODUCTS</span>
+          <span className="neardesk-title mono desktop-only">PROOFED_MARKETPLACE_AGENT // LIVE CHAT</span>
+          <span className="neardesk-title mono mobile-only">AGENT CHAT</span>
+          <span className="neardesk-catalog-pill mono desktop-only">68+ PRODUCTS</span>
+          <span className="neardesk-catalog-pill mono mobile-only">68+</span>
         </div>
         <div className="neardesk-header-right mono">
           <div className="autonomy-toggle-group" role="group" aria-label="Autonomous Contingency Policy">
-            <span className="autonomy-label">POLICY:</span>
+            <span className="autonomy-label desktop-only">POLICY:</span>
             <button
               type="button"
               className={`autonomy-pill ${autonomyMode === "interactive" ? "active" : ""}`}
               onClick={() => setAutonomyMode("interactive")}
               title="If delivery fails, agent presents interactive choice cards in chat"
             >
-              💬 Interactive
+              <span className="desktop-only">💬 Interactive</span>
+              <span className="mobile-only">Interactive</span>
             </button>
             <button
               type="button"
@@ -324,7 +327,8 @@ export function NearDeskChat({
               onClick={() => setAutonomyMode("autopilot")}
               title="If delivery fails, agent automatically releases PayPal hold in 1.2s and credits $5 voucher"
             >
-              ⚡ Auto-Void ($0)
+              <span className="desktop-only">⚡ Auto-Void ($0)</span>
+              <span className="mobile-only">⚡ Auto-Void</span>
             </button>
           </div>
         </div>
