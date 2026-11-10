@@ -28,19 +28,48 @@ type PublicOrder = {
 
 type Alternative = CatalogProduct & { price_cents?: number };
 
-const REASONS = [
+const VENUE_REASONS = [
   { value: "jam", label: "Station jammed" },
   { value: "out_of_stock", label: "Item unavailable" },
   { value: "item_damaged", label: "Item damaged" },
 ];
 
+const HOME_REASONS = [
+  { value: "item_damaged", label: "Package damaged / crushed box" },
+  { value: "wrong_address", label: "Wrong doorstep / address mismatch" },
+  { value: "porch_theft_risk", label: "Unsafe doorstep / porch theft risk" },
+];
+
+function playHandoverChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.45);
+  } catch {
+    // Audio context not available or user gesture required
+  }
+}
+
 export function DeviceKiosk({
   compact = false,
   initialCode,
+  deliveryMode = "venue",
 }: {
   compact?: boolean;
   showReceipt?: boolean;
   initialCode?: string;
+  deliveryMode?: "venue" | "home";
 }) {
   const [code, setCode] = useState(initialCode || "");
   const [showProblems, setShowProblems] = useState(false);
@@ -108,7 +137,8 @@ export function DeviceKiosk({
       if (!response.ok) throw new Error(payload.error || "Request failed");
       setResult(payload.order);
       if (payload.order?.status === "CAPTURED") {
-        setToast("Charged with PayPal");
+        playHandoverChime();
+        setToast("Charged with PayPal — Handover Verified");
         window.setTimeout(() => setToast(null), 3500);
       }
       if (payload.order?.status === "DELIVERY_FAILED") {
@@ -174,10 +204,12 @@ export function DeviceKiosk({
       <div className="terminal-header-bar">
         <div className="terminal-status-indicator">
           <span className="terminal-pulse" />
-          <span>STATION #04 · NORTH VENUE LOCKER</span>
+          <span>
+            {deliveryMode === "home" ? "🏡 RESIDENTIAL DOORSTEP · 742 EVERGREEN TERRACE" : "STATION #04 · NORTH VENUE LOCKER"}
+          </span>
         </div>
         <div className="terminal-sensor-pill">
-          SENSOR: LATCH SECURE
+          {deliveryMode === "home" ? "PORCH CAM: READY" : "SENSOR: LATCH SECURE"}
         </div>
       </div>
       {screen === "success" && result && (
@@ -254,14 +286,44 @@ export function DeviceKiosk({
 
       {screen === "form" && (
         <form onSubmit={(event: FormEvent) => event.preventDefault()}>
-          <div className="kiosk-instructions">
-            <h3 style={{ textAlign: "center", fontSize: "1.2rem", margin: "0 0 6px", fontWeight: 700 }}>
-              Physical Handover Verification
-            </h3>
-            <p style={{ textAlign: "center", margin: "0 0 16px", color: "var(--muted)", fontSize: "0.88rem" }}>
-              Enter the shopper's 6-character code to open the locker and capture the PayPal hold.
-            </p>
-          </div>
+          {deliveryMode === "home" ? (
+            <div className="porch-feed-card">
+              <div className="porch-feed-screen">
+                <div className="porch-cam-header">
+                  <span className="cam-live-indicator"><span className="pulse-dot" /> LIVE FEED · FRONT PORCH</span>
+                  <span className="cam-coords mono">37.7749° N, 122.4194° W</span>
+                </div>
+                <div className="porch-visual-area">
+                  <div className="porch-door-graphic">
+                    <span className="porch-house-num">742</span>
+                    <div className="porch-door-panel" />
+                  </div>
+                  <div className="porch-mat-area">
+                    <div className="porch-package-box">
+                      <span className="package-ribbon">📦 PARCEL AT DOORSTEP</span>
+                      <span className="package-dest mono">DROP: FRONT WELCOME MAT</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="porch-telemetry-footer mono">
+                  <span>CARRIER: AUTONOMOUS BOT #09</span>
+                  <span>EVIDENCE: PHOTO RECORDED</span>
+                </div>
+              </div>
+              <p className="kiosk-instruction-text">
+                Package is at your doorstep. Enter your 6-digit homeowner PIN to inspect goods and release the PayPal hold.
+              </p>
+            </div>
+          ) : (
+            <div className="kiosk-instructions">
+              <h3 style={{ textAlign: "center", fontSize: "1.2rem", margin: "0 0 6px", fontWeight: 700 }}>
+                Physical Handover Verification
+              </h3>
+              <p style={{ textAlign: "center", margin: "0 0 16px", color: "var(--muted)", fontSize: "0.88rem" }}>
+                Enter the shopper's 6-character code to open the locker and capture the PayPal hold.
+              </p>
+            </div>
+          )}
 
           {initialCode && code !== initialCode && (
             <div style={{ textAlign: "center", marginBottom: 12 }}>
@@ -303,7 +365,11 @@ export function DeviceKiosk({
             disabled={busy || !code || code.length < 6}
             onClick={() => post("/api/device/confirm", {})}
           >
-            {busy ? "Verifying..." : "Confirm Handover & Capture Funds"}
+            {busy
+              ? "Verifying..."
+              : deliveryMode === "home"
+                ? "Confirm Doorstep Handover & Capture Payment"
+                : "Confirm Handover & Capture Funds"}
           </button>
 
           <div className="kiosk-footer-actions">
@@ -312,14 +378,20 @@ export function DeviceKiosk({
               className="link-btn problem-link"
               onClick={() => setShowProblems((value) => !value)}
             >
-              {showProblems ? "Hide problem options" : "Simulate pickup problem / hardware jam"}
+              {showProblems
+                ? "Hide problem options"
+                : deliveryMode === "home"
+                  ? "Simulate delivery issue (Damaged box / Wrong door)"
+                  : "Simulate pickup problem / hardware jam"}
             </button>
           </div>
 
           {showProblems && (
             <div className="reason-list">
-              <p className="reason-heading">Simulate Physical Handover Failures:</p>
-              {REASONS.map((item) => (
+              <p className="reason-heading">
+                {deliveryMode === "home" ? "Simulate Doorstep Delivery Failures:" : "Simulate Physical Handover Failures:"}
+              </p>
+              {(deliveryMode === "home" ? HOME_REASONS : VENUE_REASONS).map((item) => (
                 <button
                   type="button"
                   key={item.value}

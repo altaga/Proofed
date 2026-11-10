@@ -296,6 +296,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   letter-spacing: 0.07em;
   color: var(--brand);
 }
+.demo-hero-presenter {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.badge-sep { color: var(--muted); opacity: 0.5; }
 .pulse-dot {
   width: 7px;
   height: 7px;
@@ -342,6 +351,250 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .demo-reset-btn:hover {
   background: var(--soft);
   border-color: #cbd5e1;
+}
+
+/* Demo Mode Switcher */
+.demo-mode-switcher-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.mode-switcher-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.mode-switcher-pills {
+  display: inline-flex;
+  background: var(--soft);
+  padding: 3px;
+  border-radius: 10px;
+  gap: 4px;
+  border: 1px solid var(--line);
+}
+.mode-pill {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 650;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.mode-pill:hover {
+  color: var(--ink);
+}
+.mode-pill.active {
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 750;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+}
+
+/* Real-time PayPal Buyer Wallet Widget */
+.live-wallet-widget {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+.wallet-widget-header {
+  background: #fafaf9;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.wallet-badge-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.wallet-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #003087;
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+}
+.wallet-title {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+.wallet-account {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.wallet-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+@media (max-width: 800px) {
+  .wallet-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.wallet-cell {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-right: 1px solid var(--line);
+  transition: background 0.2s ease;
+}
+.wallet-cell:last-child {
+  border-right: 0;
+}
+.wallet-cell-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.wallet-cell-val {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+.wallet-cell-sub {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.wallet-cell.cell-hold-active {
+  background: var(--hold-soft);
+}
+.wallet-cell.cell-hold-active .wallet-cell-val {
+  color: var(--brand);
+}
+.wallet-cell.cell-hold-active .wallet-cell-label {
+  color: var(--brand);
+}
+.wallet-cell.cell-captured-active {
+  background: var(--good-soft);
+}
+.wallet-cell.cell-captured-active .wallet-cell-val {
+  color: var(--good);
+}
+
+/* Doorstep Porch Camera Feed Simulation */
+.porch-feed-card {
+  margin-bottom: 14px;
+}
+.porch-feed-screen {
+  background: #0f141a;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  color: #f1f5f9;
+}
+.porch-cam-header {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.72rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cam-live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #ef4444;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+.cam-coords {
+  color: #94a3b8;
+}
+.porch-visual-area {
+  height: 120px;
+  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 12px;
+  position: relative;
+}
+.porch-door-graphic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #334155;
+  width: 48px;
+  height: 72px;
+  border-radius: 4px 4px 0 0;
+  border: 2px solid #64748b;
+  padding-top: 6px;
+}
+.porch-house-num {
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: #fbbf24;
+}
+.porch-door-panel {
+  width: 28px;
+  height: 40px;
+  border: 1px solid #475569;
+  margin-top: 6px;
+  border-radius: 2px;
+}
+.porch-mat-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.porch-package-box {
+  background: #d97706;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.package-ribbon {
+  letter-spacing: 0.04em;
+}
+.package-dest {
+  font-size: 0.65rem;
+  opacity: 0.85;
+}
+.porch-telemetry-footer {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px 12px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #94a3b8;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.kiosk-instruction-text {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.4;
 }
 
 /* 3 Architecture Pillars */

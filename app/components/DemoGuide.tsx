@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RotateCcw, ShieldCheck, ShoppingBag, Terminal, CheckCircle2, AlertTriangle, ArrowRight } from "lucide-react";
+import { RotateCcw, ShieldCheck, ShoppingBag, Terminal, ArrowRight, Home, Building2 } from "lucide-react";
 import { ShopperApp } from "./ShopperApp";
 import { DeviceKiosk } from "./DeviceKiosk";
 import { PlainTimeline } from "./PlainTimeline";
@@ -13,6 +13,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
   const [syncedCode, setSyncedCode] = useState<string>("");
   const [resetting, setResetting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [deliveryMode, setDeliveryMode] = useState<"venue" | "home">("venue");
 
   const loadOrders = async () => {
     try {
@@ -66,6 +67,8 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
   const isFailed = latest?.status === "DELIVERY_FAILED";
   const isVoided = latest?.status === "VOIDED";
 
+  const activeVenueName = deliveryMode === "home" ? "742 Evergreen Terrace (Smart Porch Box)" : venueName || "Pudgy Stadium Shop";
+
   return (
     <div className="demo-guide-container">
       <Toast message={toast} tone="ok" />
@@ -75,14 +78,17 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
         <div className="demo-hero-main">
           <div className="demo-hero-badge">
             <span className="pulse-dot" />
+            <h2 className="demo-hero-presenter">Presenter</h2>
+            <span className="badge-sep">·</span>
             <span>PAYPAL AI HACKATHON 2026 · PHYSICAL AGENTIC COMMERCE</span>
           </div>
           <h1 className="demo-hero-title">
             Proofed: Authorize Now. Capture Only After Proof of Handover.
           </h1>
           <p className="demo-hero-lede">
-            In stadiums and micro-kiosks, an AI agent must never charge a customer before physical collection.
-            Proofed places a <strong>PayPal temporary hold</strong> and only captures funds when the locker terminal verifies handover evidence.
+            {deliveryMode === "home"
+              ? "When an autonomous AI agent delivers a package to a home, merchants must never charge before proof of doorstep drop. Proofed places a temporary PayPal hold and captures funds only when the delivery camera or homeowner PIN verifies handover."
+              : "In stadiums and micro-kiosks, an AI agent must never charge a customer before physical collection. Proofed places a PayPal temporary hold and captures funds only when the locker terminal verifies handover evidence."}
           </p>
         </div>
 
@@ -100,6 +106,74 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
         </div>
       </header>
 
+      {/* Scenario Mode Switcher */}
+      <div className="demo-mode-switcher-row">
+        <span className="mode-switcher-label">DEMO SCENARIO MODE:</span>
+        <div className="mode-switcher-pills" role="tablist">
+          <button
+            type="button"
+            className={`mode-pill ${deliveryMode === "venue" ? "active" : ""}`}
+            onClick={() => setDeliveryMode("venue")}
+          >
+            <Building2 size={15} />
+            <span>Stadium / Venue Smart Locker</span>
+          </button>
+          <button
+            type="button"
+            className={`mode-pill ${deliveryMode === "home" ? "active" : ""}`}
+            onClick={() => setDeliveryMode("home")}
+          >
+            <Home size={15} />
+            <span>Residential Home Delivery (Doorstep Drop)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Real-time PayPal Buyer Wallet Card */}
+      <section className="live-wallet-widget" aria-label="Buyer PayPal Wallet Balance">
+        <div className="wallet-widget-header">
+          <div className="wallet-badge-group">
+            <span className="wallet-icon">P</span>
+            <span className="wallet-title">BUYER PAYPAL WALLET · REAL-TIME BALANCE SIMULATION</span>
+          </div>
+          <span className="wallet-account mono">buyer-sandbox@proofed.dev</span>
+        </div>
+        <div className="wallet-grid">
+          <div className="wallet-cell">
+            <span className="wallet-cell-label">TOTAL ACCOUNT BALANCE</span>
+            <span className="wallet-cell-val mono">$250.00</span>
+            <span className="wallet-cell-sub">Buyer credit limit / balance</span>
+          </div>
+          <div className={`wallet-cell ${isHeld ? "cell-hold-active" : ""}`}>
+            <span className="wallet-cell-label">
+              {isHeld ? "🔒 ACTIVE PAYPAL HOLD" : "ACTIVE PAYPAL HOLD"}
+            </span>
+            <span className="wallet-cell-val mono">
+              {isHeld ? `-${latest.formatted_total}` : "$0.00"}
+            </span>
+            <span className="wallet-cell-sub">
+              {isHeld ? "Held via Orders v2 · $0 charged yet" : "Zero active holds"}
+            </span>
+          </div>
+          <div className="wallet-cell">
+            <span className="wallet-cell-label">AVAILABLE CAPITAL</span>
+            <span className="wallet-cell-val mono">
+              {isHeld ? `$${(250 - (parseFloat(latest.formatted_total.replace(/[^0-9.]/g, '')) || 0)).toFixed(2)}` : "$250.00"}
+            </span>
+            <span className="wallet-cell-sub">Safe unencumbered funds</span>
+          </div>
+          <div className={`wallet-cell ${isCaptured ? "cell-captured-active" : ""}`}>
+            <span className="wallet-cell-label">SETTLED CHARGES</span>
+            <span className="wallet-cell-val mono">
+              {isCaptured ? latest.formatted_total : "$0.00"}
+            </span>
+            <span className="wallet-cell-sub">
+              {isCaptured ? "Debited post-handover" : "$0 debited"}
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* 3-Step Architecture Pillars */}
       <div className="architecture-strip" aria-label="How Proofed Works">
         <div className="arch-pillar">
@@ -109,7 +183,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
           <div className="arch-pillar-content">
             <span className="arch-step-num">STEP 1 · SHOPPING</span>
             <h4>Zero-Trust AI Pricing</h4>
-            <p>The LLM negotiates within budget, but prices come strictly from SQLite in integer cents. LLM cannot hallucinate totals.</p>
+            <p>The LLM negotiates items within budget, but prices come strictly from SQLite in integer cents. LLM cannot hallucinate totals.</p>
           </div>
         </div>
 
@@ -131,7 +205,11 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
           <div className="arch-pillar-content">
             <span className="arch-step-num">STEP 3 · PHYSICAL PROOF</span>
             <h4>Conditional Settlement</h4>
-            <p>Locker terminal checks pickup code + sensor. <strong>Capture fires only upon physical delivery</strong>. If jammed, hold auto-voids.</p>
+            <p>
+              {deliveryMode === "home"
+                ? "Autonomous bot verifies doorstep photo hash + homeowner PIN. Capture fires ONLY upon drop. If damaged, hold auto-voids."
+                : "Locker terminal checks pickup code + sensor. Capture fires ONLY upon physical delivery. If jammed, hold auto-voids."}
+            </p>
           </div>
         </div>
       </div>
@@ -143,7 +221,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
             <span className="live-status-pill">
               {isHeld && "ACTIVE HOLD"}
               {isCaptured && "SETTLED"}
-              {isFailed && "STATION JAMMED"}
+              {isFailed && (deliveryMode === "home" ? "DELIVERY FAILED" : "STATION JAMMED")}
               {isVoided && "HOLD RELEASED"}
               {!isHeld && !isCaptured && !isFailed && !isVoided && latest.status}
             </span>
@@ -151,8 +229,8 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
               <strong>Order {latest.id} · {latest.formatted_total}</strong>
               <p>
                 {isHeld && `Funds (${latest.formatted_total}) are safely held on PayPal. $0 debited from shopper so far.`}
-                {isCaptured && `Payment captured successfully. Physical proof verified at station.`}
-                {isFailed && `Pickup problem reported. Funds remain held safely; shopper was not charged.`}
+                {isCaptured && `Payment captured successfully. Physical proof verified at ${deliveryMode === "home" ? "doorstep" : "station"}.`}
+                {isFailed && `Delivery problem reported. Funds remain held safely; shopper was not charged.`}
                 {isVoided && `Authorization released. $0 charged. Customer protected from hardware failure.`}
               </p>
             </div>
@@ -160,7 +238,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
 
           {latest.pickup_code && (
             <div className="live-status-right">
-              <span className="pickup-code-badge-label">Active Pickup Code:</span>
+              <span className="pickup-code-badge-label">Active Handover PIN:</span>
               <button
                 type="button"
                 className="pickup-sync-btn"
@@ -168,7 +246,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
                 title="Inject code into Pickup Station terminal"
               >
                 <strong className="mono">{latest.pickup_code}</strong>
-                <span className="sync-pill">Sync to Kiosk <ArrowRight size={13} /></span>
+                <span className="sync-pill">Sync to Handover <ArrowRight size={13} /></span>
               </button>
             </div>
           )}
@@ -183,7 +261,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
               <span className="pane-badge shopper-badge">TOUCHPOINT 1</span>
               <h3>Shopper Experience & AI Assistant</h3>
             </div>
-            <span className="pane-venue">{venueName || "Venue Micro-Store"}</span>
+            <span className="pane-venue">{activeVenueName}</span>
           </div>
           <div className="pane-body">
             <ShopperApp
@@ -199,13 +277,18 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
           <div className="pane-header">
             <div className="pane-title-group">
               <span className="pane-badge kiosk-badge">TOUCHPOINT 2</span>
-              <h3>Pickup Station Terminal (Locker Hardware)</h3>
+              <h3>
+                {deliveryMode === "home" ? "Home Doorstep Delivery Terminal" : "Pickup Station Terminal (Locker Hardware)"}
+              </h3>
             </div>
-            <span className="pane-venue">Locker Bay #04</span>
+            <span className="pane-venue">
+              {deliveryMode === "home" ? "Porch Camera Drop #1" : "Locker Bay #04"}
+            </span>
           </div>
           <div className="pane-body">
             <DeviceKiosk
               compact
+              deliveryMode={deliveryMode}
               initialCode={syncedCode || latest?.pickup_code || undefined}
             />
           </div>

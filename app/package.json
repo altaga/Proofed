@@ -12,11 +12,12 @@
     "test:paypal": "vitest run tests/paypal.integration.test.ts",
     "test:agent": "vitest run tests/agent.e2e.test.ts",
     "test:all": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test tests/e2e/a11y.spec.ts",
+    "test:e2e:buyer": "playwright test tests/e2e/buyer-flows.spec.ts",
     "pack": "bash scripts/pack.sh",
     "rename": "bash scripts/rename.sh",
     "demo:reset": "tsx scripts/demo-reset.ts",
-    "screenshots": "SCREENSHOTS=1 playwright test tests/e2e/screenshots.spec.ts"
+    "screenshots": "playwright test tests/e2e/screenshots.spec.ts"
   },
   "dependencies": {
     "@paypal/react-paypal-js": "^10.6.1",

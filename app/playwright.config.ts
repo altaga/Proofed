@@ -11,7 +11,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"]],
-  testIgnore: process.env.SCREENSHOTS ? ["**/buyer-flows.spec.ts"] : ["**/screenshots.spec.ts"],
+  testMatch: ["**/*.spec.ts"],
   outputDir: "./test-artifacts/playwright-output",
   use: {
     baseURL,
@@ -25,7 +25,7 @@ export default defineConfig({
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   },
   webServer: {
-    command: `rm -f data/e2e.sqlite data/e2e.sqlite-wal data/e2e.sqlite-shm && npx next dev -p ${port}`,
+    command: `node -e "['data/e2e.sqlite', 'data/e2e.sqlite-wal', 'data/e2e.sqlite-shm'].forEach(f => { try { require('fs').unlinkSync(f); } catch {} })" && npx next dev -p ${port}`,
     url: `${baseURL}/api/health`,
     reuseExistingServer: false,
     timeout: 180_000,
