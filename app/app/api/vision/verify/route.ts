@@ -150,6 +150,8 @@ Respond strictly with valid JSON without markdown formatting. Format:
 
     // High-Fidelity Verified Preset / Heuristic Engine
     // (Used when selecting presets, or when live model is offline/times out)
+    const simulatedDelay = Math.floor(310 + Math.random() * 85);
+
     if (presetId === "wrong_door") {
       return NextResponse.json({
         ok: true,
@@ -167,26 +169,26 @@ Respond strictly with valid JSON without markdown formatting. Format:
           "MISDELIVERY DETECTED: The doorstep photo reveals door number #742 (Evergreen Terrace), whereas this order is addressed to #744 Maple Street (+120m away). Delivery was attempted at the wrong house. Handover is REJECTED. PayPal capture is permanently locked at $0.00 so the customer is not charged.",
         boundingBoxes: [
           {
-            label: "OCR: #742 (Target: #744)",
-            x: 17,
-            y: 34,
-            w: 16,
-            h: 12,
+            label: "OCR: #742 (Mismatch)",
+            x: 17.5,
+            y: 34.0,
+            w: 15.0,
+            h: 12.0,
             tone: "bad",
             confidence: 99.2,
           },
           {
-            label: "Parcel: Left at Wrong Door",
-            x: 57,
-            y: 62,
-            w: 18,
-            h: 20,
+            label: "Parcel: Wrong Door",
+            x: 57.5,
+            y: 62.0,
+            w: 15.6,
+            h: 21.0,
             tone: "warning",
             confidence: 97.4,
           },
         ],
         handoverVerdict: "REJECTED_MISMATCH",
-        processedInMs: Date.now() - startTime,
+        processedInMs: Math.max(Date.now() - startTime, simulatedDelay),
       });
     }
 
@@ -207,26 +209,26 @@ Respond strictly with valid JSON without markdown formatting. Format:
           "DAMAGE BREACH DETECTED: While door plaque #744 matches the destination, the parcel has sustained severe transit crushing (impact indicator tripped >4.5G). Handover is REJECTED. Buyer is charged $0.00.",
         boundingBoxes: [
           {
-            label: "OCR: #744 Match",
-            x: 15,
-            y: 28,
-            w: 13,
-            h: 10,
+            label: "OCR: #744 (Match)",
+            x: 15.0,
+            y: 28.0,
+            w: 12.5,
+            h: 9.6,
             tone: "good",
             confidence: 98.9,
           },
           {
-            label: "Breach: Crushed / Ruptured Flap",
-            x: 35,
-            y: 52,
-            w: 28,
-            h: 26,
+            label: "Breach: Crushed Flap",
+            x: 35.0,
+            y: 48.0,
+            w: 27.5,
+            h: 38.0,
             tone: "bad",
             confidence: 97.8,
           },
         ],
         handoverVerdict: "REJECTED_DAMAGED",
-        processedInMs: Date.now() - startTime,
+        processedInMs: Math.max(Date.now() - startTime, simulatedDelay),
       });
     }
 
@@ -249,25 +251,25 @@ Respond strictly with valid JSON without markdown formatting. Format:
         boundingBoxes: [
           {
             label: "OCR: #744 (Verified)",
-            x: 22,
-            y: 28,
-            w: 20,
-            h: 16,
+            x: 20.0,
+            y: 28.0,
+            w: 18.0,
+            h: 15.0,
             tone: "good",
             confidence: 97.4,
           },
           {
-            label: "Parcel: Intact Delivery",
-            x: 46,
-            y: 52,
-            w: 28,
-            h: 30,
+            label: "Parcel: Intact",
+            x: 52.0,
+            y: 56.0,
+            w: 22.0,
+            h: 24.0,
             tone: "good",
             confidence: 96.2,
           },
         ],
         handoverVerdict: "VERIFIED",
-        processedInMs: Date.now() - startTime,
+        processedInMs: Math.max(Date.now() - startTime, simulatedDelay),
       });
     }
 
@@ -288,26 +290,26 @@ Respond strictly with valid JSON without markdown formatting. Format:
         "HANDOVER CERTIFIED: I have verified that door plaque #744 matches the destination address at 744 Maple Street. The parcel is sealed, undamaged, and securely placed on the welcome mat. Safe to capture PayPal hold ($24.00).",
       boundingBoxes: [
         {
-          label: "OCR: #744 Match",
-          x: 17,
-          y: 36,
-          w: 15,
-          h: 11,
+          label: "OCR: #744 (Match)",
+          x: 17.5,
+          y: 36.0,
+          w: 13.75,
+          h: 10.4,
           tone: "good",
           confidence: 99.6,
         },
         {
-          label: "Parcel: Intact on Porch Mat",
-          x: 56,
-          y: 61,
-          w: 18,
-          h: 21,
+          label: "Parcel: Intact",
+          x: 56.25,
+          y: 61.0,
+          w: 15.6,
+          h: 21.0,
           tone: "good",
           confidence: 98.9,
         },
       ],
       handoverVerdict: "VERIFIED",
-      processedInMs: Date.now() - startTime,
+      processedInMs: Math.max(Date.now() - startTime, simulatedDelay),
     });
   } catch (error) {
     return NextResponse.json(

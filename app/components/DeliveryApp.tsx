@@ -39,8 +39,8 @@ type DeliveryOrder = {
 
 type PhotoPreset = {
   id: "correct" | "wrong_door" | "damaged";
-  label: string;
-  subtitle: string;
+  shortLabel: string;
+  tag: string;
   doorNumber: string;
   imagePath: string;
   expectedStatus: "verified" | "mismatch" | "damaged";
@@ -77,24 +77,24 @@ type VisionVerifyResponse = {
 const PHOTO_PRESETS: PhotoPreset[] = [
   {
     id: "correct",
-    label: "Door #744 (Correct Address)",
-    subtitle: "744 Maple St · Brass Numerals · Parcel Intact",
+    shortLabel: "#744 Correct",
+    tag: "VERIFIED",
     doorNumber: "744",
     imagePath: "/delivery/door-744.svg",
     expectedStatus: "verified",
   },
   {
     id: "wrong_door",
-    label: "Door #742 (Wrong House Mismatch)",
-    subtitle: "742 Evergreen Terr · Mismatch (+120m GPS Delta)",
+    shortLabel: "#742 Wrong House",
+    tag: "MISMATCH",
     doorNumber: "742",
     imagePath: "/delivery/door-742.svg",
     expectedStatus: "mismatch",
   },
   {
     id: "damaged",
-    label: "Crushed Carton (Transit Damage)",
-    subtitle: "744 Maple St · Impact Sensor >4.5G · Ruptured Flap",
+    shortLabel: "Transit Damage",
+    tag: "DAMAGED",
     doorNumber: "744",
     imagePath: "/delivery/crushed-box.svg",
     expectedStatus: "damaged",
@@ -339,7 +339,7 @@ export function DeliveryApp() {
           </div>
           <div className="delivery-gps mono">
             <MapPin size={12} />
-            <span>37.7749° N, 122.4194° W · RESIDENTIAL</span>
+            <span>37.7749° N, 122.4194° W</span>
           </div>
         </div>
 
@@ -361,7 +361,7 @@ export function DeliveryApp() {
           <div className="scanner-viewfinder">
             <div className="viewfinder-laser" />
             <div className="viewfinder-content">
-              <QrCode size={36} className="scanner-icon" />
+              <QrCode size={34} className="scanner-icon" />
               <div className="scanner-text-group">
                 <span className="scanner-target-addr mono">TARGET DESTINATION: 744 MAPLE ST (APT 2B)</span>
                 <span className="scanner-inst">Package must be delivered to door #744</span>
@@ -432,18 +432,14 @@ export function DeliveryApp() {
           )}
         </section>
 
-        {/* Step 2: Proof of Delivery Photo */}
+        {/* Step 2: Proof of Delivery Photo & Agent Verification */}
         <section className="delivery-step" aria-label="Step 2: Proof of Delivery Photo">
           <div className="step-label-row">
             <span className="step-num mono">02</span>
             <span className="step-title">DOORSTEP PROOF PHOTO</span>
           </div>
 
-          <p className="photo-instructions">
-            Snap a photo of the doorstep, upload an image, or select a demo scenario to test:
-          </p>
-
-          {/* Direct Photo Capture Buttons */}
+          {/* Direct Photo Input Buttons */}
           <div className="capture-modes-row">
             <label className="capture-option-btn btn-take-photo">
               <Camera size={15} />
@@ -471,30 +467,30 @@ export function DeliveryApp() {
             </label>
           </div>
 
-          {/* Quick Scenario Preset Selector for 1-click test */}
-          <div className="preset-grid" role="radiogroup" aria-label="Delivery Scenario Presets">
-            {PHOTO_PRESETS.map((preset) => {
-              const active = mediaMode === "preset" && selectedPreset.id === preset.id;
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  className={`preset-btn ${active ? "active" : ""} preset-${preset.expectedStatus}`}
-                  onClick={() => handleSelectPreset(preset)}
-                >
-                  <div className="preset-header">
-                    <span className="preset-door mono">#{preset.doorNumber}</span>
-                    <span className="preset-tag mono">{preset.expectedStatus.toUpperCase()}</span>
-                  </div>
-                  <span className="preset-label">{preset.label}</span>
-                </button>
-              );
-            })}
+          {/* Sleek, Compact Scenario Switcher Pills */}
+          <div className="scenario-switcher-bar">
+            <span className="scenario-switcher-label mono">TEST SCENARIO:</span>
+            <div className="scenario-pills-row" role="radiogroup" aria-label="Delivery Test Scenarios">
+              {PHOTO_PRESETS.map((preset) => {
+                const active = mediaMode === "preset" && selectedPreset.id === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    className={`scenario-pill ${active ? "active" : ""} pill-${preset.expectedStatus}`}
+                    onClick={() => handleSelectPreset(preset)}
+                  >
+                    <span className="pill-dot" />
+                    <span className="pill-name">{preset.shortLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* High-Fidelity Photo Preview with OCR HUD Overlays */}
+          {/* High-Fidelity Photo Preview with Pixel-Accurate Computer Vision HUD */}
           <div className={`vision-viewfinder-frame ${isAnalyzing ? "is-analyzing" : ""}`}>
             {/* Top Viewfinder Metadata Header */}
             <div className="viewfinder-telemetry-strip">
@@ -504,8 +500,8 @@ export function DeliveryApp() {
                   {mediaMode === "camera"
                     ? "DEVICE CAMERA SNAPSHOT"
                     : mediaMode === "upload"
-                    ? `IMAGE FILE: ${customPhotoName || "CUSTOM"}`
-                    : `DOORSTEP ARCHIVE · SCENARIO #${selectedPreset.doorNumber}`}
+                    ? `IMAGE: ${customPhotoName || "CUSTOM"}`
+                    : `SCENARIO: ${selectedPreset.shortLabel.toUpperCase()}`}
                 </span>
               </div>
               <div className="viewfinder-hud-meta mono">
@@ -513,7 +509,7 @@ export function DeliveryApp() {
               </div>
             </div>
 
-            {/* Media Layer (Doorstep Photo Preview) */}
+            {/* Media Layer (Exact 16:10 Aspect Ratio Container) */}
             <div className="viewfinder-media-container">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -539,30 +535,36 @@ export function DeliveryApp() {
                 </div>
               )}
 
-              {/* Computer Vision Bounding Boxes Overlay */}
+              {/* Computer Vision Bounding Boxes with Auto-Aligning Tags (Never Cut Off) */}
               {!isAnalyzing &&
-                visionResult?.boundingBoxes?.map((box, idx) => (
-                  <div
-                    key={idx}
-                    className={`hud-bbox hud-bbox-${box.tone}`}
-                    style={{
-                      left: `${box.x}%`,
-                      top: `${box.y}%`,
-                      width: `${box.w}%`,
-                      height: `${box.h}%`,
-                    }}
-                  >
-                    <span className="bbox-corner tl" />
-                    <span className="bbox-corner tr" />
-                    <span className="bbox-corner bl" />
-                    <span className="bbox-corner br" />
-                    <div className="bbox-tag mono">
-                      <span className="bbox-dot" />
-                      <span className="bbox-name">{box.label}</span>
-                      <span className="bbox-conf">{box.confidence.toFixed(1)}%</span>
+                visionResult?.boundingBoxes?.map((box, idx) => {
+                  const isRightSide = box.x > 50;
+                  return (
+                    <div
+                      key={idx}
+                      className={`hud-bbox hud-bbox-${box.tone}`}
+                      style={{
+                        left: `${box.x}%`,
+                        top: `${box.y}%`,
+                        width: `${box.w}%`,
+                        height: `${box.h}%`,
+                      }}
+                    >
+                      <span className="bbox-corner tl" />
+                      <span className="bbox-corner tr" />
+                      <span className="bbox-corner bl" />
+                      <span className="bbox-corner br" />
+                      <div
+                        className="bbox-tag mono"
+                        style={isRightSide ? { right: -2, left: "auto" } : { left: -2, right: "auto" }}
+                      >
+                        <span className="bbox-dot" />
+                        <span className="bbox-name">{box.label}</span>
+                        <span className="bbox-conf">{box.confidence.toFixed(0)}%</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
 
@@ -571,11 +573,11 @@ export function DeliveryApp() {
             <div className="telemetry-top-strip">
               <div className="telemetry-source">
                 <Bot size={14} />
-                <span className="mono">AUTONOMOUS VERIFICATION AGENT AUDIT</span>
+                <span className="mono">AGENT VERIFICATION AUDIT</span>
               </div>
               <div className="telemetry-latency mono">
                 <Clock size={12} />
-                <span>{visionResult?.processedInMs ?? 320}ms</span>
+                <span>{visionResult?.processedInMs ?? 340}ms</span>
               </div>
             </div>
 
@@ -583,29 +585,27 @@ export function DeliveryApp() {
             <div className="telemetry-grid">
               <div className="telemetry-cell">
                 <span className="telemetry-label mono">ORDER DESTINATION</span>
-                <span className="telemetry-val">#744 Maple St (Apt 2B)</span>
+                <span className="telemetry-val">#744 Maple St</span>
               </div>
 
               <div className="telemetry-cell">
-                <span className="telemetry-label mono">OCR DOOR NUMBER DETECTED</span>
-                <span className="telemetry-val mono">
-                  {visionResult ? (
-                    <>
-                      #{visionResult.detectedDoorNumber ?? "NOT FOUND"}
-                      <span
-                        className={`mini-pill ${visionResult.isDoorMatch ? "pill-good" : "pill-bad"}`}
-                      >
-                        {visionResult.isDoorMatch ? "MATCH #744" : "MISMATCH"}
-                      </span>
-                    </>
-                  ) : (
-                    "Auditing..."
+                <span className="telemetry-label mono">OCR DOOR NUMBER</span>
+                <div className="telemetry-val-group">
+                  <span className="telemetry-val mono">
+                    #{visionResult?.detectedDoorNumber ?? "---"}
+                  </span>
+                  {visionResult && (
+                    <span
+                      className={`mini-pill ${visionResult.isDoorMatch ? "pill-good" : "pill-bad"}`}
+                    >
+                      {visionResult.isDoorMatch ? "MATCH #744" : "MISMATCH"}
+                    </span>
                   )}
-                </span>
+                </div>
               </div>
 
               <div className="telemetry-cell">
-                <span className="telemetry-label mono">DELIVERY LOCATION CHECK</span>
+                <span className="telemetry-label mono">LOCATION AUDIT</span>
                 <span className="telemetry-val mono">
                   {visionResult ? (
                     visionResult.isDoorMatch ? (
@@ -614,31 +614,29 @@ export function DeliveryApp() {
                       <span style={{ color: "#FF7B72" }}>WRONG HOUSE (+120m)</span>
                     )
                   ) : (
-                    "Checking..."
+                    "Auditing..."
                   )}
                 </span>
               </div>
 
               <div className="telemetry-cell">
                 <span className="telemetry-label mono">PARCEL INTEGRITY</span>
-                <span className="telemetry-val mono">
-                  {visionResult ? (
-                    <>
-                      {visionResult.packageCondition.toUpperCase()}
-                      <span
-                        className={`mini-pill ${visionResult.packageCondition === "damaged" ? "pill-bad" : "pill-good"}`}
-                      >
-                        {visionResult.packageCondition === "damaged" ? "BREACH >4.5G" : "INTACT"}
-                      </span>
-                    </>
-                  ) : (
-                    "Inspecting..."
+                <div className="telemetry-val-group">
+                  <span className="telemetry-val mono">
+                    {visionResult?.packageCondition.toUpperCase() ?? "INSPECTING"}
+                  </span>
+                  {visionResult && (
+                    <span
+                      className={`mini-pill ${visionResult.packageCondition === "damaged" ? "pill-bad" : "pill-good"}`}
+                    >
+                      {visionResult.packageCondition === "damaged" ? "BREACH >4.5G" : "INTACT"}
+                    </span>
                   )}
-                </span>
+                </div>
               </div>
             </div>
 
-            {/* Autonomous Agent Direct Assessment */}
+            {/* Autonomous Agent Direct Assessment Statement */}
             {visionResult?.agentAssessment && (
               <div className="telemetry-evidence-box">
                 <div className="agent-statement-header">
