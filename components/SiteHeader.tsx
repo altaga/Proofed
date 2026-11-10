@@ -11,7 +11,7 @@ const LINKS = [
   { href: "/demo", label: "Presenter" },
 ];
 
-export function SiteHeader({ name }: { name: string; tagline?: string }) {
+export function SiteHeader({ name, tagline }: { name: string; tagline?: string }) {
   const pathname = usePathname();
   return (
     <header className="topbar">
@@ -19,7 +19,10 @@ export function SiteHeader({ name }: { name: string; tagline?: string }) {
         <span className="mark" aria-hidden="true">
           <span className="mark-notch" />
         </span>
-        <h1>{name}</h1>
+        <span className="brand-copy">
+          <h1>{name}</h1>
+          {tagline ? <p className="tagline">Authorize now. Capture after proof.</p> : null}
+        </span>
       </Link>
       <nav className="nav" aria-label="Primary">
         {LINKS.map((link) => {

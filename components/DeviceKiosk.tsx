@@ -1,11 +1,12 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Ban, CircleAlert, RefreshCcw } from "lucide-react";
+import { Check, RefreshCcw, X } from "lucide-react";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
 import { TransactionPanel } from "./TransactionPanel";
 import { Toast } from "./Toast";
+import { MoneyLedger } from "./MoneyLedger";
 
 type PublicOrder = {
   id: string;
@@ -199,7 +200,9 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
       <Toast message={toast} tone="ok" />
       {screen === "success" && result && (
         <div className="kiosk-result success">
+          <div className="kiosk-burst ok" aria-hidden="true"><Check size={40} strokeWidth={3.2} /></div>
           <h2>Captured</h2>
+          {compact ? <MoneyLedger order={result} /> : null}
           <p className="oknote">{result.id} is now <span className={`status ${result.status}`}>{result.status}</span>. Total {result.formatted_total}.</p>
           <div className="actions">
             <button className="primary" onClick={reset}>Next customer</button>
@@ -208,7 +211,7 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
       )}
       {screen === "closed" && result && (
         <div className="kiosk-result failure">
-          <Ban size={22} />
+          <div className="kiosk-burst bad" aria-hidden="true"><X size={40} strokeWidth={3.2} /></div>
           <h2>Hold released</h2>
           <p className="oknote">{result.id} is now <span className={`status ${result.status}`}>{result.status}</span>.</p>
           {message && <p>{message}</p>}
@@ -218,6 +221,7 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
               Approve the new PayPal authorization in Shop.
             </div>
           )}
+          {compact ? <MoneyLedger order={result} /> : null}
           <div className="actions" style={{ justifyContent: "center" }}>
             <button className="primary lg" onClick={reset}>Next customer</button>
           </div>
@@ -226,7 +230,7 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
 
       {screen === "failed" && result && (
         <div className="kiosk-result failure">
-          <CircleAlert size={22} />
+          <div className="kiosk-burst bad" aria-hidden="true"><X size={40} strokeWidth={3.2} /></div>
           <h2>Handover failed</h2>
           <p className="oknote">
             {result.id} is now <span className={`status ${result.status}`}>{result.status}</span>
@@ -274,13 +278,28 @@ export function DeviceKiosk({ compact = false, showReceipt }: { compact?: boolea
           <section className="card">
             <h3>Scan or type pickup code</h3>
             <form onSubmit={(event: FormEvent) => event.preventDefault()}>
-              <input
-                className="kiosk-code"
-                value={code}
-                maxLength={8}
-                placeholder="Enter 6-character code"
-                onChange={(event) => setCode(event.target.value.toUpperCase())}
-              />
+              <div className="code-entry">
+                <div className="code-boxes" aria-hidden="true">
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <span
+                      key={index}
+                      className={`code-box${code[index] ? " filled" : ""}${code.length === index ? " caret" : ""}`}
+                    >
+                      {code[index] || ""}
+                    </span>
+                  ))}
+                </div>
+                <input
+                  className="kiosk-code"
+                  value={code}
+                  maxLength={6}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-label="Pickup code"
+                  placeholder="Enter 6-character code"
+                  onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
+                />
+              </div>
               <textarea
                 className="field"
                 style={{ width: "100%", marginTop: 12, minHeight: 72 }}

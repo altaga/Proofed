@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { approveOnPaypal, redactSecrets, resolveApprovalLink, safeScreenshot } from "./helpers";
 
 const outDir = path.join(process.cwd(), "docs", "screenshots");
@@ -11,10 +12,26 @@ test.beforeAll(() => {
   mkdirSync(outDir, { recursive: true });
 });
 
-async function snap(page: import("@playwright/test").Page, name: string) {
+async function snap(page: Page, name: string) {
   const dest = path.join(outDir, `${name}.png`);
   await page.screenshot({ path: dest, fullPage: false });
   return dest;
+}
+
+async function assertContrast(page: Page, label: string) {
+  const results = await new AxeBuilder({ page })
+    .options({ runOnly: { type: "rule", values: ["color-contrast"] } })
+    .analyze();
+  const details = results.violations.map((violation) => ({
+    id: violation.id,
+    impact: violation.impact,
+    nodes: violation.nodes.map((node) => ({
+      target: node.target,
+      html: node.html.slice(0, 180),
+      failureSummary: node.failureSummary,
+    })),
+  }));
+  expect(details, `${label} contrast: ${JSON.stringify(details, null, 2)}`).toEqual([]);
 }
 
 async function jsonFetch(request: APIRequestContext, url: string, init?: { method?: string; data?: unknown }) {
@@ -44,6 +61,7 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
     // Still capture the shop layout if the model is slow or unavailable.
   }
   await snap(page, "shop");
+  await assertContrast(page, "shop");
 
   if (havePaypal && haveBuyer) {
     const created = await jsonFetch(request, "/api/orders", {
@@ -83,6 +101,7 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
     await expect(page.getByTestId("transaction-panel")).toBeVisible();
     await page.waitForTimeout(700);
     await snap(page, "device");
+    await assertContrast(page, "device");
 
     await page.goto("/merchant");
     await expect(page.getByTestId("page-merchant")).toBeVisible();
@@ -93,10 +112,12 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
     await expect(page.getByTestId("order-drawer").getByText("Event log")).toBeVisible();
     await expect(page.getByTestId("order-drawer").locator(".agent-step").first()).toBeVisible();
     await snap(page, "merchant");
+    await assertContrast(page, "merchant");
   } else {
     await page.goto("/device");
     await expect(page.getByTestId("page-pickup")).toBeVisible();
     await snap(page, "device");
+    await assertContrast(page, "device");
 
     if (havePaypal) {
       await jsonFetch(request, "/api/orders", {
@@ -108,6 +129,7 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
     await expect(page.getByTestId("page-merchant")).toBeVisible();
     await page.waitForTimeout(600);
     await snap(page, "merchant");
+    await assertContrast(page, "merchant");
   }
 
   await page.goto("/demo");
@@ -116,4 +138,5 @@ test("captures populated shop, device, merchant, and presenter views", async ({ 
   await expect(page.getByTestId("transaction-panel")).toBeVisible();
   await page.waitForTimeout(1500);
   await snap(page, "demo");
+  await assertContrast(page, "demo");
 });

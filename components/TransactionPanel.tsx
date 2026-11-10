@@ -103,11 +103,12 @@ export function TransactionPanel({
   const amount = order?.formatted_total || quote?.formatted_total || "—";
 
   const quoteSteps = [
-    { key: "quote", label: "Quote", state: "current", actor: "Agent" },
-    { key: "hold", label: "Hold placed", state: "pending" },
-    { key: "handover", label: "Handover verified", state: "pending" },
-    { key: "captured", label: "Captured", state: "pending" },
+    { key: "quote", label: "Quote", state: "current" as const, actor: "Agent", timestamp: undefined as string | undefined, paypalId: undefined as string | undefined, paypalHref: undefined as string | undefined, note: "Priced from the catalog, not the model" },
+    { key: "hold", label: "Hold placed", state: "pending" as const },
+    { key: "handover", label: "Handover verified", state: "pending" as const },
+    { key: "captured", label: "Captured", state: "pending" as const },
   ];
+  const rendered = order ? steps : quote ? quoteSteps : [];
 
   return (
     <section
@@ -131,37 +132,19 @@ export function TransactionPanel({
         </div>
       )}
 
-      {order && (
-        <ol className="tx-stepper" aria-label="Payment steps">
-          {steps.map((step) => (
-            <li key={step.key} className={`tx-step ${step.state} ${step.key}`} data-key={step.key}>
+      {rendered.length > 0 && (
+        <ol className={`tx-stepper${compact ? " tx-stepper-h" : ""}`} aria-label="Payment steps">
+          {rendered.map((step) => (
+            <li key={step.key} className={`tx-step ${step.state} ${"key" in step ? step.key : ""}`} data-key={step.key}>
               <span className="tx-dot" aria-hidden="true" />
-              <div>
+              <div className="tx-step-body">
                 <strong>{step.label}</strong>
                 <div className="tx-meta">
-                  {step.timestamp ? <time dateTime={step.timestamp}>{formatWhen(step.timestamp)}</time> : <span>Pending</span>}
-                  <ActorBadge actor={step.actor} />
+                  {"timestamp" in step && step.timestamp ? <time dateTime={step.timestamp}>{formatWhen(step.timestamp)}</time> : <span>{step.state === "current" ? "Now" : step.state === "pending" ? "Pending" : ""}</span>}
+                  {"actor" in step && step.actor ? <ActorBadge actor={step.actor} /> : null}
                 </div>
-                {step.paypalId && step.paypalHref ? <Copyable value={step.paypalId} href={step.paypalHref} compact={compact} /> : null}
-                {step.note ? <div className="tx-note">{step.note}</div> : null}
-              </div>
-            </li>
-          ))}
-        </ol>
-      )}
-
-      {!order && quote && (
-        <ol className="tx-stepper" aria-label="Payment steps">
-          {quoteSteps.map((step) => (
-            <li key={step.key} className={`tx-step ${step.state} ${step.key}`} data-key={step.key}>
-              <span className="tx-dot" aria-hidden="true" />
-              <div>
-                <strong>{step.label}</strong>
-                <div className="tx-meta">
-                  <span>{step.state === "current" ? "Now" : "Pending"}</span>
-                  {step.actor ? <ActorBadge actor={step.actor} /> : null}
-                </div>
-                {step.key === "quote" ? <div className="tx-note">Priced from the catalog, not the model</div> : null}
+                {"paypalId" in step && step.paypalId && "paypalHref" in step && step.paypalHref ? <Copyable value={step.paypalId} href={step.paypalHref} compact={compact} /> : null}
+                {"note" in step && step.note ? <div className="tx-note">{step.note}</div> : null}
               </div>
             </li>
           ))}
