@@ -124,6 +124,9 @@ CREATE INDEX IF NOT EXISTS idx_reservations_order ON stock_reservations(order_id
 type GlobalDb = typeof globalThis & { __proofedDb?: DatabaseSync; __proofedDbPath?: string };
 
 function resolveDbPath(): string {
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return path.join("/tmp", "app.sqlite");
+  }
   if (process.env.SQLITE_PATH) return process.env.SQLITE_PATH;
   return path.join(process.cwd(), "data", "app.sqlite");
 }
@@ -136,7 +139,11 @@ export function getDb(): DatabaseSync {
     mkdirSync(path.dirname(dbPath), { recursive: true });
   }
   const db = new DatabaseSync(dbPath);
-  db.exec("PRAGMA journal_mode = WAL;");
+  try {
+    db.exec("PRAGMA journal_mode = WAL;");
+  } catch {
+    db.exec("PRAGMA journal_mode = MEMORY;");
+  }
   db.exec("PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA);
   g.__proofedDb = db;

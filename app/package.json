@@ -2,6 +2,9 @@
   "name": "proofed",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "description": "Authorize now. Capture only after proof of handover.",
   "scripts": {
     "dev": "next dev -p 3000",

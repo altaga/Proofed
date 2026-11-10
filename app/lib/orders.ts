@@ -545,7 +545,8 @@ export function storeEvidence(input: {
       photoSha = createHash("sha256").update(buffer).digest("hex");
       photoMime = input.photoMime || "application/octet-stream";
       photoBytes = buffer.length;
-      const dir = path.join(process.cwd(), "data", "evidence");
+      const evidenceBase = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME ? "/tmp" : process.cwd();
+      const dir = path.join(evidenceBase, "data", "evidence");
       mkdirSync(dir, { recursive: true });
       const ext = photoMime.includes("png") ? "png" : photoMime.includes("jpeg") || photoMime.includes("jpg") ? "jpg" : "bin";
       writeFileSync(path.join(dir, `${photoSha}.${ext}`), buffer);
@@ -1288,8 +1289,8 @@ export function parseRequestedItems(items: unknown): RequestedItem[] {
 export function seedDemoHeldOrder(input?: { sku?: string; note?: string }): OrderDetails {
   const cfg = getProjectConfig();
   const sku = input?.sku || "DC-KEY-01";
-  const quote = quoteItems([{ sku, qty: 1 }], 2000, cfg.currency);
-  if (!quote.ok) throw new Error("Could not quote item for demo seed");
+  const quote = quoteItems([{ sku, qty: 1 }], undefined, cfg.currency);
+  if (!quote.ok) throw new Error("Could not quote item for demo seed: " + (quote.errors?.join(", ") || "unknown"));
   const orderId = newId("ord");
   const pickupCode = newPickupCode();
   const now = nowIso();
@@ -1310,7 +1311,7 @@ export function seedDemoHeldOrder(input?: { sku?: string; note?: string }): Orde
       .run({
         id: orderId,
         note: input?.note || "Demo Crisis Simulation Order",
-        budget: 2000,
+        budget: quote.subtotal_cents,
         currency: cfg.currency,
         subtotal: quote.subtotal_cents,
         pickup: pickupCode,
