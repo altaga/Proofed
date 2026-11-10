@@ -78,18 +78,17 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
       <header className="demo-hero-banner">
         <div className="demo-hero-main">
           <div className="demo-hero-badge">
-            <span className="pulse-dot" />
             <h2 className="demo-hero-presenter">Presenter</h2>
             <span className="badge-sep">·</span>
-            <span>PAYPAL AI HACKATHON 2026 · PHYSICAL AGENTIC COMMERCE</span>
+            <span>Conditional settlement walkthrough</span>
           </div>
           <h1 className="demo-hero-title">
-            Proofed: Authorize Now. Capture Only After Proof of Handover.
+            Authorize first. Capture only after handoff.
           </h1>
           <p className="demo-hero-lede">
             {deliveryMode === "home"
-              ? "When an autonomous AI agent delivers a package to a home, merchants must never charge before proof of doorstep drop. Proofed places a temporary PayPal hold and captures funds only when the delivery camera or homeowner PIN verifies handover."
-              : "In stadiums and micro-kiosks, an AI agent must never charge a customer before physical collection. Proofed places a PayPal temporary hold and captures funds only when the locker terminal verifies handover evidence."}
+              ? "For residential deliveries, Proofed places a PayPal authorization hold and captures funds only once the doorstep photo and address match."
+              : "For locker pickups, Proofed places a PayPal authorization hold and captures funds only when the bay confirms collection."}
           </p>
         </div>
 
@@ -102,14 +101,14 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
             title="Reset catalog and clear test orders"
           >
             <RotateCcw size={15} className={resetting ? "spin" : ""} />
-            <span>{resetting ? "Resetting..." : "Reset Demo State"}</span>
+            <span>{resetting ? "Resetting…" : "Reset demo"}</span>
           </button>
         </div>
       </header>
 
       {/* Scenario Mode Switcher */}
       <div className="demo-mode-switcher-row">
-        <span className="mode-switcher-label">DEMO SCENARIO MODE:</span>
+        <span className="mode-switcher-label">Mode</span>
         <div className="mode-switcher-pills" role="tablist">
           <button
             type="button"
@@ -117,7 +116,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
             onClick={() => setDeliveryMode("venue")}
           >
             <Building2 size={15} />
-            <span>Stadium / Venue Smart Locker</span>
+            <span>Venue locker</span>
           </button>
           <button
             type="button"
@@ -125,51 +124,49 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
             onClick={() => setDeliveryMode("home")}
           >
             <Home size={15} />
-            <span>Residential Home Delivery (Doorstep Drop)</span>
+            <span>Home delivery</span>
           </button>
         </div>
       </div>
 
-      {/* Real-time PayPal Buyer Wallet Card */}
+      {/* PayPal Buyer Wallet Card */}
       <section className="live-wallet-widget" aria-label="Buyer PayPal Wallet Balance">
         <div className="wallet-widget-header">
           <div className="wallet-badge-group">
             <span className="wallet-icon">P</span>
-            <span className="wallet-title">BUYER PAYPAL WALLET · REAL-TIME BALANCE SIMULATION</span>
+            <span className="wallet-title">Buyer PayPal wallet</span>
           </div>
           <span className="wallet-account mono">buyer-sandbox@proofed.dev</span>
         </div>
         <div className="wallet-grid">
           <div className="wallet-cell">
-            <span className="wallet-cell-label">TOTAL ACCOUNT BALANCE</span>
+            <span className="wallet-cell-label">Balance</span>
             <span className="wallet-cell-val mono">$250.00</span>
-            <span className="wallet-cell-sub">Buyer credit limit / balance</span>
+            <span className="wallet-cell-sub">Total balance</span>
           </div>
           <div className={`wallet-cell ${isHeld ? "cell-hold-active" : ""}`}>
-            <span className="wallet-cell-label">
-              {isHeld ? "ACTIVE PAYPAL HOLD" : "ACTIVE PAYPAL HOLD"}
-            </span>
+            <span className="wallet-cell-label">Active hold</span>
             <span className="wallet-cell-val mono">
               {isHeld ? `-${latest.formatted_total}` : "$0.00"}
             </span>
             <span className="wallet-cell-sub">
-              {isHeld ? "Held via Orders v2 · $0 charged yet" : "Zero active holds"}
+              {isHeld ? "Authorized · $0.00 charged" : "No active holds"}
             </span>
           </div>
           <div className="wallet-cell">
-            <span className="wallet-cell-label">AVAILABLE CAPITAL</span>
+            <span className="wallet-cell-label">Available</span>
             <span className="wallet-cell-val mono">
               {isHeld ? `$${(250 - (parseFloat(latest.formatted_total.replace(/[^0-9.]/g, '')) || 0)).toFixed(2)}` : "$250.00"}
             </span>
-            <span className="wallet-cell-sub">Safe unencumbered funds</span>
+            <span className="wallet-cell-sub">Unencumbered funds</span>
           </div>
           <div className={`wallet-cell ${isCaptured ? "cell-captured-active" : ""}`}>
-            <span className="wallet-cell-label">SETTLED CHARGES</span>
+            <span className="wallet-cell-label">Captured</span>
             <span className="wallet-cell-val mono">
               {isCaptured ? latest.formatted_total : "$0.00"}
             </span>
             <span className="wallet-cell-sub">
-              {isCaptured ? "Debited post-handover" : "$0 debited"}
+              {isCaptured ? "Settled after handoff" : "$0.00 debited"}
             </span>
           </div>
         </div>

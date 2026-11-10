@@ -77,24 +77,24 @@ type VisionVerifyResponse = {
 const PHOTO_PRESETS: PhotoPreset[] = [
   {
     id: "correct",
-    shortLabel: "#744 Correct",
-    tag: "VERIFIED",
+    shortLabel: "Door #744",
+    tag: "Match",
     doorNumber: "744",
     imagePath: "/delivery/door-744.svg",
     expectedStatus: "verified",
   },
   {
     id: "wrong_door",
-    shortLabel: "#742 Wrong House",
-    tag: "MISMATCH",
+    shortLabel: "Door #742",
+    tag: "Mismatch",
     doorNumber: "742",
     imagePath: "/delivery/door-742.svg",
     expectedStatus: "mismatch",
   },
   {
     id: "damaged",
-    shortLabel: "Transit Damage",
-    tag: "DAMAGED",
+    shortLabel: "Damaged box",
+    tag: "Damaged",
     doorNumber: "744",
     imagePath: "/delivery/crushed-box.svg",
     expectedStatus: "damaged",
@@ -278,9 +278,9 @@ export function DeliveryApp() {
         setActiveOrder(payload.order);
         setFeedback({
           tone: "success",
-          title: "Handover Certified · Payment Captured",
-          message: `Package successfully delivered to #744 Maple Street. The AI agent verified the house number plate and intact parcel condition (${visionResult?.confidence.toFixed(1)}% confidence).`,
-          paypalDetail: `PayPal Payments v2 /capture executed. Captured ${payload.order.formatted_total}.`,
+          title: "Delivery confirmed · Payment captured",
+          message: `Package delivered to #744 Maple Street. House number and parcel condition verified (${visionResult?.confidence.toFixed(1)}%).`,
+          paypalDetail: `PayPal capture completed (${payload.order.formatted_total}).`,
         });
       } else {
         // Failed handover (wrong door, missing package, or damaged): locks capture, leaves hold intact
@@ -298,7 +298,7 @@ export function DeliveryApp() {
             orderId: activeOrder?.id,
             pickupCode: code,
             reason,
-            note: `AI Agent Rejection: ${visionResult?.agentAssessment || visionResult?.visualEvidence || "Handover conditions not met"}`,
+            note: `Verification rejected: ${visionResult?.agentAssessment || visionResult?.visualEvidence || "Handover conditions not met"}`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
           }),
@@ -308,9 +308,9 @@ export function DeliveryApp() {
         setActiveOrder(payload.order);
         setFeedback({
           tone: "failure",
-          title: "Handover Rejected · Zero-Capture Safety Lock Engaged",
-          message: `Delivery blocked by AI agent: ${visionResult?.visualEvidence || "Address mismatch detected"}. Capture permanently locked. Customer was charged $0.00.`,
-          paypalDetail: `PayPal hold remains active. Autonomous agent notified to offer customer replacement or refund.`,
+          title: "Delivery blocked · $0.00 charged",
+          message: `${visionResult?.visualEvidence || "Address mismatch detected"} Capture remains locked so the buyer is not charged.`,
+          paypalDetail: `PayPal hold remains active until resolved in chat or released.`,
           recoveryAction: true,
         });
       }
@@ -331,23 +331,23 @@ export function DeliveryApp() {
     <div className="delivery-container">
       {/* Handheld Courier Device Shell */}
       <div className="delivery-card">
-        {/* Top Hardware Telemetry Bar */}
+        {/* Top Bar */}
         <div className="delivery-top-bar">
           <div className="courier-badge">
             <span className="courier-pulse" />
-            <span className="courier-id mono">COURIER UNIT #09 · ROUTE 4B</span>
+            <span className="courier-id">Courier · Route 4B</span>
           </div>
           <div className="delivery-gps mono">
             <MapPin size={12} />
-            <span>37.7749° N, 122.4194° W</span>
+            <span>744 Maple St</span>
           </div>
         </div>
 
         {/* Header Title */}
         <div className="delivery-header">
-          <h2>Doorstep Delivery Terminal</h2>
+          <h2>Delivery handoff</h2>
           <p className="delivery-subtitle">
-            Snap delivery photo. The autonomous agent identifies the door number and confirms the correct destination before PayPal funds are captured.
+            Scan the parcel and photograph the doorstep. Funds are captured once the address and package condition are confirmed.
           </p>
         </div>
 
@@ -355,18 +355,7 @@ export function DeliveryApp() {
         <section className="delivery-step" aria-label="Step 1: Scan Package Label">
           <div className="step-label-row">
             <span className="step-num mono">01</span>
-            <span className="step-title">SCAN PARCEL MANIFEST</span>
-          </div>
-
-          <div className="scanner-viewfinder">
-            <div className="viewfinder-laser" />
-            <div className="viewfinder-content">
-              <QrCode size={34} className="scanner-icon" />
-              <div className="scanner-text-group">
-                <span className="scanner-target-addr mono">TARGET DESTINATION: 744 MAPLE ST (APT 2B)</span>
-                <span className="scanner-inst">Package must be delivered to door #744</span>
-              </div>
-            </div>
+            <span className="step-title">Parcel</span>
           </div>
 
           <div className="scan-actions-row">
@@ -374,7 +363,7 @@ export function DeliveryApp() {
               <input
                 type="text"
                 className="delivery-code-input mono"
-                placeholder="PARCEL CODE (e.g. K9Z2X7)"
+                placeholder="Parcel code (e.g. K9Z2X7)"
                 value={trackingInput}
                 maxLength={6}
                 onChange={(e) => setTrackingInput(e.target.value.toUpperCase().slice(0, 6))}
@@ -389,7 +378,7 @@ export function DeliveryApp() {
               title="Generate a new active order ready for delivery"
             >
               <RefreshCw size={14} className={isSubmitting ? "spin" : ""} />
-              <span>New Package</span>
+              <span>New parcel</span>
             </button>
           </div>
 
@@ -397,23 +386,23 @@ export function DeliveryApp() {
           {activeOrder && (
             <div className="manifest-card">
               <div className="manifest-row">
-                <span className="manifest-label">ORDER ID</span>
+                <span className="manifest-label">Order</span>
                 <span className="manifest-value mono">{activeOrder.id}</span>
               </div>
               <div className="manifest-row">
-                <span className="manifest-label">DESTINATION</span>
-                <span className="manifest-value mono" style={{ color: "#FF7A3D", fontWeight: 700 }}>
-                  #744 MAPLE STREET, APT 2B
+                <span className="manifest-label">Address</span>
+                <span className="manifest-value mono" style={{ color: "#F4F1EA", fontWeight: 600 }}>
+                  744 Maple St, Apt 2B
                 </span>
               </div>
               <div className="manifest-row">
-                <span className="manifest-label">HOLD AMOUNT</span>
+                <span className="manifest-label">Hold</span>
                 <span className="manifest-value manifest-amount mono">
-                  {activeOrder.formatted_total} <span className="hold-pill">HELD · $0.00 CHARGED</span>
+                  {activeOrder.formatted_total} <span className="hold-pill">Held · $0.00 charged</span>
                 </span>
               </div>
               <div className="manifest-row">
-                <span className="manifest-label">STATUS</span>
+                <span className="manifest-label">Status</span>
                 <span className={`status-badge status-${activeOrder.status.toLowerCase()} mono`}>
                   {activeOrder.status}
                 </span>
@@ -432,18 +421,18 @@ export function DeliveryApp() {
           )}
         </section>
 
-        {/* Step 2: Proof of Delivery Photo & Agent Verification */}
+        {/* Step 2: Proof of Delivery Photo & Verification */}
         <section className="delivery-step" aria-label="Step 2: Proof of Delivery Photo">
           <div className="step-label-row">
             <span className="step-num mono">02</span>
-            <span className="step-title">DOORSTEP PROOF PHOTO</span>
+            <span className="step-title">Doorstep photo</span>
           </div>
 
           {/* Direct Photo Input Buttons */}
           <div className="capture-modes-row">
             <label className="capture-option-btn btn-take-photo">
               <Camera size={15} />
-              <span>Take Photo</span>
+              <span>Take photo</span>
               <input
                 ref={cameraInputRef}
                 type="file"
@@ -456,7 +445,7 @@ export function DeliveryApp() {
 
             <label className="capture-option-btn upload-btn">
               <Upload size={15} />
-              <span>{customPhotoName ? `Photo: ${customPhotoName}` : "Upload Photo"}</span>
+              <span>{customPhotoName ? customPhotoName : "Upload photo"}</span>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -467,9 +456,9 @@ export function DeliveryApp() {
             </label>
           </div>
 
-          {/* Sleek, Compact Scenario Switcher Pills */}
+          {/* Scenario Switcher Pills */}
           <div className="scenario-switcher-bar">
-            <span className="scenario-switcher-label mono">TEST SCENARIO:</span>
+            <span className="scenario-switcher-label">Sample photo</span>
             <div className="scenario-pills-row" role="radiogroup" aria-label="Delivery Test Scenarios">
               {PHOTO_PRESETS.map((preset) => {
                 const active = mediaMode === "preset" && selectedPreset.id === preset.id;
@@ -490,26 +479,24 @@ export function DeliveryApp() {
             </div>
           </div>
 
-          {/* High-Fidelity Photo Preview with Pixel-Accurate Computer Vision HUD */}
+          {/* Photo Preview with Bounding Boxes */}
           <div className={`vision-viewfinder-frame ${isAnalyzing ? "is-analyzing" : ""}`}>
-            {/* Top Viewfinder Metadata Header */}
             <div className="viewfinder-telemetry-strip">
               <div className="viewfinder-hud-status">
                 <span className="hud-dot dot-archive" />
-                <span className="mono">
+                <span>
                   {mediaMode === "camera"
-                    ? "DEVICE CAMERA SNAPSHOT"
+                    ? "Camera photo"
                     : mediaMode === "upload"
-                    ? `IMAGE: ${customPhotoName || "CUSTOM"}`
-                    : `SCENARIO: ${selectedPreset.shortLabel.toUpperCase()}`}
+                    ? customPhotoName || "Uploaded photo"
+                    : selectedPreset.shortLabel}
                 </span>
               </div>
               <div className="viewfinder-hud-meta mono">
-                <span>{visionResult ? `${visionResult.confidence.toFixed(1)}% CONFIDENCE` : "READY"}</span>
+                <span>{visionResult ? `${visionResult.confidence.toFixed(1)}%` : "Ready"}</span>
               </div>
             </div>
 
-            {/* Media Layer (Exact 16:10 Aspect Ratio Container) */}
             <div className="viewfinder-media-container">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -518,24 +505,15 @@ export function DeliveryApp() {
                 className="viewfinder-media"
               />
 
-              {/* Optical Corner Reticles */}
-              <div className="reticle-corner reticle-tl" />
-              <div className="reticle-corner reticle-tr" />
-              <div className="reticle-corner reticle-bl" />
-              <div className="reticle-corner reticle-br" />
-
-              {/* Scanning Laser Bar (Visible while AI Agent is inspecting) */}
               {isAnalyzing && (
                 <div className="vision-laser-sweep-overlay" aria-live="polite">
-                  <div className="vision-laser-sweep" />
                   <div className="vision-scanning-pill mono">
-                    <Cpu size={14} className="spin" />
-                    <span>AGENT INSPECTING HOUSE NUMBER & PARCEL...</span>
+                    <RefreshCw size={13} className="spin" />
+                    <span>Checking house number and parcel…</span>
                   </div>
                 </div>
               )}
 
-              {/* Computer Vision Bounding Boxes with Auto-Aligning Tags (Never Cut Off) */}
               {!isAnalyzing &&
                 visionResult?.boundingBoxes?.map((box, idx) => {
                   const isRightSide = box.x > 50;
@@ -550,10 +528,6 @@ export function DeliveryApp() {
                         height: `${box.h}%`,
                       }}
                     >
-                      <span className="bbox-corner tl" />
-                      <span className="bbox-corner tr" />
-                      <span className="bbox-corner bl" />
-                      <span className="bbox-corner br" />
                       <div
                         className="bbox-tag mono"
                         style={isRightSide ? { right: -2, left: "auto" } : { left: -2, right: "auto" }}
@@ -568,110 +542,101 @@ export function DeliveryApp() {
             </div>
           </div>
 
-          {/* Autonomous Agent Doorstep Verification Report */}
+          {/* Doorstep Verification Report */}
           <div className="ai-vision-telemetry-card">
             <div className="telemetry-top-strip">
               <div className="telemetry-source">
-                <Bot size={14} />
-                <span className="mono">AGENT VERIFICATION AUDIT</span>
+                <span>Verification</span>
               </div>
               <div className="telemetry-latency mono">
-                <Clock size={12} />
-                <span>{visionResult?.processedInMs ?? 340}ms</span>
+                <span>{visionResult?.processedInMs ?? 340} ms</span>
               </div>
             </div>
 
-            {/* Target vs Detected Metrics */}
             <div className="telemetry-grid">
               <div className="telemetry-cell">
-                <span className="telemetry-label mono">ORDER DESTINATION</span>
+                <span className="telemetry-label">Destination</span>
                 <span className="telemetry-val">#744 Maple St</span>
               </div>
 
               <div className="telemetry-cell">
-                <span className="telemetry-label mono">OCR DOOR NUMBER</span>
+                <span className="telemetry-label">Door number</span>
                 <div className="telemetry-val-group">
                   <span className="telemetry-val mono">
-                    #{visionResult?.detectedDoorNumber ?? "---"}
+                    #{visionResult?.detectedDoorNumber ?? "—"}
                   </span>
                   {visionResult && (
                     <span
                       className={`mini-pill ${visionResult.isDoorMatch ? "pill-good" : "pill-bad"}`}
                     >
-                      {visionResult.isDoorMatch ? "MATCH #744" : "MISMATCH"}
+                      {visionResult.isDoorMatch ? "Match" : "Mismatch"}
                     </span>
                   )}
                 </div>
               </div>
 
               <div className="telemetry-cell">
-                <span className="telemetry-label mono">LOCATION AUDIT</span>
-                <span className="telemetry-val mono">
+                <span className="telemetry-label">Location</span>
+                <span className="telemetry-val">
                   {visionResult ? (
                     visionResult.isDoorMatch ? (
-                      <span style={{ color: "#00D687" }}>CORRECT LOCATION</span>
+                      <span style={{ color: "#3FB27F" }}>744 Maple St</span>
                     ) : (
-                      <span style={{ color: "#FF7B72" }}>WRONG HOUSE (+120m)</span>
+                      <span style={{ color: "#FF7B72" }}>Wrong address (+120m)</span>
                     )
                   ) : (
-                    "Auditing..."
+                    "Checking…"
                   )}
                 </span>
               </div>
 
               <div className="telemetry-cell">
-                <span className="telemetry-label mono">PARCEL INTEGRITY</span>
+                <span className="telemetry-label">Condition</span>
                 <div className="telemetry-val-group">
-                  <span className="telemetry-val mono">
-                    {visionResult?.packageCondition.toUpperCase() ?? "INSPECTING"}
+                  <span className="telemetry-val">
+                    {visionResult?.packageCondition === "damaged" ? "Damaged" : "Intact"}
                   </span>
                   {visionResult && (
                     <span
                       className={`mini-pill ${visionResult.packageCondition === "damaged" ? "pill-bad" : "pill-good"}`}
                     >
-                      {visionResult.packageCondition === "damaged" ? "BREACH >4.5G" : "INTACT"}
+                      {visionResult.packageCondition === "damaged" ? "Crushed" : "OK"}
                     </span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Autonomous Agent Direct Assessment Statement */}
             {visionResult?.agentAssessment && (
               <div className="telemetry-evidence-box">
-                <div className="agent-statement-header">
-                  <Bot size={13} style={{ color: "#FF7A3D" }} />
-                  <span className="evidence-title mono">AGENT VERIFICATION STATEMENT:</span>
-                </div>
                 <p className="evidence-body">{visionResult.agentAssessment}</p>
               </div>
             )}
 
-            {/* Real-time Handover Verdict Banner */}
             <div
               className={`telemetry-verdict-banner ${isVerified ? "verdict-good" : "verdict-bad"}`}
             >
               <div className="verdict-banner-icon">
-                {isVerified ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+                {isVerified ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
               </div>
               <div className="verdict-banner-text">
-                <span className="verdict-banner-title mono">
+                <span className="verdict-banner-title">
                   {isVerified
-                    ? "HANDOVER CERTIFIED · SAFE TO CAPTURE PAYPAL HOLD"
+                    ? "Verified — ready to capture"
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "HANDOVER BLOCKED · WRONG DOOR NUMBER DETECTED"
+                    ? "Blocked — wrong house number"
                     : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                    ? "HANDOVER BLOCKED · NO PARCEL DETECTED ON PORCH"
-                    : "HANDOVER BLOCKED · TRANSIT DAMAGE DETECTED"}
+                    ? "Blocked — no parcel in photo"
+                    : "Blocked — parcel damaged"}
                 </span>
                 <span className="verdict-banner-sub">
                   {isVerified
-                    ? "Doorplate OCR matches manifest destination (#744). Parcel is intact. PayPal Payments v2 /capture authorized."
+                    ? "Door #744 matches the order address and the parcel is intact."
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "Camera detected door #742 (+120m away from 744 Maple St). PayPal capture locked at $0.00 to protect buyer."
+                    ? "Photo shows #742 instead of #744 Maple St. Capture remains locked at $0.00."
                     : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                    ? "No delivery parcel identified in photo. PayPal capture locked at $0.00."
-                    : "Package compromised on porch. PayPal capture locked at $0.00. Hold preserved."}
+                    ? "No parcel detected on the doorstep. Capture remains locked at $0.00."
+                    : "Visible transit damage on the carton. Capture remains locked at $0.00."}
                 </span>
               </div>
             </div>
@@ -682,7 +647,7 @@ export function DeliveryApp() {
         <section className="delivery-step" aria-label="Step 3: Complete Handover">
           <div className="step-label-row">
             <span className="step-num mono">03</span>
-            <span className="step-title">EXECUTE SETTLEMENT</span>
+            <span className="step-title">Settlement</span>
           </div>
 
           <button
@@ -700,12 +665,12 @@ export function DeliveryApp() {
             )}
             <span>
               {isSubmitting
-                ? "Recording Handover..."
+                ? "Saving…"
                 : isAnalyzing
-                ? "Agent Inspecting Photo..."
+                ? "Checking photo…"
                 : isVerified
-                ? `Confirm Drop & Capture PayPal Hold (${activeOrder?.formatted_total ?? "$24.00"})`
-                : "Lock Capture ($0.00 Charged) & Report Failure"}
+                ? `Confirm delivery & capture ${activeOrder?.formatted_total ?? "$24.00"}`
+                : "Record failed delivery ($0.00 charged)"}
             </span>
           </button>
         </section>

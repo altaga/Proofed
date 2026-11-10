@@ -99,36 +99,36 @@ export function TransactionPanel({
 
       {order?.status === "AUTHORIZED" && (
         <div className="financial-alert alert-hold" role="status">
-          <div className="financial-alert-badge">HOLD ACTIVE · $0 CHARGED YET</div>
+          <div className="financial-alert-badge">Hold active · $0.00 charged</div>
           <div className="financial-alert-text">
-            PayPal has authorized a temporary hold of <strong>{amount}</strong>. Zero funds leave the buyer’s account until physical handover is verified at the pickup kiosk.
+            PayPal authorized a hold of <strong>{amount}</strong>. No funds are captured until pickup is confirmed.
           </div>
         </div>
       )}
 
       {order?.status === "CAPTURED" && (
         <div className="financial-alert alert-captured" role="status">
-          <div className="financial-alert-badge">SETTLED POST-HANDOVER</div>
+          <div className="financial-alert-badge">Captured after handoff</div>
           <div className="financial-alert-text">
-            <strong>{amount}</strong> was captured only after physical evidence was recorded at the station.
+            <strong>{amount}</strong> was captured after physical handoff was recorded.
           </div>
         </div>
       )}
 
       {order?.status === "DELIVERY_FAILED" && (
         <div className="financial-alert alert-failed" role="status">
-          <div className="financial-alert-badge">STATION JAMMED · FUNDS PROTECTED</div>
+          <div className="financial-alert-badge">Handoff failed · $0.00 charged</div>
           <div className="financial-alert-text">
-            Physical handover failed ({order.failure_reason || "locker jam"}). <strong>{amount}</strong> is still held; no charge was finalized. You can substitute or release the hold.
+            Handoff issue ({order.failure_reason || "locker jam"}). <strong>{amount}</strong> remains held without charge. You can substitute or release the hold.
           </div>
         </div>
       )}
 
       {order?.status === "VOIDED" && (
         <div className="financial-alert alert-voided" role="status">
-          <div className="financial-alert-badge">HOLD RELEASED · $0 CHARGED</div>
+          <div className="financial-alert-badge">Hold released · $0.00 charged</div>
           <div className="financial-alert-text">
-            The PayPal authorization was canceled. The customer was never charged and zero dispute friction occurred.
+            The PayPal authorization was voided and the buyer was not charged.
           </div>
         </div>
       )}

@@ -169,11 +169,7 @@ export function BackendMonitor() {
       {/* Top Banner & Control Bar */}
       <header className="backend-header">
         <div className="backend-brand-block">
-          <div className="system-live-pill">
-            <span className="live-pulse" />
-            <span className="mono">SETTLEMENT ENGINE · LIVE</span>
-          </div>
-          <h1>Client Flow & Settlement Monitor</h1>
+          <h1>Orders & settlement</h1>
         </div>
 
         <div className="backend-quick-actions">
@@ -183,8 +179,7 @@ export function BackendMonitor() {
             disabled={Boolean(actionBusy)}
             onClick={handleSeedDemo}
           >
-            <Sparkles size={14} />
-            <span>Seed Client Order</span>
+            <span>New test order</span>
           </button>
           <button
             type="button"
@@ -198,61 +193,6 @@ export function BackendMonitor() {
         </div>
       </header>
 
-      {/* Global Pipeline Visualizer */}
-      <section className="pipeline-stepper-card" aria-label="Order Lifecycle Pipeline">
-        <div className="pipeline-step-item">
-          <div className="step-circle step-circle-active">1</div>
-          <div className="step-meta">
-            <span className="step-title">Client Chat & Quote</span>
-            <span className="step-sub">Natural language negotiation</span>
-          </div>
-        </div>
-        <div className="pipeline-arrow">
-          <ArrowRight size={16} />
-        </div>
-
-        <div className="pipeline-step-item">
-          <div className="step-circle step-circle-active">2</div>
-          <div className="step-meta">
-            <span className="step-title">PayPal Hold Placed</span>
-            <span className="step-sub mono">intent=AUTHORIZE ($0 charged)</span>
-          </div>
-        </div>
-        <div className="pipeline-arrow">
-          <ArrowRight size={16} />
-        </div>
-
-        <div className="pipeline-step-item">
-          <div className="step-circle step-circle-active">3</div>
-          <div className="step-meta">
-            <span className="step-title">Courier Handover</span>
-            <span className="step-sub">Doorstep drop & photo upload</span>
-          </div>
-        </div>
-        <div className="pipeline-arrow">
-          <ArrowRight size={16} />
-        </div>
-
-        <div className="pipeline-step-item">
-          <div className="step-circle step-circle-active">4</div>
-          <div className="step-meta">
-            <span className="step-title">AI Vision Proof Check</span>
-            <span className="step-sub">Door # verification OCR</span>
-          </div>
-        </div>
-        <div className="pipeline-arrow">
-          <ArrowRight size={16} />
-        </div>
-
-        <div className="pipeline-step-item">
-          <div className="step-circle step-circle-active">5</div>
-          <div className="step-meta">
-            <span className="step-title">Capture or Void</span>
-            <span className="step-sub">Conditional on physical proof</span>
-          </div>
-        </div>
-      </section>
-
       {actionMsg && (
         <div className="backend-action-toast mono" role="status">
           <span>{actionMsg}</span>
@@ -262,7 +202,7 @@ export function BackendMonitor() {
         </div>
       )}
 
-      {/* 2-Column High-Density Workspace */}
+      {/* 2-Column Workspace */}
       <div className="backend-grid">
         {/* Left Column: Orders Ledger */}
         <section className="orders-ledger-panel">
@@ -272,23 +212,29 @@ export function BackendMonitor() {
               <input
                 type="text"
                 className="ledger-search-input"
-                placeholder="Search orders, codes, or items..."
+                placeholder="Search orders, codes, or items…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Search orders"
               />
             </div>
             <div className="status-filter-pills" role="tablist">
-              {["ALL", "AUTHORIZED", "CAPTURED", "DELIVERY_FAILED", "VOIDED"].map((st) => (
+              {[
+                { key: "ALL", label: "All" },
+                { key: "AUTHORIZED", label: "Authorized" },
+                { key: "CAPTURED", label: "Captured" },
+                { key: "DELIVERY_FAILED", label: "Failed" },
+                { key: "VOIDED", label: "Voided" },
+              ].map((st) => (
                 <button
-                  key={st}
+                  key={st.key}
                   type="button"
                   role="tab"
-                  aria-selected={filterStatus === st}
-                  className={`filter-pill ${filterStatus === st ? "active" : ""}`}
-                  onClick={() => setFilterStatus(st)}
+                  aria-selected={filterStatus === st.key}
+                  className={`filter-pill ${filterStatus === st.key ? "active" : ""}`}
+                  onClick={() => setFilterStatus(st.key)}
                 >
-                  {st}
+                  {st.label}
                 </button>
               ))}
             </div>
@@ -298,11 +244,11 @@ export function BackendMonitor() {
             <table className="orders-table">
               <thead>
                 <tr>
-                  <th>Order ID</th>
+                  <th>Order</th>
                   <th>Status</th>
-                  <th>Hold Amount</th>
-                  <th>Tracking / Code</th>
-                  <th>Created</th>
+                  <th>Amount</th>
+                  <th>Code</th>
+                  <th>Time</th>
                 </tr>
               </thead>
               <tbody>
@@ -329,7 +275,7 @@ export function BackendMonitor() {
                         </td>
                         <td className="mono order-amount-cell">
                           {order.formatted_total}
-                          {order.status === "AUTHORIZED" && <span className="cell-hold-pill">$0 Debited</span>}
+                          {order.status === "AUTHORIZED" && <span className="cell-hold-pill">$0 charged</span>}
                         </td>
                         <td className="mono">{order.pickup_code || "—"}</td>
                         <td className="mono time-cell">{new Date(order.created_at).toLocaleTimeString()}</td>
@@ -342,13 +288,13 @@ export function BackendMonitor() {
           </div>
         </section>
 
-        {/* Right Column: Selected Order Deep-Dive & Event Stream */}
+        {/* Right Column: Selected Order Details */}
         <aside className="order-details-drawer">
           {selectedOrder ? (
             <div className="drawer-content">
               <div className="drawer-header">
                 <div>
-                  <span className="drawer-subtitle mono">INSPECTING TRANSACTION</span>
+                  <span className="drawer-subtitle">Order</span>
                   <h3 className="mono">{selectedOrder.id}</h3>
                 </div>
                 <span className={`drawer-badge status-${selectedOrder.status.toLowerCase()} mono`}>
@@ -356,49 +302,51 @@ export function BackendMonitor() {
                 </span>
               </div>
 
-              {/* Zero-Capture Safety Card */}
+              {/* Settlement Status Card */}
               <div
                 className={`safety-status-box ${selectedOrder.status === "DELIVERY_FAILED" ? "box-alarm" : "box-normal"}`}
               >
                 <div className="safety-box-icon">
-                  {selectedOrder.status === "DELIVERY_FAILED" ? <ShieldAlert size={20} /> : <Shield size={20} />}
+                  {selectedOrder.status === "DELIVERY_FAILED" ? <ShieldAlert size={18} /> : <Shield size={18} />}
                 </div>
                 <div className="safety-box-text">
-                  <span className="safety-title mono">
+                  <span className="safety-title">
                     {selectedOrder.status === "DELIVERY_FAILED"
-                      ? "ZERO-CAPTURE SAFETY LOCK: ACTIVE"
-                      : "AUTHORIZE-BEFORE-CAPTURE GUARD: ARMED"}
+                      ? "Delivery failed — capture blocked ($0.00 charged)"
+                      : selectedOrder.status === "CAPTURED"
+                        ? "Settled after delivery"
+                        : "Hold active — captures on delivery"}
                   </span>
                   <p>
                     {selectedOrder.status === "DELIVERY_FAILED"
-                      ? `Handover reported problem: ${selectedOrder.failure_reason}. PayPal capture permanently blocked. Buyer balance was debited $0.00.`
+                      ? `Reported issue: ${selectedOrder.failure_reason}. PayPal capture remains blocked.`
                       : selectedOrder.status === "CAPTURED"
-                        ? "Payment captured only after proof of handover was recorded."
-                        : `Funds held on PayPal (${selectedOrder.formatted_total}). Zero funds captured until verified delivery.`}
+                        ? "Payment was captured after handoff verification."
+                        : `${selectedOrder.formatted_total} held on PayPal. No funds are captured until delivery is confirmed.`}
                   </p>
                 </div>
               </div>
 
-              {/* PayPal Transaction IDs */}
+              {/* PayPal References */}
               <div className="detail-section">
-                <span className="detail-section-title mono">PAYPAL TRANSACTION METRICS</span>
+                <span className="detail-section-title">PayPal references</span>
                 <div className="metric-row">
-                  <span className="metric-key">Authorization ID:</span>
-                  <span className="metric-val mono">{selectedOrder.paypal_authorization_id || "Pending Hold"}</span>
+                  <span className="metric-key">Authorization</span>
+                  <span className="metric-val mono">{selectedOrder.paypal_authorization_id || "Pending"}</span>
                 </div>
                 <div className="metric-row">
-                  <span className="metric-key">Capture ID:</span>
-                  <span className="metric-val mono">{selectedOrder.paypal_capture_id || "None (Not Captured)"}</span>
+                  <span className="metric-key">Capture</span>
+                  <span className="metric-val mono">{selectedOrder.paypal_capture_id || "Not captured"}</span>
                 </div>
                 <div className="metric-row">
-                  <span className="metric-key">Destination:</span>
-                  <span className="metric-val mono">744 Maple Street, Apt 2B</span>
+                  <span className="metric-key">Destination</span>
+                  <span className="metric-val mono">744 Maple St, Apt 2B</span>
                 </div>
               </div>
 
               {/* Order Items */}
               <div className="detail-section">
-                <span className="detail-section-title mono">PACKAGE CONTENTS</span>
+                <span className="detail-section-title">Items</span>
                 <div className="drawer-items-list">
                   {selectedOrder.items?.map((item, idx) => (
                     <div key={idx} className="drawer-item-row">
@@ -420,7 +368,7 @@ export function BackendMonitor() {
                       onClick={() => handleVoid(selectedOrder.id)}
                       disabled={Boolean(actionBusy)}
                     >
-                      Release Hold (/void)
+                      Release hold (/void)
                     </button>
                     <button
                       type="button"
@@ -428,7 +376,7 @@ export function BackendMonitor() {
                       onClick={() => handleCapture(selectedOrder.id)}
                       disabled={Boolean(actionBusy)}
                     >
-                      Override Capture
+                      Capture now
                     </button>
                   </>
                 )}
@@ -439,14 +387,14 @@ export function BackendMonitor() {
                     onClick={() => handleVoid(selectedOrder.id)}
                     disabled={Boolean(actionBusy)}
                   >
-                    Release Failed Hold (/void)
+                    Release hold (/void)
                   </button>
                 )}
               </div>
 
-              {/* Immutable Audit Log for this order */}
+              {/* Event Log */}
               <div className="detail-section">
-                <span className="detail-section-title mono">IMMUTABLE EVENT AUDIT STREAM</span>
+                <span className="detail-section-title">Events</span>
                 <div className="events-stream-list">
                   {events
                     .filter((ev) => ev.order_id === selectedOrder.id)

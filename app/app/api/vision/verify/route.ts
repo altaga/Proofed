@@ -119,12 +119,12 @@ Respond strictly with valid JSON without markdown formatting. Format:
           }
 
           const agentAssessment = isMatch && !isDamaged && parsed.packageDetected
-            ? `I have verified the doorstep photo. The house plaque clearly reads #${detected}, matching the destination manifest at #${targetDoor} ${targetAddress}. The parcel is intact on the doorstep. Handover certified for payment capture.`
+            ? `House number #${detected} matches #${targetDoor} ${targetAddress} and the parcel appears intact on the doorstep.`
             : !isMatch && detected
-            ? `MISDELIVERY ALERT: The doorplate in the photo reads #${detected}, but the customer's delivery destination is #${targetDoor} ${targetAddress} (+120m distance delta). Delivery was made at the wrong house. Handover is REJECTED. PayPal capture locked at $0.00 to protect buyer funds.`
+            ? `Doorplate reads #${detected}, which does not match #${targetDoor} ${targetAddress}. Capture remains locked at $0.00.`
             : isDamaged
-            ? `DAMAGE DETECTED: While door plaque #${detected || targetDoor} matches the destination, the parcel has sustained severe transit impact damage. Handover is REJECTED. Buyer charged $0.00.`
-            : `Handover conditions not satisfied: No package or house number could be verified in this photo. Capture locked.`;
+            ? `Door number #${detected || targetDoor} matches, but the carton shows visible transit damage. Capture remains locked at $0.00.`
+            : `Could not confirm both house number and parcel in this photo. Capture remains locked.`;
 
           return NextResponse.json({
             ok: true,
@@ -164,12 +164,12 @@ Respond strictly with valid JSON without markdown formatting. Format:
         packageCondition: "intact",
         confidence: 98.7,
         visualEvidence:
-          "High-contrast OCR detected numeral plate '742' on white vinyl siding. Target destination is #744 Maple Street. House number mismatch detected (+120m GPS delta).",
+          "Doorplate reads 742 on white siding; order destination is 744 Maple Street.",
         agentAssessment:
-          "MISDELIVERY DETECTED: The doorstep photo reveals door number #742 (Evergreen Terrace), whereas this order is addressed to #744 Maple Street (+120m away). Delivery was attempted at the wrong house. Handover is REJECTED. PayPal capture is permanently locked at $0.00 so the customer is not charged.",
+          "Photo shows door #742 rather than #744 Maple Street (+120m away). Delivery is blocked and the PayPal hold remains uncaptured ($0.00 charged).",
         boundingBoxes: [
           {
-            label: "OCR: #742 (Mismatch)",
+            label: "Door #742",
             x: 17.5,
             y: 34.0,
             w: 15.0,
@@ -178,7 +178,7 @@ Respond strictly with valid JSON without markdown formatting. Format:
             confidence: 99.2,
           },
           {
-            label: "Parcel: Wrong Door",
+            label: "Parcel",
             x: 57.5,
             y: 62.0,
             w: 15.6,
@@ -204,12 +204,12 @@ Respond strictly with valid JSON without markdown formatting. Format:
         packageCondition: "damaged",
         confidence: 97.4,
         visualEvidence:
-          "Door plaque #744 verified. However, parcel integrity check failed: irregular polygon profile, torn cardboard seam, and tripped >4.5G transit impact indicator.",
+          "Door #744 matches, but carton shows crushed top seam and tripped impact indicator.",
         agentAssessment:
-          "DAMAGE BREACH DETECTED: While door plaque #744 matches the destination, the parcel has sustained severe transit crushing (impact indicator tripped >4.5G). Handover is REJECTED. Buyer is charged $0.00.",
+          "Door #744 matches the address, but the outer carton is crushed. Delivery is rejected and the buyer is charged $0.00.",
         boundingBoxes: [
           {
-            label: "OCR: #744 (Match)",
+            label: "Door #744",
             x: 15.0,
             y: 28.0,
             w: 12.5,
@@ -218,7 +218,7 @@ Respond strictly with valid JSON without markdown formatting. Format:
             confidence: 98.9,
           },
           {
-            label: "Breach: Crushed Flap",
+            label: "Damaged carton",
             x: 35.0,
             y: 48.0,
             w: 27.5,
@@ -236,7 +236,7 @@ Respond strictly with valid JSON without markdown formatting. Format:
     if (presetId === "custom" || isBase64) {
       return NextResponse.json({
         ok: true,
-        source: "proofed-vision-engine (neural edge)",
+        source: "proofed-vision-engine",
         detectedDoorNumber: "744",
         targetDoorNumber: targetDoor,
         targetAddress: targetAddress,
@@ -245,12 +245,12 @@ Respond strictly with valid JSON without markdown formatting. Format:
         packageCondition: "intact",
         confidence: 96.8,
         visualEvidence:
-          "Doorstep photograph analyzed via neural vision. House number plate #744 identified and verified against manifest. Parcel detected upright and intact.",
+          "Doorplate #744 confirmed and parcel appears upright and intact.",
         agentAssessment:
-          "DOORSTEP VERIFIED: I have analyzed the uploaded photo. The house plaque #744 matches the delivery destination (744 Maple Street). The parcel is placed on the porch without visible transit damage. Handover certified for capture.",
+          "Uploaded photo confirms house #744 (744 Maple Street) with an intact parcel at the doorstep.",
         boundingBoxes: [
           {
-            label: "OCR: #744 (Verified)",
+            label: "Door #744",
             x: 20.0,
             y: 28.0,
             w: 18.0,
@@ -259,7 +259,7 @@ Respond strictly with valid JSON without markdown formatting. Format:
             confidence: 97.4,
           },
           {
-            label: "Parcel: Intact",
+            label: "Parcel intact",
             x: 52.0,
             y: 56.0,
             w: 22.0,
@@ -285,12 +285,12 @@ Respond strictly with valid JSON without markdown formatting. Format:
       packageCondition: "intact",
       confidence: 99.4,
       visualEvidence:
-        "Solid brass numerals '744' verified matching destination label. Parcel placed upright on coir welcome mat with intact barcode PK-744098 and sealed packing tape.",
+        "Doorplate 744 matches destination label; parcel sealed and upright on welcome mat.",
       agentAssessment:
-        "HANDOVER CERTIFIED: I have verified that door plaque #744 matches the destination address at 744 Maple Street. The parcel is sealed, undamaged, and securely placed on the welcome mat. Safe to capture PayPal hold ($24.00).",
+        "Door #744 matches 744 Maple Street and the parcel is sealed and upright on the mat.",
       boundingBoxes: [
         {
-          label: "OCR: #744 (Match)",
+          label: "Door #744",
           x: 17.5,
           y: 36.0,
           w: 13.75,
@@ -299,7 +299,7 @@ Respond strictly with valid JSON without markdown formatting. Format:
           confidence: 99.6,
         },
         {
-          label: "Parcel: Intact",
+          label: "Parcel intact",
           x: 56.25,
           y: 61.0,
           w: 15.6,

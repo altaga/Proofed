@@ -161,42 +161,41 @@ export function AgentCrisisHub({
   }
 
   return (
-    <section className="agent-crisis-hub" aria-label="Autonomous Agent Crisis & Recovery Orchestrator">
-      {/* War Room Header */}
+    <section className="agent-crisis-hub" aria-label="Failure Handling & Recovery">
+      {/* Header */}
       <div className="crisis-hub-header">
         <div className="crisis-header-badge-group">
           <span className={`crisis-radar-dot ${isFailed ? "alarm" : isCaptured ? "settled" : "active"}`} />
-          <span className="crisis-hub-kicker mono">
+          <span className="crisis-hub-kicker">
             {isFailed
-              ? "AUTONOMOUS THREAT ORCHESTRATOR · CRISIS ENGAGED"
+              ? "Delivery failed · Capture blocked"
               : isCaptured
-                ? "POST-HANDOVER AUDIT · FUNDS CAPTURED"
+                ? "Delivered · Payment captured"
                 : isVoided
-                  ? "HOLD VOIDED · ZERO BUYER EXPOSURE"
-                  : "AUTONOMOUS AGENT WAR ROOM · PHYSICAL MONITORING ACTIVE"}
+                  ? "Hold released · $0.00 charged"
+                  : "Exception handling · Active hold"}
           </span>
         </div>
         <div className="crisis-telemetry-tag mono">
-          {deliveryMode === "home" ? "PORCH SENSORS: 4/4 ARMED" : "LOCKER TELEMETRY: BAY #04 MONITOR"}
+          {deliveryMode === "home" ? "Doorstep delivery" : "Locker · Bay 04"}
         </div>
       </div>
 
       <div className="crisis-intro-row">
         <div>
           <h3 className="crisis-title">
-            Physical Anomaly Resilience: Zero-Capture Guarantee
+            Exception recovery without upfront charges
           </h3>
           <p className="crisis-subtext">
-            Physical delivery is chaotic (jammed latches, damaged boxes, wrong doorsteps). Unlike traditional
-            e-commerce which charges upfront and forces 14-day bank disputes, Proofed holds funds via{" "}
-            <code>intent=AUTHORIZE</code> and empowers the autonomous agent to resolve physical failure in seconds.
+            When a locker jams or a parcel arrives damaged, funds remain held via{" "}
+            <code>intent=AUTHORIZE</code> rather than debited upfront—allowing instant retry, substitution, or void.
           </p>
         </div>
       </div>
 
-      {/* Interactive Chaos Simulation Bar */}
-      <div className="chaos-sim-strip" role="region" aria-label="Interactive Chaos Injection Triggers">
-        <span className="chaos-strip-label mono">1-CLICK CHAOS INJECTORS:</span>
+      {/* Simulation Bar */}
+      <div className="chaos-sim-strip" role="region" aria-label="Simulate Handoff Scenarios">
+        <span className="chaos-strip-label">Simulate:</span>
         <div className="chaos-buttons-row">
           <button
             type="button"
@@ -206,7 +205,7 @@ export function AgentCrisisHub({
             title="Simulate locker latch failure at station"
           >
             <Zap size={14} />
-            <span>Solenoid Jam</span>
+            <span>Latch jam</span>
           </button>
 
           <button
@@ -217,7 +216,7 @@ export function AgentCrisisHub({
             title="Simulate crushed parcel or impact damage"
           >
             <PackageX size={14} />
-            <span>Parcel Damaged</span>
+            <span>Damaged box</span>
           </button>
 
           <button
@@ -225,10 +224,10 @@ export function AgentCrisisHub({
             className="chaos-btn chaos-btn-gps"
             disabled={Boolean(busyAction)}
             onClick={() => void handleTriggerChaos("wrong_address")}
-            title="Simulate bot delivery at wrong doorstep coordinates"
+            title="Simulate delivery at wrong doorstep"
           >
             <MapPin size={14} />
-            <span>Wrong Doorstep</span>
+            <span>Wrong address</span>
           </button>
 
           <button
@@ -239,7 +238,7 @@ export function AgentCrisisHub({
             title="Simulate shopper no-show after 15m expiration"
           >
             <Clock size={14} />
-            <span>⏳ 15m Timeout</span>
+            <span>15m timeout</span>
           </button>
 
           <button
@@ -250,85 +249,77 @@ export function AgentCrisisHub({
             title="Execute clean physical handover and trigger PayPal capture"
           >
             <CheckCircle2 size={14} />
-            <span>Normal Handover</span>
+            <span>Complete handoff</span>
           </button>
         </div>
       </div>
 
       {hubMessage && (
         <div className="hub-feedback-banner mono" role="status">
-          <Sparkles size={14} />
           <span>{hubMessage}</span>
         </div>
       )}
 
-      {/* When Physical Failure Happens: Show Live Agent Brain and 3 Countermeasures */}
+      {/* When Physical Failure Happens: Show Log and Resolution Options */}
       {isFailed && (
         <div className="crisis-active-panel">
-          {/* Zero-Capture Safety Lockout Shield */}
           <div className="safety-lockout-banner" role="alert">
             <div className="lockout-shield-icon">
-              <ShieldAlert size={28} />
+              <ShieldAlert size={22} />
             </div>
             <div className="lockout-shield-content">
-              <h4>PAYPAL CAPTURE LOCKED · ZERO-DEBIT BUYER PROTECTION ACTIVE</h4>
+              <h4>Capture blocked · $0.00 charged</h4>
               <p>
-                Station reported: <strong>{order?.failure_reason || "Hardware Anomaly"}</strong>.
-                The autonomous policy engine has permanently locked out PayPal Payments v2 <code>/capture</code>.
-                The buyer's PayPal balance has not been debited.
+                Reported issue: <strong>{order?.failure_reason || "Hardware fault"}</strong>.
+                PayPal Payments v2 <code>/capture</code> is blocked while the issue is resolved.
               </p>
             </div>
             <div className="lockout-stat mono">
-              <span className="stat-label">BUYER CHARGE:</span>
+              <span className="stat-label">Charged</span>
               <span className="stat-value">$0.00</span>
             </div>
           </div>
 
-          {/* Autonomous Agent Live Reasoning Terminal */}
-          <div className="agent-reasoning-terminal" aria-label="Agent Autonomous Reasoning Stream">
+          {/* Event Log */}
+          <div className="agent-reasoning-terminal" aria-label="Exception Event Log">
             <div className="terminal-header mono">
-              <span className="term-dot red" />
-              <span className="term-dot yellow" />
-              <span className="term-dot green" />
-              <span className="terminal-title">AGENT_NEURAL_REASONER_v2.log</span>
-              <span className="terminal-speed">LATENCY: 120ms</span>
+              <span className="terminal-title">Exception log</span>
+              <span className="terminal-speed">120 ms</span>
             </div>
             <div className="terminal-body mono">
               <div className="term-line">
-                <span className="term-time">[T+0.00s]</span>
-                <span className="term-tag term-warn">HARDWARE_FAULT:</span>
-                <span>{deliveryMode === "home" ? "Doorstep drop sensor reported irregular impact (Item Damaged)" : "Solenoid lock latch failed to report release signal on Bay #04"}</span>
+                <span className="term-time">00.00s</span>
+                <span className="term-tag term-warn">Fault</span>
+                <span>{deliveryMode === "home" ? "Doorstep inspection reported damaged carton" : "Bay 04 latch failed to confirm release"}</span>
               </div>
               <div className="term-line">
-                <span className="term-time">[T+0.12s]</span>
-                <span className="term-tag term-guard">FINANCIAL_GUARD:</span>
-                <span>Hard-blocked PayPal Payments v2 /capture for Order {order?.id}. Zero dollars moved.</span>
+                <span className="term-time">00.12s</span>
+                <span className="term-tag term-guard">Hold</span>
+                <span>Blocked PayPal /capture for {order?.id}. $0.00 debited.</span>
               </div>
               <div className="term-line">
-                <span className="term-time">[T+0.25s]</span>
-                <span className="term-tag term-info">ESCROW_AUDIT:</span>
-                <span>Authorization {order?.paypal_authorization_id || "AUTH-DEMO"} isolated safely. Buyer wallet remains protected.</span>
+                <span className="term-time">00.25s</span>
+                <span className="term-tag term-info">Auth</span>
+                <span>Authorization {order?.paypal_authorization_id || "AUTH-DEMO"} preserved.</span>
               </div>
               <div className="term-line">
-                <span className="term-time">[T+0.38s]</span>
-                <span className="term-tag term-success">RECOVERY_SYNTHESIS:</span>
-                <span>Evaluating 3 autonomous resolution vectors based on venue inventory and budget limits.</span>
+                <span className="term-time">00.38s</span>
+                <span className="term-tag term-success">Options</span>
+                <span>Prepared bay retry, item substitution, or full hold release.</span>
               </div>
             </div>
           </div>
 
-          {/* 3 Autonomous Countermeasure Cards */}
+          {/* 3 Resolution Cards */}
           <div className="countermeasures-grid">
-            {/* Card 1: Re-Route Bay */}
             <div className="countermeasure-card">
               <div className="cm-badge-row">
-                <span className="cm-badge hardware-badge">COUNTERMEASURE 1 · HARDWARE</span>
-                <span className="cm-eta mono">ETA: INSTANT</span>
+                <span className="cm-badge hardware-badge">Option 1 · Hardware</span>
+                <span className="cm-eta mono">Same hold</span>
               </div>
-              <h4>Auto-Reroute to Bay #08</h4>
+              <h4>Reassign to Bay 08</h4>
               <p>
-                Keeps the current PayPal authorization active. Automatically reallocates physical package to clean Bay #08
-                and flashes new OTP PIN to the shopper's phone.
+                Keeps the current PayPal authorization active, moves the pickup to Bay 08, and issues a new code.
               </p>
               <button
                 type="button"
@@ -337,20 +328,18 @@ export function AgentCrisisHub({
                 onClick={() => void handleCountermeasure("retry")}
               >
                 <RefreshCw size={14} className={busyAction === "retry" ? "spin" : ""} />
-                <span>{busyAction === "retry" ? "Allocating..." : "Execute Bay Re-Route"}</span>
+                <span>{busyAction === "retry" ? "Reassigning…" : "Reassign bay"}</span>
               </button>
             </div>
 
-            {/* Card 2: Smart Substitution */}
             <div className="countermeasure-card">
               <div className="cm-badge-row">
-                <span className="cm-badge catalog-badge">COUNTERMEASURE 2 · CATALOG</span>
-                <span className="cm-eta mono">DELTA: -$4.00</span>
+                <span className="cm-badge catalog-badge">Option 2 · Catalog</span>
+                <span className="cm-eta mono">-$4.00</span>
               </div>
-              <h4>Smart Catalog Substitution</h4>
+              <h4>Substitute item</h4>
               <p>
-                Swaps damaged $12 Keychain for in-stock Venue Enamel Pin ($8.00). Strict integer pricing automatically
-                returns $4.00 delta to buyer's available wallet balance.
+                Releases the $12.00 hold and creates a new $8.00 order for the in-stock Venue Enamel Pin.
               </p>
               <button
                 type="button"
@@ -358,21 +347,18 @@ export function AgentCrisisHub({
                 disabled={Boolean(busyAction)}
                 onClick={() => void handleCountermeasure("substitute")}
               >
-                <Sparkles size={14} />
                 <span>Substitute with Pin ($8.00)</span>
               </button>
             </div>
 
-            {/* Card 3: Instant PayPal Void */}
             <div className="countermeasure-card cm-card-recommended">
               <div className="cm-badge-row">
-                <span className="cm-badge financial-badge">RECOMMENDED · FINANCIAL</span>
-                <span className="cm-eta mono">0¢ CHARGED</span>
+                <span className="cm-badge financial-badge">Recommended</span>
+                <span className="cm-eta mono">$0.00 charged</span>
               </div>
-              <h4>Instant PayPal Hold Void (/void)</h4>
+              <h4>Release PayPal hold (/void)</h4>
               <p>
-                Calls PayPal sandbox Payments v2 <code>/void</code> in under 1.5 seconds. The hold vanishes immediately.
-                Shopper suffers zero bank disputes, zero fees, plus receives concierge compensation.
+                Calls PayPal Payments v2 <code>/void</code> to cancel the authorization immediately without charging the buyer.
               </p>
               <button
                 type="button"
@@ -381,7 +367,7 @@ export function AgentCrisisHub({
                 onClick={() => void handleCountermeasure("void")}
               >
                 <ShieldCheck size={15} />
-                <span>{busyAction === "void" ? "Voiding Hold..." : "Instant PayPal /void (Release Hold)"}</span>
+                <span>{busyAction === "void" ? "Releasing…" : "Release hold (/void)"}</span>
               </button>
             </div>
           </div>

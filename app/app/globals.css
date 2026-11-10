@@ -1,25 +1,25 @@
 ﻿:root {
   --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --bg: #ffffff;
-  --ink: #111111;
-  --muted: #5c6370;
-  --line: #ececec;
-  --soft: #f4f6f8;
-  --brand: #0057d9;
-  --good: #0a7a4b;
-  --good-soft: #e8f6ef;
-  --bad: #c9372c;
-  --bad-soft: #fdecea;
-  --hold: #0057d9;
-  --hold-soft: #e8f0ff;
-  --quoted: #9a6700;
-  --quoted-soft: #fff6e5;
-  --voided: #5c6370;
-  --voided-soft: #f2f3f5;
-  --refunded: #6d28d9;
-  --refunded-soft: #f3e9ff;
-  --radius: 16px;
+  --bg: #12110F;
+  --ink: #F4F1EA;
+  --muted: #ABA598;
+  --line: #2E2B25;
+  --soft: #181714;
+  --brand: #FF7A3D;
+  --good: #3FB27F;
+  --good-soft: #14221B;
+  --bad: #FF7B72;
+  --bad-soft: #261414;
+  --hold: #FF7A3D;
+  --hold-soft: #231A14;
+  --quoted: #F59E0B;
+  --quoted-soft: #241C11;
+  --voided: #ABA598;
+  --voided-soft: #1C1A17;
+  --refunded: #C084FC;
+  --refunded-soft: #21172B;
+  --radius: 4px;
 }
 
 * { box-sizing: border-box; }
@@ -75,18 +75,13 @@ img { max-width: 100%; display: block; }
   color: #5c6370; font-size: 0.82rem; font-family: var(--font-mono);
 }
 
-.shell:has(main[data-testid="page-shop"]),
-.shell:has(main[data-testid="page-client"]),
-.shell:has(main[data-testid="page-delivery"]),
-.shell:has(main[data-testid="page-backend"]) {
+.shell {
+  min-height: 100vh;
   background: #12110F !important;
-  color: #EDEDEF !important;
+  color: #F4F1EA !important;
 }
 
-.shell:has(main[data-testid="page-shop"]) .site-footer,
-.shell:has(main[data-testid="page-client"]) .site-footer,
-.shell:has(main[data-testid="page-delivery"]) .site-footer,
-.shell:has(main[data-testid="page-backend"]) .site-footer {
+.site-footer {
   color: #ABA598 !important;
   border-top: 1px solid #1F1D19;
 }
@@ -4863,18 +4858,240 @@ main[data-testid="page-client"] {
 }
 
 /* =========================================================================
-   QUIET PASS — strip terminal/glow theatrics from the client chat
+   QUIET PASS — unify all views under Swiss warm carbon & strip glow/HUD noise
    ========================================================================= */
-.neardesk-status-dot { width: 6px; height: 6px; background: #3FB27F; box-shadow: none; }
+.neardesk-status-dot, .courier-pulse, .terminal-pulse, .live-pulse, .pulse-dot, .hud-dot, .crisis-radar-dot {
+  width: 6px;
+  height: 6px;
+  background: #3FB27F;
+  box-shadow: none !important;
+  animation: none !important;
+}
+.crisis-radar-dot.alarm { background: #FF7B72; }
 .neardesk-title { font-family: var(--font-sans), Inter, sans-serif; font-size: 0.9rem; letter-spacing: -0.01em; font-weight: 600; color: #F4F1EA; text-transform: none; }
 .neardesk-catalog-pill { background: transparent; border: 1px solid #2E2B25; color: #ABA598; font-weight: 500; margin-left: 4px; }
 .neardesk-tier-tag { display: none; }
-.neardesk-role-label { text-transform: none; letter-spacing: 0; font-weight: 600; }
-.autonomy-label { text-transform: none; letter-spacing: 0; }
+.neardesk-role-label, .autonomy-label, .prompts-label, .step-title, .telemetry-label, .detail-section-title, .drawer-subtitle, .manifest-label, .scenario-switcher-label, .chaos-strip-label, .mode-switcher-label, .wallet-cell-label, .wallet-title {
+  text-transform: none;
+  letter-spacing: 0;
+}
 .autonomy-pill.active { box-shadow: none; background: #23201B; color: #F4F1EA; }
-.scenario-pill.active { box-shadow: none; }
-.btn-take-photo:hover { box-shadow: none; }
-.hud-bbox-good, .hud-bbox-bad, .hud-bbox-warning { box-shadow: none; }
-.neardesk-chat-container { box-shadow: none; }
+.scenario-pill.active, .btn-take-photo:hover, .hud-bbox-good, .hud-bbox-bad, .hud-bbox-warning, .neardesk-chat-container, .delivery-card, .vision-viewfinder-frame, .agent-crisis-hub, .cm-card-recommended, .complete-delivery-btn:hover {
+  box-shadow: none !important;
+}
 .prompts-label { text-transform: none; letter-spacing: 0; }
 .failure-action-btn { text-align: left; font-weight: 500; }
+
+/* Delivery & Backend quiet overrides */
+.delivery-card, .orders-ledger-panel, .order-details-drawer, .vision-viewfinder-frame, .ai-vision-telemetry-card, .manifest-card {
+  border-radius: 4px;
+  border-color: #2E2B25;
+}
+.step-num {
+  background: transparent;
+  border: 1px solid #2E2B25;
+  color: #ABA598;
+  border-radius: 2px;
+}
+.step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #F4F1EA;
+}
+.telemetry-source {
+  color: #F4F1EA;
+  font-weight: 600;
+}
+.verdict-banner-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.complete-delivery-btn, .capture-option-btn, .scenario-pill, .delivery-code-input, .autofill-order-btn, .admin-btn, .drawer-action-btn {
+  border-radius: 3px;
+}
+.complete-delivery-btn.btn-confirm:hover:not(:disabled) {
+  background: #FF9157;
+}
+
+/* Warm carbon unification for Merchant, Locker (/device), Demo, and Gallery */
+.card, .tx-panel, .drawer, .modal, .kiosk-preview-card, .token-card, .live-wallet-widget, .demo-hero-banner, .arch-pillar {
+  background: #181714;
+  color: #F4F1EA;
+  border-color: #2E2B25;
+  border-radius: 4px;
+  box-shadow: none;
+}
+.wallet-widget-header {
+  background: #12110F;
+  border-bottom: 1px solid #2E2B25;
+}
+.bubble.assistant, .product-card, .quote-card, .reason-btn, .a11y-cell, .mode-switcher-pills {
+  background: #181714;
+  color: #F4F1EA;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+}
+.bubble.user {
+  background: #23201B;
+  color: #F4F1EA;
+  border: 1px solid #3A352D;
+  border-radius: 4px;
+}
+.mode-pill.active {
+  background: #23201B;
+  color: #F4F1EA;
+  box-shadow: none;
+  border-radius: 3px;
+}
+.composer textarea, .field, textarea.field, select {
+  background: #12110F;
+  color: #F4F1EA;
+  border: 1px solid #2E2B25;
+  border-radius: 3px;
+}
+button.primary, a.primary {
+  background: #FF7A3D;
+  color: #12110F;
+  border-radius: 3px;
+}
+button.ok, a.ok {
+  background: #3FB27F;
+  color: #12110F;
+  border-radius: 3px;
+}
+button.danger {
+  background: #EF4444;
+  color: #FFFFFF;
+  border-radius: 3px;
+}
+button.ghost, a.ghost {
+  background: #1F1D19;
+  color: #F4F1EA;
+  border: 1px solid #2E2B25;
+  border-radius: 3px;
+}
+.code-box {
+  background: #181714;
+  color: #F4F1EA;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+}
+.code-box.filled, .code-box.caret, .code-entry:focus-within .code-box {
+  border-color: #FF7A3D;
+}
+.terminal-header-bar {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+  color: #ABA598;
+  letter-spacing: 0;
+}
+.order-list .order-row {
+  background: #181714;
+  color: #F4F1EA;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+  padding: 14px 16px;
+}
+.order-list .order-row:hover {
+  background: #1F1D19;
+  border-color: #3A352D;
+}
+.menu-pop {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+}
+.menu-pop button {
+  color: #F4F1EA;
+  border-radius: 3px;
+}
+.menu-pop button:hover {
+  background: #23201B;
+}
+.alert-hold {
+  background: #1F1914;
+  border-left: 3px solid #FF7A3D;
+  color: #F4F1EA;
+  border-radius: 3px;
+}
+.alert-captured {
+  background: #13221B;
+  border-left: 3px solid #3FB27F;
+  color: #F4F1EA;
+  border-radius: 3px;
+}
+.alert-failed {
+  background: #241414;
+  border-left: 3px solid #FF7B72;
+  color: #F4F1EA;
+  border-radius: 3px;
+}
+.alert-voided {
+  background: #1C1A17;
+  border-left: 3px solid #ABA598;
+  color: #D6D1C4;
+  border-radius: 3px;
+}
+.pickup-code-banner {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+}
+.prompt-chip, .autofill-btn, .pickup-sync-btn, .demo-reset-btn, .gallery-tab-btn, .state-picker-btn {
+  background: #181714;
+  color: #D6D1C4;
+  border: 1px solid #2E2B25;
+  border-radius: 3px;
+}
+.gallery-tab-btn.active, .state-picker-btn.active {
+  background: #23201B;
+  color: #FF7A3D;
+  border-color: #FF7A3D;
+}
+.live-status-pill {
+  background: #12110F;
+  color: #F4F1EA;
+  border: 1px solid #2E2B25;
+  border-radius: 3px;
+}
+.a11y-metric, .a11y-badge.pass {
+  color: #3FB27F;
+}
+.mono-demo {
+  color: #FF7A3D;
+}
+.agent-crisis-hub {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+}
+.chaos-sim-strip, .countermeasure-card, .agent-reasoning-terminal {
+  background: #12110F;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+}
+.cm-card-recommended {
+  border-color: #FF7A3D;
+  background: #161411;
+}
+.cm-btn-primary {
+  background: #FF7A3D;
+  color: #12110F;
+  border-radius: 3px;
+}
+.cm-btn-primary:hover:not(:disabled) {
+  background: #FF9157;
+}
+.cm-btn-secondary, .chaos-btn {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  color: #F4F1EA;
+  border-radius: 3px;
+}
+.financial-badge {
+  background: #231A14;
+  color: #FF7A3D;
+  border: 1px solid rgba(255, 122, 61, 0.3);
+}

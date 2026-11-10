@@ -205,11 +205,11 @@ export function DeviceKiosk({
         <div className="terminal-status-indicator">
           <span className="terminal-pulse" />
           <span>
-            {deliveryMode === "home" ? "RESIDENTIAL DOORSTEP · 742 EVERGREEN TERRACE" : "STATION #04 · NORTH VENUE LOCKER"}
+            {deliveryMode === "home" ? "Doorstep · 742 Evergreen Terrace" : "Locker · Bay 04"}
           </span>
         </div>
         <div className="terminal-sensor-pill">
-          {deliveryMode === "home" ? "PORCH CAM: READY" : "SENSOR: LATCH SECURE"}
+          {deliveryMode === "home" ? "Camera ready" : "Latch secure"}
         </div>
       </div>
       {screen === "success" && result && (
@@ -290,8 +290,8 @@ export function DeviceKiosk({
             <div className="porch-feed-card">
               <div className="porch-feed-screen">
                 <div className="porch-cam-header">
-                  <span className="cam-live-indicator"><span className="pulse-dot" /> LIVE FEED · FRONT PORCH</span>
-                  <span className="cam-coords mono">37.7749° N, 122.4194° W</span>
+                  <span className="cam-live-indicator"><span className="pulse-dot" /> Front porch</span>
+                  <span className="cam-coords mono">742 Evergreen Ter</span>
                 </div>
                 <div className="porch-visual-area">
                   <div className="porch-door-graphic">
@@ -300,27 +300,27 @@ export function DeviceKiosk({
                   </div>
                   <div className="porch-mat-area">
                     <div className="porch-package-box">
-                      <span className="package-ribbon">PARCEL AT DOORSTEP</span>
-                      <span className="package-dest mono">DROP: FRONT WELCOME MAT</span>
+                      <span className="package-ribbon">Parcel at doorstep</span>
+                      <span className="package-dest mono">Welcome mat</span>
                     </div>
                   </div>
                 </div>
                 <div className="porch-telemetry-footer mono">
-                  <span>CARRIER: AUTONOMOUS BOT #09</span>
-                  <span>EVIDENCE: PHOTO RECORDED</span>
+                  <span>Courier · Route 4B</span>
+                  <span>Photo recorded</span>
                 </div>
               </div>
               <p className="kiosk-instruction-text">
-                Package is at your doorstep. Enter your 6-digit homeowner PIN to inspect goods and release the PayPal hold.
+                Package is at your doorstep. Enter your 6-digit pickup code to confirm receipt and capture the PayPal hold.
               </p>
             </div>
           ) : (
             <div className="kiosk-instructions">
               <h3 style={{ textAlign: "center", fontSize: "1.2rem", margin: "0 0 6px", fontWeight: 700 }}>
-                Physical Handover Verification
+                Locker pickup
               </h3>
               <p style={{ textAlign: "center", margin: "0 0 16px", color: "var(--muted)", fontSize: "0.88rem" }}>
-                Enter the shopper's 6-character code to open the locker and capture the PayPal hold.
+                Enter the 6-character pickup code to open the bay and capture the PayPal hold.
               </p>
             </div>
           )}

@@ -89,16 +89,13 @@ export function UIGallery() {
       {/* Gallery Header */}
       <header className="gallery-header">
         <div className="gallery-header-badge mono">
-          <span className="pulse-dot" />
-          <span>PROOFED COMPONENT & PATTERN SHOWCASE // DESIGN SYSTEM v2</span>
+          <span>Component reference</span>
         </div>
         <h1 className="gallery-title">
-          UI Gallery: NearDesk-Inspired Agentic Chat & Physical Hardware Telemetry
+          UI components & states
         </h1>
         <p className="gallery-lede">
-          Explore all components, interactive states, and design tokens powering Proofed’s physical
-          commerce escrow system. Engineered with Swiss precision, high-contrast dark telemetry,
-          and WCAG AA accessible contrast.
+          Interactive states and design tokens for Proofed’s conditional settlement flows.
         </p>
 
         {/* Top Tab Strip */}
