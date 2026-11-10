@@ -367,9 +367,13 @@ export function DeliveryApp() {
           paypalDetail: `PayPal Payments v2 /capture executed. Captured ${payload.order.formatted_total}.`,
         });
       } else {
-        // Failed handover (wrong door or damaged): locks capture, leaves hold intact
+        // Failed handover (wrong door, missing package, or damaged): locks capture, leaves hold intact
         const reason =
-          visionResult?.handoverVerdict === "REJECTED_MISMATCH" ? "wrong_address" : "item_damaged";
+          visionResult?.handoverVerdict === "REJECTED_MISMATCH"
+            ? "wrong_address"
+            : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
+            ? "missing_product"
+            : "item_damaged";
         const res = await fetch("/api/device/fail", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -783,6 +787,8 @@ export function DeliveryApp() {
                     ? "HANDOVER CERTIFIED · SAFE TO CAPTURE PAYPAL HOLD"
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
                     ? "HANDOVER REJECTED · ADDRESS MISMATCH DETECTED"
+                    : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
+                    ? "HANDOVER REJECTED · NO PARCEL DETECTED"
                     : "HANDOVER REJECTED · TRANSIT DAMAGE BREACH"}
                 </span>
                 <span className="verdict-banner-sub">
@@ -790,6 +796,8 @@ export function DeliveryApp() {
                     ? "House number OCR matches label #744. Parcel intact. PayPal Payments v2 /capture authorized."
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
                     ? "Camera detected house #742 (+120m away). PayPal capture locked at $0.00 to protect buyer."
+                    : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
+                    ? "No parcel detected in doorstep photo. PayPal capture locked at $0.00."
                     : "Package compromised on porch. PayPal capture locked at $0.00. Hold preserved."}
                 </span>
               </div>

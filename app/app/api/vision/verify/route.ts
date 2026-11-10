@@ -109,9 +109,14 @@ Respond strictly with valid JSON without markdown formatting. Format:
             });
           }
 
-          let finalVerdict: "VERIFIED" | "REJECTED_MISMATCH" | "REJECTED_DAMAGED" = "VERIFIED";
-          if (!isMatch && detected) finalVerdict = "REJECTED_MISMATCH";
-          else if (isDamaged) finalVerdict = "REJECTED_DAMAGED";
+          let finalVerdict: "VERIFIED" | "REJECTED_MISMATCH" | "REJECTED_DAMAGED" | "REJECTED_NO_PACKAGE" = "VERIFIED";
+          if (!parsed.packageDetected) {
+            finalVerdict = "REJECTED_NO_PACKAGE";
+          } else if (!isMatch) {
+            finalVerdict = "REJECTED_MISMATCH";
+          } else if (isDamaged) {
+            finalVerdict = "REJECTED_DAMAGED";
+          }
 
           return NextResponse.json({
             ok: true,
