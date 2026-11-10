@@ -34,8 +34,15 @@ const REASONS = [
   { value: "item_damaged", label: "Item damaged" },
 ];
 
-export function DeviceKiosk({ compact = false }: { compact?: boolean; showReceipt?: boolean }) {
-  const [code, setCode] = useState("");
+export function DeviceKiosk({
+  compact = false,
+  initialCode,
+}: {
+  compact?: boolean;
+  showReceipt?: boolean;
+  initialCode?: string;
+}) {
+  const [code, setCode] = useState(initialCode || "");
   const [showProblems, setShowProblems] = useState(false);
   const [result, setResult] = useState<PublicOrder | null>(null);
   const [replacement, setReplacement] = useState<PublicOrder | null>(null);
@@ -46,6 +53,12 @@ export function DeviceKiosk({ compact = false }: { compact?: boolean; showReceip
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ action: "substitute" | "retry" | "cancel"; items?: Alternative } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialCode && !code) {
+      setCode(initialCode);
+    }
+  }, [initialCode]);
 
   const refresh = useCallback(async () => {
     if (!compact) return;
@@ -158,6 +171,15 @@ export function DeviceKiosk({ compact = false }: { compact?: boolean; showReceip
   return (
     <div className={`kiosk-frame${compact ? " compact" : ""}`}>
       <Toast message={toast} tone="ok" />
+      <div className="terminal-header-bar">
+        <div className="terminal-status-indicator">
+          <span className="terminal-pulse" />
+          <span>STATION #04 · NORTH VENUE LOCKER</span>
+        </div>
+        <div className="terminal-sensor-pill">
+          SENSOR: LATCH SECURE
+        </div>
+      </div>
       {screen === "success" && result && (
         <div className="kiosk-result success" data-testid={compact ? undefined : "transaction-panel"}>
           <div className="kiosk-mark ok" aria-hidden="true"><Check size={36} strokeWidth={3} /></div>
@@ -232,7 +254,27 @@ export function DeviceKiosk({ compact = false }: { compact?: boolean; showReceip
 
       {screen === "form" && (
         <form onSubmit={(event: FormEvent) => event.preventDefault()}>
-          <h3 style={{ textAlign: "center", fontSize: "1.25rem", margin: "0 0 8px" }}>Enter pickup code</h3>
+          <div className="kiosk-instructions">
+            <h3 style={{ textAlign: "center", fontSize: "1.2rem", margin: "0 0 6px", fontWeight: 700 }}>
+              Physical Handover Verification
+            </h3>
+            <p style={{ textAlign: "center", margin: "0 0 16px", color: "var(--muted)", fontSize: "0.88rem" }}>
+              Enter the shopper's 6-character code to open the locker and capture the PayPal hold.
+            </p>
+          </div>
+
+          {initialCode && code !== initialCode && (
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <button
+                type="button"
+                className="autofill-btn"
+                onClick={() => setCode(initialCode)}
+              >
+                Auto-fill generated code: <strong>{initialCode}</strong>
+              </button>
+            </div>
+          )}
+
           <div className="code-entry">
             <div className="code-boxes" aria-hidden="true">
               {Array.from({ length: 6 }, (_, index) => (
@@ -255,18 +297,28 @@ export function DeviceKiosk({ compact = false }: { compact?: boolean; showReceip
               onChange={(event) => setCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6))}
             />
           </div>
-          <button className="primary lg" disabled={busy || !code} onClick={() => post("/api/device/confirm", {})}>
-            Hand over & charge
-          </button>
+
           <button
-            type="button"
-            className="link-btn problem-link"
-            onClick={() => setShowProblems((value) => !value)}
+            className="primary lg kiosk-capture-btn"
+            disabled={busy || !code || code.length < 6}
+            onClick={() => post("/api/device/confirm", {})}
           >
-            Problem with pickup?
+            {busy ? "Verifying..." : "Confirm Handover & Capture Funds"}
           </button>
+
+          <div className="kiosk-footer-actions">
+            <button
+              type="button"
+              className="link-btn problem-link"
+              onClick={() => setShowProblems((value) => !value)}
+            >
+              {showProblems ? "Hide problem options" : "Simulate pickup problem / hardware jam"}
+            </button>
+          </div>
+
           {showProblems && (
             <div className="reason-list">
+              <p className="reason-heading">Simulate Physical Handover Failures:</p>
               {REASONS.map((item) => (
                 <button
                   type="button"
@@ -277,7 +329,8 @@ export function DeviceKiosk({ compact = false }: { compact?: boolean; showReceip
                     void post("/api/device/fail", { reason: item.value });
                   }}
                 >
-                  {item.label}
+                  <span className="reason-icon">⚠️</span>
+                  <span>{item.label}</span>
                 </button>
               ))}
             </div>

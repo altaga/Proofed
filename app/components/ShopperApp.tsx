@@ -44,14 +44,22 @@ type Quote = {
   lines: Array<{ sku: string; name: string; qty: number; unit_price_cents: number; available: number }>;
 };
 
-export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean; showReceipt?: boolean }) {
+export function ShopperApp({
+  compact = false,
+  showReceipt,
+  onOrderChange,
+}: {
+  compact?: boolean;
+  showReceipt?: boolean;
+  onOrderChange?: (order: PublicOrder | null) => void;
+}) {
   const receipt = showReceipt ?? true;
   const [config, setConfig] = useState<{ name: string; venueName: string; paypalClientId: string } | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatItem[]>([
     {
       role: "assistant",
-      content: "What do you want from the shop, and what’s your budget?",
+      content: "I'm your venue shopping agent. State what you'd like and your budget, and I'll look up catalog items with verified pricing.",
     },
   ]);
   const [draft, setDraft] = useState("I have a $20 budget. Do you have a keychain?");
@@ -63,6 +71,10 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const transRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (onOrderChange) onOrderChange(order);
+  }, [order, onOrderChange]);
 
   useEffect(() => {
     fetch("/api/config")
@@ -202,6 +214,32 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
           ))}
           {busy && <AgentLog busy />}
         </div>
+        <div className="prompt-row" aria-label="Quick scenario prompts">
+          <button
+            type="button"
+            className="prompt-chip"
+            disabled={busy}
+            onClick={() => void sendMessage("I have a $20 budget. Do you have a keychain?")}
+          >
+            Keychain under $20
+          </button>
+          <button
+            type="button"
+            className="prompt-chip"
+            disabled={busy}
+            onClick={() => void sendMessage("I'd like the Venue Enamel Pin (DC-PIN-01) if it fits a $20 budget.")}
+          >
+            Enamel Pin ($8)
+          </button>
+          <button
+            type="button"
+            className="prompt-chip"
+            disabled={busy}
+            onClick={() => void sendMessage("Please propose the water bottle, SKU DC-BTL-01.")}
+          >
+            Water Bottle (Out of stock test)
+          </button>
+        </div>
         <form className="composer" onSubmit={send}>
           <textarea
             value={draft}
@@ -232,8 +270,15 @@ export function ShopperApp({ compact = false, showReceipt }: { compact?: boolean
           </div>
         )}
         {order?.pickup_code && (
-          <div className="oknote">
-            Your pickup code is <span className="mono">{order.pickup_code}</span>
+          <div className="pickup-code-banner">
+            <span className="pickup-code-pill">HOLD PLACED · $0 CHARGED YET</span>
+            <div className="pickup-code-display">
+              <span className="pickup-code-title">Pickup Code:</span>
+              <strong className="pickup-code-val mono">{order.pickup_code}</strong>
+            </div>
+            <p className="pickup-code-note">
+              Enter this code at the pickup terminal to inspect your item and release payment.
+            </p>
           </div>
         )}
       </section>

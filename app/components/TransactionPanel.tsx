@@ -96,6 +96,43 @@ export function TransactionPanel({
           </button>
         )}
       </div>
+
+      {order?.status === "AUTHORIZED" && (
+        <div className="financial-alert alert-hold" role="status">
+          <div className="financial-alert-badge">HOLD ACTIVE · $0 CHARGED YET</div>
+          <div className="financial-alert-text">
+            PayPal has authorized a temporary hold of <strong>{amount}</strong>. Zero funds leave the buyer’s account until physical handover is verified at the pickup kiosk.
+          </div>
+        </div>
+      )}
+
+      {order?.status === "CAPTURED" && (
+        <div className="financial-alert alert-captured" role="status">
+          <div className="financial-alert-badge">SETTLED POST-HANDOVER</div>
+          <div className="financial-alert-text">
+            <strong>{amount}</strong> was captured only after physical evidence was recorded at the station.
+          </div>
+        </div>
+      )}
+
+      {order?.status === "DELIVERY_FAILED" && (
+        <div className="financial-alert alert-failed" role="status">
+          <div className="financial-alert-badge">STATION JAMMED · FUNDS PROTECTED</div>
+          <div className="financial-alert-text">
+            Physical handover failed ({order.failure_reason || "locker jam"}). <strong>{amount}</strong> is still held; no charge was finalized. You can substitute or release the hold.
+          </div>
+        </div>
+      )}
+
+      {order?.status === "VOIDED" && (
+        <div className="financial-alert alert-voided" role="status">
+          <div className="financial-alert-badge">HOLD RELEASED · $0 CHARGED</div>
+          <div className="financial-alert-text">
+            The PayPal authorization was canceled. The customer was never charged and zero dispute friction occurred.
+          </div>
+        </div>
+      )}
+
       {open && (
         <div className="tx-details">
           <p>{itemLine(order, quote)}</p>
