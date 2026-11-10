@@ -7,15 +7,15 @@ const LINKS = [
   { href: "/client", label: "Client" },
   { href: "/delivery", label: "Delivery" },
   { href: "/backend", label: "Backend" },
-  { href: "/demo", label: "Presenter" },
-  { href: "/gallery", label: "UI Gallery" },
+  { href: "/merchant", label: "Merchant" },
+  { href: "/device", label: "Locker" },
 ];
 
 export function SiteHeader({ name }: { name: string; tagline?: string }) {
   const pathname = usePathname();
   return (
     <header className="topbar">
-      <Link className="brand" href="/demo">
+      <Link className="brand" href="/" title="Proofed Protocol Command Hub">
         <span className="mark" aria-hidden="true">
           <span className="mark-notch" />
         </span>
