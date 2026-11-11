@@ -50,7 +50,7 @@ async function runDemoProof() {
   });
   console.log(`Order Created: ${order1.id}`);
   console.log(`Status: ${order1.status} (intent=AUTHORIZE, PIN: ${order1.pickup_code})`);
-  console.log(`Charged Amount: $0.00 (Funds held: ${order1.formatted_total})\n`);
+  console.log(`Charged Amount: $0.00 (Funds held: $${(order1.subtotal_cents / 100).toFixed(2)})\n`);
 
   // --------------------------------------------------------------------------
   // SCENARIO 2: Real Physical Delivery Failure & Genuine Refund Audit
