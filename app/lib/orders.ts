@@ -829,8 +829,11 @@ export async function confirmDelivery(input: {
     throw new PolicyError("ORDER_NOT_FOUND", `No order matches recipient PIN '${code}'.`);
   }
   assertPickupCode(order, code);
-  if (order.status !== "AUTHORIZED" && order.status !== "DELIVERY_FAILED") {
-    throw new PolicyError("CANNOT_CONFIRM", `Cannot confirm delivery for status ${order.status}.`);
+  if (order.status !== "AUTHORIZED") {
+    throw new PolicyError(
+      "DELIVERY_ALREADY_FINALIZED",
+      `Cannot confirm delivery for package ${order.id}. Current status is '${order.status}'. Once a delivery is executed (good or bad), the status of the referenced package is locked and cannot be changed.`,
+    );
   }
 
   // Server-Side Quantitative Multimodal Vision Gate (Threshold >= 80.0 / 100)
@@ -923,8 +926,11 @@ export function failDelivery(input: {
     throw new PolicyError("ORDER_NOT_FOUND", `No order matches recipient PIN '${code}'.`);
   }
   assertPickupCode(order, code);
-  if (order.status !== "AUTHORIZED" && order.status !== "DELIVERY_CONFIRMED") {
-    throw new PolicyError("CANNOT_FAIL_DELIVERY", `Cannot mark delivery failed from ${order.status}.`);
+  if (order.status !== "AUTHORIZED") {
+    throw new PolicyError(
+      "DELIVERY_ALREADY_FINALIZED",
+      `Cannot mark delivery failed for package ${order.id}. Current status is '${order.status}'. Once a delivery is executed (good or bad), the status of the referenced package is locked and cannot be changed.`,
+    );
   }
   const reason = input.reason || "unspecified";
   const evidence = storeEvidence({

@@ -30,7 +30,13 @@ describe("order state machine", () => {
     expect(canTransition("CAPTURED", "VOIDED")).toBe(false);
     expect(canTransition("VOIDED", "AUTHORIZED")).toBe(false);
     expect(canTransition("REFUNDED", "CAPTURED")).toBe(false);
+    expect(canTransition("DELIVERY_FAILED", "DELIVERY_CONFIRMED")).toBe(false);
+    expect(canTransition("DELIVERY_CONFIRMED", "DELIVERY_FAILED")).toBe(false);
+    expect(canTransition("CAPTURED", "DELIVERY_FAILED")).toBe(false);
+    expect(canTransition("CAPTURED", "DELIVERY_CONFIRMED")).toBe(false);
     expect(() => assertTransition("CREATED", "CAPTURED")).toThrow(StateError);
+    expect(() => assertTransition("DELIVERY_FAILED", "DELIVERY_CONFIRMED")).toThrow(StateError);
+    expect(() => assertTransition("DELIVERY_CONFIRMED", "DELIVERY_FAILED")).toThrow(StateError);
   });
 
   it("treats a no-op as legal", () => {

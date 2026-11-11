@@ -9,6 +9,7 @@ import {
   Check,
   CheckCircle2,
   ExternalLink,
+  Lock,
   MapPin,
   Package,
   RefreshCw,
@@ -357,12 +358,61 @@ export function DeliveryApp() {
     }
   }
 
+  async function fetchNextPendingDelivery() {
+    setIsSubmitting(true);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/orders");
+      const data = await res.json();
+      const serverOrders: DeliveryOrder[] = data.orders || [];
+      let cachedOrders: DeliveryOrder[] = [];
+      try {
+        const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+        if (cachedRaw) {
+          cachedOrders = JSON.parse(cachedRaw) as DeliveryOrder[];
+        }
+      } catch {
+        // ignore
+      }
+
+      const combined: DeliveryOrder[] = Array.isArray(cachedOrders) ? [...cachedOrders] : [];
+      for (const s of serverOrders) {
+        if (!combined.some((o) => o.id === s.id)) {
+          combined.push(s);
+        }
+      }
+
+      // Look strictly for another order that is AUTHORIZED (waiting for delivery)
+      const nextPending =
+        combined.find((o) => o.status === "AUTHORIZED" && o.id !== activeOrder?.id) ||
+        combined.find((o) => o.status === "AUTHORIZED");
+
+      if (nextPending) {
+        setActiveOrder(nextPending);
+        setCurrentStep(1);
+        setRecipientPin(nextPending.pickup_code || "");
+        setSelectedPreset(PHOTO_PRESETS[0]);
+        setPreviewUrl(PHOTO_PRESETS[0].imagePath);
+        void runVisionVerification({ presetId: "correct" });
+      } else {
+        // No other active pending orders
+        setActiveOrder(null);
+        setCurrentStep(1);
+      }
+    } catch {
+      setActiveOrder(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   useEffect(() => {
     void fetchLatestOrder();
     void runVisionVerification({ presetId: "correct" });
   }, [runVisionVerification]);
 
   function handleSelectPreset(preset: PhotoPreset) {
+    if (isFinalized) return;
     setSelectedPreset(preset);
     setMediaMode("preset");
     setPreviewUrl(preset.imagePath);
@@ -372,6 +422,7 @@ export function DeliveryApp() {
   }
 
   function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>, mode: "camera" | "upload") {
+    if (isFinalized) return;
     const file = e.target.files?.[0];
     if (!file) return;
     setCustomPhotoName(file.name);
@@ -390,11 +441,21 @@ export function DeliveryApp() {
 
   async function handleConfirmHandover() {
     if (!activeOrder) return;
+    if (isFinalized) {
+      setFeedback({
+        tone: "failure",
+        title: "Package Status Locked",
+        message: "This delivery has already been finalized. The status of this referenced package cannot be changed.",
+      });
+      return;
+    }
     setIsSubmitting(true);
     setFeedback(null);
 
+    const isVerified = visionResult?.handoverVerdict === "VERIFIED";
     const pinToVerify = (recipientPin || activeOrder.pickup_code || "").trim().toUpperCase();
-    if (!pinToVerify || pinToVerify.length < 6) {
+
+    if (isVerified && (!pinToVerify || pinToVerify.length < 6)) {
       setFeedback({
         tone: "failure",
         title: "Delivery PIN Required",
@@ -403,8 +464,6 @@ export function DeliveryApp() {
       setIsSubmitting(false);
       return;
     }
-
-    const isVerified = visionResult?.handoverVerdict === "VERIFIED";
 
     try {
       if (isVerified) {
@@ -434,11 +493,6 @@ export function DeliveryApp() {
         } catch {
           // ignore
         }
-        setFeedback({
-          tone: "success",
-          title: "Delivery Completed",
-          message: `Package delivered to #15 Filarecka 2B, Kraków and payment completed.`,
-        });
       } else {
         const reason =
           visionResult?.handoverVerdict === "REJECTED_GEOFENCE"
@@ -449,12 +503,14 @@ export function DeliveryApp() {
             ? "missing_product"
             : "item_damaged";
 
+        const failCode = (pinToVerify || activeOrder.pickup_code || "FAIL01").trim().toUpperCase();
+
         const res = await fetch("/api/device/fail", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             orderId: activeOrder.id,
-            pickupCode: pinToVerify,
+            pickupCode: failCode,
             reason,
             note: `Delivery verification failed: ${visionResult?.visualEvidence || "Conditions not met"}`,
             photoBase64: customPhotoBase64 || undefined,
@@ -473,11 +529,6 @@ export function DeliveryApp() {
         } catch {
           // ignore
         }
-        setFeedback({
-          tone: "failure",
-          title: "Delivery Cancelled · Package Returned",
-          message: `Delivery could not be verified at this door. The customer has not been charged.`,
-        });
       }
     } catch (err) {
       setFeedback({
@@ -492,6 +543,12 @@ export function DeliveryApp() {
 
   const isVerified = visionResult?.handoverVerdict === "VERIFIED";
   const isDelivered = activeOrder?.status === "DELIVERY_CONFIRMED" || activeOrder?.status === "CAPTURED";
+  const isFailed =
+    activeOrder?.status === "DELIVERY_FAILED" ||
+    activeOrder?.status === "VOIDED" ||
+    activeOrder?.status === "REFUNDED" ||
+    activeOrder?.status === "CANCELLED";
+  const isFinalized = isDelivered || isFailed;
   const parcelTrackingCode = getParcelTrackingNumber(activeOrder);
 
   return (
@@ -534,54 +591,171 @@ export function DeliveryApp() {
         <nav className="delivery-stepper" aria-label="Delivery Steps">
           <button
             type="button"
-            className={`stepper-item ${currentStep === 1 ? "is-active" : currentStep > 1 ? "is-completed" : ""}`}
-            onClick={() => setCurrentStep(1)}
+            className={`stepper-item ${!isFinalized && currentStep === 1 ? "is-active" : currentStep > 1 || isFinalized ? "is-completed" : ""}`}
+            onClick={() => {
+              if (!isFinalized) setCurrentStep(1);
+            }}
+            disabled={isFinalized}
           >
-            <span className="stepper-badge">{currentStep > 1 ? <Check size={11} /> : "1"}</span>
+            <span className="stepper-badge">{currentStep > 1 || isFinalized ? <Check size={11} /> : "1"}</span>
             <span className="stepper-label">Package</span>
           </button>
           <div className="stepper-divider" />
           <button
             type="button"
-            className={`stepper-item ${currentStep === 2 ? "is-active" : currentStep > 2 ? "is-completed" : ""}`}
-            onClick={() => setCurrentStep(2)}
+            className={`stepper-item ${!isFinalized && currentStep === 2 ? "is-active" : currentStep > 2 || isFinalized ? "is-completed" : ""}`}
+            onClick={() => {
+              if (!isFinalized) setCurrentStep(2);
+            }}
+            disabled={isFinalized}
           >
-            <span className="stepper-badge">{currentStep > 2 ? <Check size={11} /> : "2"}</span>
+            <span className="stepper-badge">{currentStep > 2 || isFinalized ? <Check size={11} /> : "2"}</span>
             <span className="stepper-label">Door Photo</span>
           </button>
           <div className="stepper-divider" />
           <button
             type="button"
-            className={`stepper-item ${currentStep === 3 ? "is-active" : isDelivered ? "is-completed" : ""}`}
+            className={`stepper-item ${!isFinalized && currentStep === 3 ? "is-active" : isFinalized ? "is-completed" : ""}`}
             onClick={() => {
-              if (isVerified || isDelivered) setCurrentStep(3);
+              if (!isFinalized && isVerified) setCurrentStep(3);
             }}
-            disabled={!isVerified && !isDelivered}
+            disabled={isFinalized || !isVerified}
           >
-            <span className="stepper-badge">{isDelivered ? <Check size={11} /> : "3"}</span>
-            <span className="stepper-label">Delivery PIN</span>
+            <span className="stepper-badge">
+              {isFinalized ? (isDelivered ? <Check size={11} /> : <XCircle size={11} />) : "3"}
+            </span>
+            <span className="stepper-label">
+              {isFinalized ? (isDelivered ? "Delivered" : "Returned") : "Delivery PIN"}
+            </span>
           </button>
         </nav>
 
         {/* Step Title */}
         <div className="delivery-header">
           <h2>
-            {currentStep === 1 && "1. Confirm Package"}
-            {currentStep === 2 && "2. Doorstep Photo"}
-            {currentStep === 3 && (isDelivered ? "Delivery Complete" : "3. Customer PIN")}
+            {isFinalized
+              ? isDelivered
+                ? "Delivery Complete · Payment Captured"
+                : "Delivery Finalized · Package Returned"
+              : currentStep === 1
+              ? "1. Confirm Package"
+              : currentStep === 2
+              ? "2. Doorstep Photo"
+              : "3. Customer PIN"}
           </h2>
           <p className="delivery-subtitle">
-            {currentStep === 1 && "Check the package tracking code and delivery address."}
-            {currentStep === 2 && "Take a photo of the package at the door to verify the apartment number and box condition."}
-            {currentStep === 3 && !isDelivered && "Enter the 6-character PIN from the customer to complete the delivery."}
-            {currentStep === 3 && isDelivered && "The package has been delivered and payment is complete."}
+            {isFinalized
+              ? isDelivered
+                ? "Physical handover verified and payment captured via PayPal. The status of this package is locked."
+                : "Handover verification failed. Package returned and authorization released. The status of this package is locked."
+              : currentStep === 1
+              ? "Check the package tracking code and delivery address."
+              : currentStep === 2
+              ? "Take a photo of the package at the door to verify the apartment number and box condition."
+              : "Enter the 6-character PIN from the customer to complete the delivery."}
           </p>
         </div>
 
         {/* ============================================================ */}
+        {/* FINALIZED DELIVERY SCREEN (LOCKED - NO STATUS MUTATIONS)     */}
+        {/* ============================================================ */}
+        {isFinalized && activeOrder && (
+          <section className="delivery-step-content" aria-label="Delivery Finalized">
+            <div className={`delivery-finalized-view ${isDelivered ? "finalized-success" : "finalized-failed"}`}>
+              <div className={`finalized-header-icon ${isDelivered ? "success-ring" : "failed-ring"}`}>
+                {isDelivered ? <CheckCircle2 size={30} /> : <XCircle size={30} />}
+              </div>
+
+              <div className="finalized-title-group">
+                <div className="finalized-badge-row">
+                  <span className={`status-pill-finalized ${isDelivered ? "status-captured" : "status-failed"}`}>
+                    ● {isDelivered ? "CAPTURED · LOCKED" : "DELIVERY_FAILED · LOCKED"}
+                  </span>
+                  <span className="tracking-pill mono">{parcelTrackingCode}</span>
+                </div>
+                <h3>{isDelivered ? "Delivery Confirmed & Captured" : "Delivery Cancelled & Package Returned"}</h3>
+                <p className="finalized-subtitle">
+                  {isDelivered
+                    ? "Package verified at Door #15 and customer PIN confirmed. Funds charged via PayPal Payments v2."
+                    : "Door verification could not be completed. Package marked for return. Customer hold has been released."}
+                </p>
+              </div>
+
+              <div className="finalized-summary-box">
+                <div className="finalized-row">
+                  <span className="finalized-label">Referenced Order</span>
+                  <span className="finalized-value mono">{activeOrder.id}</span>
+                </div>
+                <div className="finalized-row">
+                  <span className="finalized-label">Delivery Destination</span>
+                  <span className="finalized-value">ul. Filarecka 2B, Apt 15, Kraków</span>
+                </div>
+                <div className="finalized-row">
+                  <span className="finalized-label">{isDelivered ? "Captured Total" : "Customer Charge"}</span>
+                  <span
+                    className="finalized-value mono"
+                    style={{ color: isDelivered ? "#00D687" : "#FF7B72", fontWeight: 700 }}
+                  >
+                    {isDelivered ? `${activeOrder.formatted_total} (Captured)` : "$0.00 (Hold Released)"}
+                  </span>
+                </div>
+                <div className="finalized-row">
+                  <span className="finalized-label">{isDelivered ? "Fulfillment Gate" : "Rejection Reason"}</span>
+                  <span className="finalized-value">
+                    {isDelivered
+                      ? "Door #15 Match + Intact Parcel + PIN"
+                      : activeOrder.failure_reason === "wrong_address"
+                      ? "Wrong Doorplate (#13 instead of #15)"
+                      : activeOrder.failure_reason === "item_damaged"
+                      ? "Damaged parcel condition"
+                      : activeOrder.failure_reason === "geofence_violation"
+                      ? "Geofence out of delivery zone"
+                      : activeOrder.failure_reason || "Door mismatch or damaged package"}
+                  </span>
+                </div>
+              </div>
+
+              <div className={`status-locked-notice ${isFailed ? "warning-lock" : ""}`}>
+                <div className="locked-icon">
+                  {isDelivered ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
+                </div>
+                <div className="locked-text">
+                  <strong>Package Status Locked</strong>
+                  <p>
+                    This delivery execution is permanently sealed in the append-only audit ledger.
+                    The status of this referenced package cannot be changed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="finalized-actions-row">
+                <Link href="/merchant" className="step-btn-secondary" style={{ flex: 1, textAlign: "center" }}>
+                  <span>Merchant Desk</span>
+                  <ExternalLink size={13} />
+                </Link>
+                <Link href="/backend" className="step-btn-secondary" style={{ flex: 1, textAlign: "center" }}>
+                  <span>Backend Console</span>
+                  <ExternalLink size={13} />
+                </Link>
+                <button
+                  type="button"
+                  className="step-btn-primary"
+                  style={{ flex: 1 }}
+                  onClick={() => void fetchNextPendingDelivery()}
+                  disabled={isSubmitting}
+                >
+                  <RotateCcw size={13} />
+                  <span>Next Delivery</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ============================================================ */}
         {/* STEP 1: PACKAGE                                              */}
         {/* ============================================================ */}
-        {currentStep === 1 && (
+        {!isFinalized && currentStep === 1 && (
           <section className="delivery-step-content" aria-label="Step 1: Confirm Package">
             {!activeOrder ? (
               <div className="delivery-no-order">
@@ -651,7 +825,7 @@ export function DeliveryApp() {
         {/* ============================================================ */}
         {/* STEP 2: DOOR PHOTO                                           */}
         {/* ============================================================ */}
-        {currentStep === 2 && (
+        {!isFinalized && currentStep === 2 && (
           <section className="delivery-step-content" aria-label="Step 2: Doorstep Photo">
             <div className="capture-modes-row">
               <label className="capture-option-btn btn-take-photo">
@@ -813,98 +987,64 @@ export function DeliveryApp() {
         {/* ============================================================ */}
         {/* STEP 3: CUSTOMER PIN                                         */}
         {/* ============================================================ */}
-        {currentStep === 3 && (
+        {!isFinalized && currentStep === 3 && (
           <section className="delivery-step-content" aria-label="Step 3: Customer PIN">
-            {isDelivered ? (
-              <div className="delivery-success-view">
-                <div className="success-icon-ring">
-                  <CheckCircle2 size={36} />
-                </div>
-                <h3>Delivery Complete</h3>
-                <p className="success-desc">
-                  The package was delivered and the payment of <strong>{activeOrder?.formatted_total || "$18.50"}</strong> has been completed.
-                </p>
-
-                <div className="success-actions-row">
-                  <Link href="/merchant" className="step-btn-secondary" style={{ flex: 1, textAlign: "center" }}>
-                    <span>Open Merchant Desk</span>
-                    <ExternalLink size={14} />
-                  </Link>
+            <div className="recipient-pin-box">
+              <div className="pin-box-top">
+                <label htmlFor="customer-pin-field" className="pin-box-label">
+                  Customer Delivery PIN
+                </label>
+                {activeOrder?.pickup_code && (
                   <button
                     type="button"
-                    className="step-btn-primary"
-                    style={{ flex: 1 }}
-                    onClick={() => {
-                      setCurrentStep(1);
-                      setFeedback(null);
-                      void fetchLatestOrder();
-                    }}
+                    className="pin-autofill-btn mono"
+                    onClick={() => setRecipientPin(activeOrder.pickup_code || "")}
                   >
-                    <RotateCcw size={14} />
-                    <span>Next Delivery</span>
+                    Auto-fill demo ({activeOrder.pickup_code})
                   </button>
-                </div>
+                )}
               </div>
-            ) : (
-              <>
-                <div className="recipient-pin-box">
-                  <div className="pin-box-top">
-                    <label htmlFor="customer-pin-field" className="pin-box-label">
-                      Customer Delivery PIN
-                    </label>
-                    {activeOrder?.pickup_code && (
-                      <button
-                        type="button"
-                        className="pin-autofill-btn mono"
-                        onClick={() => setRecipientPin(activeOrder.pickup_code || "")}
-                      >
-                        Auto-fill demo ({activeOrder.pickup_code})
-                      </button>
-                    )}
-                  </div>
 
-                  <input
-                    id="customer-pin-field"
-                    type="text"
-                    className="recipient-pin-input-large mono"
-                    placeholder="6-CHAR PIN"
-                    value={recipientPin}
-                    maxLength={6}
-                    onChange={(e) => setRecipientPin(e.target.value.toUpperCase().slice(0, 6))}
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                </div>
+              <input
+                id="customer-pin-field"
+                type="text"
+                className="recipient-pin-input-large mono"
+                placeholder="6-CHAR PIN"
+                value={recipientPin}
+                maxLength={6}
+                onChange={(e) => setRecipientPin(e.target.value.toUpperCase().slice(0, 6))}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
 
-                <div className="step-nav-bar">
-                  <button
-                    type="button"
-                    className="step-btn-secondary"
-                    onClick={() => setCurrentStep(2)}
-                    disabled={isSubmitting}
-                  >
-                    <ArrowLeft size={15} />
-                    <span>Back</span>
-                  </button>
+            <div className="step-nav-bar">
+              <button
+                type="button"
+                className="step-btn-secondary"
+                onClick={() => setCurrentStep(2)}
+                disabled={isSubmitting}
+              >
+                <ArrowLeft size={15} />
+                <span>Back</span>
+              </button>
 
-                  <button
-                    type="button"
-                    className="step-btn-primary btn-confirm-delivery"
-                    disabled={isSubmitting || !activeOrder || recipientPin.length < 6}
-                    onClick={handleConfirmHandover}
-                  >
-                    {isSubmitting ? (
-                      <RefreshCw size={16} className="spin" />
-                    ) : (
-                      <CheckCircle2 size={16} />
-                    )}
-                    <span>
-                      {isSubmitting ? "Completing…" : "Complete Delivery"}
-                    </span>
-                  </button>
-                </div>
-              </>
-            )}
+              <button
+                type="button"
+                className="step-btn-primary btn-confirm-delivery"
+                disabled={isSubmitting || !activeOrder || recipientPin.length < 6}
+                onClick={handleConfirmHandover}
+              >
+                {isSubmitting ? (
+                  <RefreshCw size={16} className="spin" />
+                ) : (
+                  <CheckCircle2 size={16} />
+                )}
+                <span>
+                  {isSubmitting ? "Completing…" : "Complete Delivery"}
+                </span>
+              </button>
+            </div>
           </section>
         )}
 
