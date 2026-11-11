@@ -1,5 +1,5 @@
 import { handleRouteError, jsonError, jsonOk, readJson } from "@/lib/http";
-import { syncOrderFromCloud } from "@/lib/db";
+import { syncOrderByPickupCodeFromCloud, syncOrderFromCloud } from "@/lib/db";
 import { confirmDelivery, ensureOrderHydrated, publicOrderView } from "@/lib/orders";
 
 export async function POST(request: Request) {
@@ -27,6 +27,9 @@ export async function POST(request: Request) {
     const lookupId = body.orderId || body.orderSnapshot?.id;
     if (lookupId) {
       await syncOrderFromCloud(lookupId);
+    }
+    if (body.pickupCode) {
+      await syncOrderByPickupCodeFromCloud(body.pickupCode);
     }
     if (body.orderSnapshot) ensureOrderHydrated(body.orderSnapshot);
     const order = await confirmDelivery({

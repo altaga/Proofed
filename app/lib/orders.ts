@@ -729,7 +729,14 @@ export function ensureOrderHydrated(snapshot?: {
 }) {
   if (!snapshot?.id) return;
   const existing = getOrder(snapshot.id);
-  if (existing) return;
+  if (existing) {
+    if (snapshot.pickup_code && existing.pickup_code !== snapshot.pickup_code.trim().toUpperCase()) {
+      db()
+        .prepare("UPDATE orders SET pickup_code = $pickup WHERE id = $id")
+        .run({ pickup: snapshot.pickup_code.trim().toUpperCase(), id: snapshot.id });
+    }
+    return;
+  }
   const cfg = getProjectConfig();
   const now = nowIso();
   const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
@@ -807,17 +814,20 @@ export async function confirmDelivery(input: {
   actor?: string;
 }): Promise<OrderDetails> {
   const code = input.pickupCode.trim().toUpperCase();
-  const order = input.orderId
-    ? requireOrder(input.orderId)
-    : (() => {
-        const row = db()
-          .prepare(
-            "SELECT * FROM orders WHERE pickup_code = $code ORDER BY created_at DESC LIMIT 1",
-          )
-          .get({ code });
-        if (!row) throw new PolicyError("ORDER_NOT_FOUND", "No order matches that pickup code.");
-        return rowToObject<OrderRecord>(row);
-      })();
+
+  // 1. Search if an order in DB directly matches this recipient PIN:
+  const rowByCode = db()
+    .prepare("SELECT * FROM orders WHERE pickup_code = $code ORDER BY created_at DESC LIMIT 1")
+    .get({ code });
+
+  let order: OrderRecord;
+  if (rowByCode) {
+    order = rowToObject<OrderRecord>(rowByCode);
+  } else if (input.orderId) {
+    order = requireOrder(input.orderId);
+  } else {
+    throw new PolicyError("ORDER_NOT_FOUND", `No order matches recipient PIN '${code}'.`);
+  }
   assertPickupCode(order, code);
   if (order.status !== "AUTHORIZED" && order.status !== "DELIVERY_FAILED") {
     throw new PolicyError("CANNOT_CONFIRM", `Cannot confirm delivery for status ${order.status}.`);
@@ -899,17 +909,19 @@ export function failDelivery(input: {
   actor?: string;
 }): OrderDetails {
   const code = input.pickupCode.trim().toUpperCase();
-  const order = input.orderId
-    ? requireOrder(input.orderId)
-    : (() => {
-        const row = db()
-          .prepare(
-            "SELECT * FROM orders WHERE pickup_code = $code ORDER BY created_at DESC LIMIT 1",
-          )
-          .get({ code });
-        if (!row) throw new PolicyError("ORDER_NOT_FOUND", "No order matches that pickup code.");
-        return rowToObject<OrderRecord>(row);
-      })();
+
+  const rowByCode = db()
+    .prepare("SELECT * FROM orders WHERE pickup_code = $code ORDER BY created_at DESC LIMIT 1")
+    .get({ code });
+
+  let order: OrderRecord;
+  if (rowByCode) {
+    order = rowToObject<OrderRecord>(rowByCode);
+  } else if (input.orderId) {
+    order = requireOrder(input.orderId);
+  } else {
+    throw new PolicyError("ORDER_NOT_FOUND", `No order matches recipient PIN '${code}'.`);
+  }
   assertPickupCode(order, code);
   if (order.status !== "AUTHORIZED" && order.status !== "DELIVERY_CONFIRMED") {
     throw new PolicyError("CANNOT_FAIL_DELIVERY", `Cannot mark delivery failed from ${order.status}.`);

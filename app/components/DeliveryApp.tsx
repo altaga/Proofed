@@ -127,6 +127,7 @@ function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
 
 export function DeliveryApp() {
   const [activeOrder, setActiveOrder] = useState<DeliveryOrder | null>(null);
+  const [knownOrders, setKnownOrders] = useState<DeliveryOrder[]>([]);
   const [trackingInput, setTrackingInput] = useState("");
   const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(PHOTO_PRESETS[0]);
   const [mediaMode, setMediaMode] = useState<"preset" | "camera" | "upload">("preset");
@@ -264,34 +265,50 @@ export function DeliveryApp() {
     try {
       const res = await fetch("/api/orders");
       const data = await res.json();
-      let orders: DeliveryOrder[] = data.orders || [];
+      const serverOrders: DeliveryOrder[] = data.orders || [];
+      let cachedOrders: DeliveryOrder[] = [];
       try {
         const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
         if (cachedRaw) {
-          const cachedOrders = JSON.parse(cachedRaw) as DeliveryOrder[];
-          if (Array.isArray(cachedOrders)) {
-            for (const c of cachedOrders) {
-              if (!orders.some((o) => o.id === c.id)) {
-                orders = [c, ...orders];
-              }
-            }
-          }
+          cachedOrders = JSON.parse(cachedRaw) as DeliveryOrder[];
         }
       } catch {
         // ignore storage errors
       }
-      const held = orders.find(
-        (o) => o.status === "AUTHORIZED" || o.status === "DELIVERY_CONFIRMED" || o.status === "DELIVERY_FAILED",
-      );
+
+      // Prioritize newest orders created in current shopper session
+      const combined: DeliveryOrder[] = Array.isArray(cachedOrders) ? [...cachedOrders] : [];
+      for (const s of serverOrders) {
+        if (!combined.some((o) => o.id === s.id)) {
+          combined.push(s);
+        }
+      }
+      setKnownOrders(combined);
+
+      // Find first held order waiting for delivery
+      const held =
+        combined.find((o) => o.status === "AUTHORIZED") ||
+        combined.find((o) => o.status === "DELIVERY_CONFIRMED" || o.status === "DELIVERY_FAILED") ||
+        combined[0] ||
+        null;
+
       if (held) {
         setActiveOrder(held);
         if (held.pickup_code) setTrackingInput(held.pickup_code);
-      } else if (orders.length > 0) {
-        setActiveOrder(orders[0]);
-        if (orders[0].pickup_code) setTrackingInput(orders[0].pickup_code);
       }
     } catch {
       // Quiet fail on initial load
+    }
+  }
+
+  function handlePinChange(val: string) {
+    const code = val.toUpperCase().slice(0, 6);
+    setTrackingInput(code);
+    if (code.length === 6) {
+      const match = knownOrders.find((o) => o.pickup_code?.toUpperCase() === code);
+      if (match) {
+        setActiveOrder(match);
+      }
     }
   }
 
@@ -335,12 +352,12 @@ export function DeliveryApp() {
     setIsSubmitting(true);
     setFeedback(null);
 
-    const code = trackingInput || activeOrder?.pickup_code;
-    if (!code) {
+    const code = (trackingInput || activeOrder?.pickup_code || "").trim().toUpperCase();
+    if (!code || code.length < 6) {
       setFeedback({
         tone: "failure",
-        title: "Scan Required",
-        message: "Please scan or enter the 6-character package label code.",
+        title: "PIN Required",
+        message: "Please enter the 6-character recipient handover PIN presented by the buyer (e.g. 6BQL7D).",
       });
       setIsSubmitting(false);
       return;
@@ -497,11 +514,11 @@ export function DeliveryApp() {
               <input
                 type="text"
                 className="delivery-code-input mono"
-                placeholder="Parcel code"
+                placeholder="Tracking PIN"
                 value={trackingInput}
                 maxLength={6}
-                onChange={(e) => setTrackingInput(e.target.value.toUpperCase().slice(0, 6))}
-                aria-label="Package tracking code"
+                onChange={(e) => handlePinChange(e.target.value)}
+                aria-label="Package tracking PIN"
               />
             </div>
             <button
@@ -878,7 +895,45 @@ export function DeliveryApp() {
         <section className="delivery-step" aria-label="Step 3: Complete Handover">
           <div className="step-label-row">
             <span className="step-num mono">03</span>
-            <span className="step-title">Recipient acknowledgment &amp; handoff</span>
+            <span className="step-title">Recipient PIN &amp; handoff</span>
+          </div>
+
+          <p className="delivery-step-explainer">
+            Ask the buyer for their 6-character one-time PIN shown in their Proofed shopping chat.
+          </p>
+
+          <div className="recipient-pin-input-container">
+            <label className="pin-input-label" htmlFor="recipient-pin-field">
+              Recipient Handover PIN
+            </label>
+            <div className="pin-input-action-row">
+              <input
+                id="recipient-pin-field"
+                type="text"
+                className="recipient-pin-large mono"
+                placeholder="6-CHAR PIN"
+                value={trackingInput}
+                maxLength={6}
+                onChange={(e) => handlePinChange(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button
+                type="button"
+                className="autofill-order-btn"
+                onClick={() => void fetchLatestOrder()}
+                disabled={isSubmitting}
+                title="Sync latest PIN from shopper session"
+              >
+                <RefreshCw size={14} className={isSubmitting ? "spin" : ""} />
+                <span>Sync</span>
+              </button>
+            </div>
+            {activeOrder && (
+              <span className="pin-order-binding-note mono">
+                Linked order: {activeOrder.id} · {activeOrder.formatted_total} held
+              </span>
+            )}
           </div>
 
           {isVerified && activeOrder && (
@@ -896,9 +951,9 @@ export function DeliveryApp() {
                 </span>
               </div>
               <div className="manifest-row" style={{ marginBottom: "6px" }}>
-                <span className="manifest-label">3. Recipient One-Time PIN</span>
-                <span className="manifest-value mono" style={{ color: "#F4F1EA" }}>
-                  {trackingInput || "Enter 6-char code"}
+                <span className="manifest-label">3. Verified PIN</span>
+                <span className="manifest-value mono" style={{ color: "#3FB27F", fontWeight: 700 }}>
+                  ✔ {trackingInput || "Required"}
                 </span>
               </div>
               <div className="manifest-row">

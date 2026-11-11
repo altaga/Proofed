@@ -356,6 +356,24 @@ export async function syncOrderFromCloud(orderId: string): Promise<boolean> {
   }
 }
 
+export async function syncOrderByPickupCodeFromCloud(pickupCode: string): Promise<boolean> {
+  const client = getLibsqlClient();
+  if (!client) return false;
+  try {
+    await ensureCloudSchema();
+    const res = await client.execute({
+      sql: "SELECT id FROM orders WHERE pickup_code = ? ORDER BY created_at DESC LIMIT 1;",
+      args: [pickupCode.toUpperCase()],
+    });
+    if (!res.rows || res.rows.length === 0) return false;
+    const cloudOrderId = res.rows[0].id as string;
+    return syncOrderFromCloud(cloudOrderId);
+  } catch (err) {
+    console.warn("[Turso Cloud Sync] Warning: Failed to sync order by pickup code:", err);
+    return false;
+  }
+}
+
 export async function resetCloudDb(): Promise<void> {
   const client = getLibsqlClient();
   if (!client) return;
