@@ -118,7 +118,7 @@ export function moneySentence(order?: TxOrder | null, quote?: TxQuote | null): s
     }
     return `${quote.formatted_total ?? "Quote"} priced from the catalog. No PayPal hold yet.`;
   }
-  return "No transaction yet. Send a shop request or enter a pickup code.";
+  return "No transaction yet. Send a shop request to start.";
 }
 
 export function formatWhen(iso?: string | null): string {
@@ -139,14 +139,15 @@ export function actorLabel(actor?: string | null): string {
     agent: "Agent",
     shopper: "Shopper",
     system: "Backend",
-    device: "Kiosk",
-    kiosk: "Kiosk",
+    device: "Courier",
+    courier: "Courier",
+    kiosk: "Courier",
     merchant: "Merchant",
     reconcile: "Reconcile",
     paypal: "PayPal",
     backend: "Backend",
   };
-  return map[actor || ""] || actor || "Backend";
+  return map[actor || ""] || actor || "Courier";
 }
 
 function findEvent(events: TxEvent[], names: string[]) {
@@ -224,11 +225,11 @@ export function buildTxSteps(order: TxOrder, events: TxEvent[] = []): TxStep[] {
               ? "done"
               : "pending",
       timestamp: order.delivered_at || handEvent?.created_at || failEvent?.created_at,
-      actor: "Kiosk",
+      actor: actorLabel(handEvent?.actor || failEvent?.actor || "courier"),
       note:
         status === "DELIVERY_FAILED"
-          ? `Failed${order.failure_reason ? `: ${order.failure_reason.replaceAll("_", " ")}` : ""}`
-          : "Pickup station recorded evidence",
+          ? `Delivery problem${order.failure_reason ? `: ${order.failure_reason.replaceAll("_", " ")}` : ""}`
+          : "Doorstep photo & recipient PIN verified",
     },
     {
       key: "captured",
@@ -321,7 +322,7 @@ export function compactStatus(order?: TxOrder | null, quote?: TxQuote | null): s
         return `${amt} · approved, placing hold`;
       case "AUTHORIZED":
       case "DELIVERY_CONFIRMED":
-        return `${amt} held · waiting for pickup`;
+        return `${amt} held · out for delivery`;
       case "CAPTURED":
         return `${amt} charged`;
       case "VOIDED":
@@ -330,7 +331,7 @@ export function compactStatus(order?: TxOrder | null, quote?: TxQuote | null): s
       case "REFUNDED":
         return `${amt} refunded`;
       case "DELIVERY_FAILED":
-        return `${amt} held · pickup problem`;
+        return `${amt} held · delivery problem`;
       default:
         return `${amt} · ${order.status}`;
     }
@@ -356,12 +357,12 @@ export function eventEnglish(event: TxEvent, amount?: string): string {
       return `Shopper approved in PayPal${amt ? ` —${amt} held` : ""}`;
     case "DELIVERY_CONFIRMED":
     case "HANDOVER_CONFIRMED":
-      return "Kiosk confirmed handover";
+      return "Courier verified handover";
     case "PAYPAL_CAPTURED":
     case "ORDER_CAPTURED":
       return `PayPal charged${amt}`;
     case "DELIVERY_FAILED":
-      return "Pickup had a problem";
+      return "Delivery issue reported";
     case "PAYPAL_VOIDED":
     case "ORDER_VOIDED":
       return `PayPal released the hold${amt}`;
@@ -383,7 +384,7 @@ export function friendlyStepLabel(step: TxStep, amount?: string): string {
     case "hold":
       return amt ? `Shopper approved in PayPal — ${amt} held` : "Shopper approved in PayPal";
     case "handover":
-      return step.state === "branch" ? "Pickup had a problem" : "Kiosk confirmed handover";
+      return step.state === "branch" ? "Delivery issue reported" : "Courier verified handover";
     case "captured":
       return amt ? `PayPal charged ${amt}` : "PayPal charged";
     case "voided":

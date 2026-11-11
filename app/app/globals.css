@@ -2165,6 +2165,49 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   border-top: 1px solid #1a202c;
 }
 
+.approve-paypal-hold-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #FFC439;
+  color: #111827;
+  border: 1px solid #E0AC30;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+.approve-paypal-hold-btn:hover {
+  background: #F4B92E;
+}
+
+.approve-paypal-hold-btn:active {
+  transform: translateY(1px);
+}
+
+.btn-paypal-text {
+  letter-spacing: -0.01em;
+}
+
+.btn-paypal-amt {
+  background: rgba(0, 0, 0, 0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 800;
+}
+
+.hold-disclaimer {
+  margin-top: 6px;
+  font-size: 0.68rem;
+  color: #8C887B;
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
 .paypal-hold-header {
   display: flex;
   align-items: center;

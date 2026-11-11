@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       photoMime: body.photoMime,
       presetId: body.presetId,
       quantitativeScore: body.quantitativeScore,
-      actor: "device",
+      actor: "courier",
     });
     return jsonOk({ order: publicOrderView(order) });
   } catch (error) {

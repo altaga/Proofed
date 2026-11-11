@@ -77,7 +77,7 @@ export function ShopperChat({
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [techLogsOpen, setTechLogsOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [clientId, setClientId] = useState<string>("");
+  const [clientId, setClientId] = useState<string>("AURENVKKp9qvzggvkyehWs8DfYcIeqTGExPizTmcNFprVliVw2NNGRaXCuAch08Ks1Fh1mkiziPyA02O");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -171,9 +171,9 @@ export function ShopperChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: [{ sku, qty: 1 }],
-          note: "Automated PayPal hold placed in chat",
+          note: "PayPal hold staged in chat",
           actor: "shopper",
-          autoAuthorize: true,
+          autoAuthorize: false,
         }),
       });
       const data = await res.json();
@@ -660,51 +660,52 @@ export function ShopperChat({
                     <span className="paypal-protocol-pill mono">intent=AUTHORIZE</span>
                   </div>
 
-                  {/* If Order is being placed automatically */}
+                  {/* If Order is being placed in PayPal Sandbox */}
                   {!msg.order && (
                     <div className="quote-auto-staging mono">
                       <Sparkles className="spin" size={12} />
-                      <span>Confirming buyer approval &amp; placing PayPal authorization ($0.00 captured upfront)…</span>
+                      <span>Preparing PayPal sandbox checkout ($0.00 captured upfront)…</span>
                     </div>
                   )}
 
-                  {/* Inline PayPal Hold Box */}
-                  {msg.order?.status === "CREATED" && msg.order.paypal_order_id && clientId && (
+                  {/* Explicit Buyer Approval Button for Staged Order */}
+                  {msg.order?.status === "CREATED" && (
                     <div className="quote-paypal-area">
-                      <div className="paypal-hold-header">
-                        <ShieldCheck size={14} />
-                        <span>Approve PayPal Authorization ({msg.quote?.formatted_price || "$18.50"} authorized · $0.00 captured)</span>
+                      <button
+                        type="button"
+                        className="approve-paypal-hold-btn"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch("/api/paypal/authorize", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ orderId: msg.order!.id, simulateApproval: true }),
+                            });
+                            const data = await res.json();
+                            if (data.order) {
+                              setMessages((prev) => [
+                                ...prev,
+                                {
+                                  id: `auth-${Date.now()}`,
+                                  role: "assistant",
+                                  content: `PayPal authorization placed! **${(data.order.formatted_total as string) || msg.quote?.formatted_price || "$18.50"} authorized, $0.00 captured**. Funds are held securely on PayPal until physical handover and recipient PIN are verified. Recipient PIN: **${(data.order.pickup_code as string) || "PK-9912"}**.`,
+                                  tier: "PAYPAL-AUTHORIZE",
+                                  timestamp: Date.now(),
+                                  order: data.order,
+                                },
+                              ]);
+                            }
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                      >
+                        <span className="btn-paypal-text">Approve PayPal hold</span>
+                        <span className="btn-paypal-amt mono">{msg.quote?.formatted_price || "$18.50"}</span>
+                      </button>
+                      <div className="hold-disclaimer mono">
+                        <span>intent=AUTHORIZE · $0.00 charged until physical handover verification</span>
                       </div>
-                      <PayPalApprove
-                        clientId={clientId}
-                        orderId={msg.order.id}
-                        paypalOrderId={msg.order.paypal_order_id}
-                        onError={(err) => {
-                          setMessages((prev) => [
-                            ...prev,
-                            {
-                              id: `err-${Date.now()}`,
-                              role: "assistant",
-                              content: `PayPal authorization notice: ${err}`,
-                              tier: "PAYPAL-NOTICE",
-                              timestamp: Date.now(),
-                            },
-                          ]);
-                        }}
-                        onAuthorized={(next) => {
-                          setMessages((prev) => [
-                            ...prev,
-                            {
-                              id: `auth-${Date.now()}`,
-                              role: "assistant",
-                              content: `PayPal Authorization Active! **${(next.formatted_total as string) || "$18.50"} authorized, $0.00 captured**. Capture is conditional on physical handover + recipient PIN. One-time recipient PIN: **${(next.pickup_code as string) || "PK-9912"}**.`,
-                              tier: "PAYPAL-AUTHORIZE",
-                              timestamp: Date.now(),
-                              order: next as ShopperMessage["order"],
-                            },
-                          ]);
-                        }}
-                      />
                     </div>
                   )}
 

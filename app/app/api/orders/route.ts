@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       budgetCents: body.budget_cents,
       note: body.note,
       actor: "shopper",
-      autoAuthorize: body.autoAuthorize ?? true,
+      autoAuthorize: body.autoAuthorize ?? false,
     });
     return jsonOk({ order: publicOrderView(order) }, 201);
   } catch (error) {

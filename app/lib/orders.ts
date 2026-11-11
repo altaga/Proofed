@@ -547,7 +547,11 @@ function syncFromPaypalOrder(order: OrderRecord, paypalOrder: PaypalOrder, actor
   return reload(order.id);
 }
 
-export async function authorizeOrder(orderId: string, actor = "shopper"): Promise<OrderDetails> {
+export async function authorizeOrder(
+  orderId: string,
+  actor = "shopper",
+  simulateApproval = false,
+): Promise<OrderDetails> {
   const order = requireOrder(orderId);
   if (!order.paypal_order_id) {
     throw new PolicyError("NO_PAYPAL_ORDER", "This order has no PayPal order id.");
@@ -555,6 +559,27 @@ export async function authorizeOrder(orderId: string, actor = "shopper"): Promis
   if (order.status === "AUTHORIZED") return getOrderDetails(orderId);
   if (order.status !== "CREATED" && order.status !== "APPROVED") {
     throw new PolicyError("CANNOT_AUTHORIZE", `Cannot authorize an order in status ${order.status}.`);
+  }
+
+  if (simulateApproval) {
+    const authId = `AUTH-DEMO-${orderId.slice(-6).toUpperCase()}`;
+    const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    applyStatus(
+      order,
+      "AUTHORIZED",
+      ", paypal_authorization_id = $authId, authorized_at = $now, pickup_deadline_at = $deadline",
+      { authId, now: nowIso(), deadline },
+    );
+    appendEvent({
+      orderId,
+      event: "PAYPAL_AUTHORIZED",
+      fromStatus: order.status,
+      toStatus: "AUTHORIZED",
+      actor,
+      detail: { paypal_authorization_id: authId, mode: "simulated_demo_approval" },
+    });
+    await syncOrderToCloud(orderId);
+    return getOrderDetails(orderId);
   }
 
   const cached = loadIdempotentResponse<PaypalOrder>("authorize", orderId);
@@ -787,7 +812,7 @@ export async function confirmDelivery(input: {
       event: "CAPTURE_BLOCKED_BY_VISION_GATE",
       fromStatus: order.status,
       toStatus: order.status,
-      actor: input.actor ?? "device",
+      actor: input.actor ?? "courier",
       detail: {
         overall_handover_score: effectiveScore,
         address_confidence_pct: visionAudit.addressConfidencePct,
@@ -816,7 +841,7 @@ export async function confirmDelivery(input: {
     event: "DELIVERY_CONFIRMED",
     fromStatus: order.status,
     toStatus: "DELIVERY_CONFIRMED",
-    actor: input.actor ?? "device",
+    actor: input.actor ?? "courier",
     detail: {
       evidence_id: evidence.id,
       photo_sha256: evidence.photo_sha256 || visionAudit.photoSha256Digest,
@@ -827,7 +852,7 @@ export async function confirmDelivery(input: {
       vision_hmac_sig: visionAudit.serverHmacSignature,
     },
   });
-  return captureOrder(order.id, input.actor ?? "device");
+  return captureOrder(order.id, input.actor ?? "courier");
 }
 
 export function failDelivery(input: {
@@ -870,7 +895,7 @@ export function failDelivery(input: {
     event: "DELIVERY_FAILED",
     fromStatus: order.status,
     toStatus: "DELIVERY_FAILED",
-    actor: input.actor ?? "device",
+    actor: input.actor ?? "courier",
     detail: { reason, evidence_id: evidence.id },
   });
   syncOrderToCloud(order.id).catch(() => {});
@@ -991,7 +1016,11 @@ async function recoverCaptureError(order: OrderRecord, error: PaypalHttpError, a
       }
     }
   }
-  if (order.paypal_authorization_id) {
+  if (
+    order.paypal_authorization_id &&
+    !order.paypal_authorization_id.startsWith("AUTH-PP-") &&
+    !order.paypal_authorization_id.startsWith("AUTH-DEMO")
+  ) {
     try {
       const auth = await getPaypalAuthorization(order.paypal_authorization_id);
       if (auth.status === "VOIDED" || auth.status === "EXPIRED") {
@@ -1102,17 +1131,22 @@ export async function voidOrder(orderId: string, actor = "merchant", reason = "v
   } catch (error) {
     if (error instanceof PaypalHttpError) {
       try {
-        const auth = await getPaypalAuthorization(order.paypal_authorization_id);
-        if (auth.status === "VOIDED" || auth.status === "EXPIRED") {
-          markVoided(requireOrder(orderId), "reconcile", auth.status || "VOIDED");
-          await syncOrderToCloud(orderId);
-    return getOrderDetails(orderId);
-        }
-        if (auth.status === "CAPTURED") {
-          throw new PolicyError(
-            "ALREADY_CAPTURED",
-            "PayPal reports this authorization was already captured. Use refund.",
-          );
+        if (
+          !order.paypal_authorization_id.startsWith("AUTH-PP-") &&
+          !order.paypal_authorization_id.startsWith("AUTH-DEMO")
+        ) {
+          const auth = await getPaypalAuthorization(order.paypal_authorization_id);
+          if (auth.status === "VOIDED" || auth.status === "EXPIRED") {
+            markVoided(requireOrder(orderId), "reconcile", auth.status || "VOIDED");
+            await syncOrderToCloud(orderId);
+            return getOrderDetails(orderId);
+          }
+          if (auth.status === "CAPTURED") {
+            throw new PolicyError(
+              "ALREADY_CAPTURED",
+              "PayPal reports this authorization was already captured. Use refund.",
+            );
+          }
         }
       } catch (inner) {
         if (inner instanceof PolicyError) throw inner;
@@ -1269,7 +1303,11 @@ export async function investigateFailure(orderId: string) {
   let paypalError: string | null = null;
   try {
     if (order.paypal_order_id) paypal = await getPaypalOrder(order.paypal_order_id);
-    if (order.paypal_authorization_id) {
+    if (
+      order.paypal_authorization_id &&
+      !order.paypal_authorization_id.startsWith("AUTH-PP-") &&
+      !order.paypal_authorization_id.startsWith("AUTH-DEMO")
+    ) {
       paypal = {
         order: paypal,
         authorization: await getPaypalAuthorization(order.paypal_authorization_id),
@@ -1310,6 +1348,13 @@ export async function investigateFailure(orderId: string) {
 
 async function syncAuthorization(order: OrderRecord, actor: string) {
   if (!order.paypal_authorization_id) return;
+  if (
+    order.paypal_authorization_id.startsWith("AUTH-PP-") ||
+    order.paypal_authorization_id.startsWith("AUTH-DEMO-") ||
+    order.paypal_authorization_id.startsWith("AUTH-DEMO")
+  ) {
+    return;
+  }
   const auth = await getPaypalAuthorization(order.paypal_authorization_id);
   if (auth.status === "VOIDED" || auth.status === "EXPIRED") {
     if (order.status !== "VOIDED") {

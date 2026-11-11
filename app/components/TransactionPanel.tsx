@@ -101,7 +101,7 @@ export function TransactionPanel({
         <div className="financial-alert alert-hold" role="status">
           <div className="financial-alert-badge">Hold active · $0.00 charged</div>
           <div className="financial-alert-text">
-            PayPal authorized a hold of <strong>{amount}</strong>. No funds are captured until pickup is confirmed.
+            PayPal authorized a hold of <strong>{amount}</strong>. No funds are captured until doorstep delivery is verified.
           </div>
         </div>
       )}
@@ -119,7 +119,7 @@ export function TransactionPanel({
         <div className="financial-alert alert-failed" role="status">
           <div className="financial-alert-badge">Handoff failed · $0.00 charged</div>
           <div className="financial-alert-text">
-            Handoff issue ({order.failure_reason || "locker jam"}). <strong>{amount}</strong> remains held without charge. You can substitute or release the hold.
+            Delivery issue ({order.failure_reason || "address mismatch"}). <strong>{amount}</strong> remains held without charge. You can re-dispatch or release the hold.
           </div>
         </div>
       )}
@@ -155,7 +155,7 @@ export function TransactionPanel({
           )}
           {order?.pickup_code && (
             <div className="tx-ids">
-              Pickup code <Copyable value={order.pickup_code} />
+              Recipient PIN <Copyable value={order.pickup_code} />
             </div>
           )}
         </div>

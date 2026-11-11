@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       note: body.note,
       photoBase64: body.photoBase64,
       photoMime: body.photoMime,
-      actor: "device",
+      actor: "courier",
     });
     return jsonOk({ order: publicOrderView(order) });
   } catch (error) {

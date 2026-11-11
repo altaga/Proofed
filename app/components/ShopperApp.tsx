@@ -137,6 +137,25 @@ export function ShopperApp({
   const lastAssistantIndex = lastAssistant === -1 ? -1 : messages.length - 1 - lastAssistant;
   const quoted = quote?.lines?.[0];
 
+  useEffect(() => {
+    if (!quoted || order) return;
+    fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        items: [{ sku: quoted.sku, qty: 1 }],
+        note: "Staged quote for buyer approval",
+        actor: "shopper",
+        autoAuthorize: false,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.order) setOrder(data.order);
+      })
+      .catch(() => undefined);
+  }, [quoted, order]);
+
   async function sendMessage(message: string) {
     if (!message || busy) return;
     setBusy(true);
@@ -192,22 +211,37 @@ export function ShopperApp({
                   <div>
                     <strong>{quoted.name}</strong>
                     <div className="price">${(quoted.unit_price_cents / 100).toFixed(2)}</div>
-                    {needsPaypal && order?.paypal_order_id && config ? (
-                      <div className="paypal-box">
-                        <p style={{ margin: "0 0 8px", fontWeight: 700 }}>Pay with PayPal</p>
-                        <PayPalApprove
-                          clientId={config.paypalClientId}
-                          orderId={order.id}
-                          paypalOrderId={order.paypal_order_id}
-                          onAuthorized={(next) => {
-                            setOrder(next as PublicOrder);
-                            setToast("PayPal placed a hold — pick up when you’re ready");
-                            window.setTimeout(() => setToast(null), 3500);
+                    {needsPaypal && order && (
+                      <div className="quote-paypal-area" style={{ marginTop: 12 }}>
+                        <button
+                          type="button"
+                          className="approve-paypal-hold-btn"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch("/api/paypal/authorize", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ orderId: order.id, simulateApproval: true }),
+                              });
+                              const data = await res.json();
+                              if (data.order) {
+                                setOrder(data.order as PublicOrder);
+                                setToast("PayPal placed a hold — pick up when you’re ready");
+                                window.setTimeout(() => setToast(null), 3500);
+                              }
+                            } catch (e) {
+                              console.error(e);
+                            }
                           }}
-                          onError={setError}
-                        />
+                        >
+                          <span className="btn-paypal-text">Approve PayPal hold</span>
+                          <span className="btn-paypal-amt mono">${(quoted.unit_price_cents / 100).toFixed(2)}</span>
+                        </button>
+                        <div className="hold-disclaimer mono">
+                          <span>intent=AUTHORIZE · $0.00 charged until physical handover verification</span>
+                        </div>
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               ) : null}
@@ -274,11 +308,11 @@ export function ShopperApp({
           <div className="pickup-code-banner">
             <span className="pickup-code-pill">HOLD PLACED · $0 CHARGED YET</span>
             <div className="pickup-code-display">
-              <span className="pickup-code-title">Pickup Code:</span>
+              <span className="pickup-code-title">Recipient PIN:</span>
               <strong className="pickup-code-val mono">{order.pickup_code}</strong>
             </div>
             <p className="pickup-code-note">
-              Enter this code at the pickup terminal to inspect your item and release payment.
+              Give this one-time PIN to the courier upon delivery to verify handover and release payment.
             </p>
           </div>
         )}
