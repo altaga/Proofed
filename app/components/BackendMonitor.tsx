@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import { mergeEvents, mergeOrders } from "@/lib/order-merge";
 import {
   Activity,
   Code2,
@@ -124,16 +125,31 @@ export function BackendMonitor() {
         setHealth(healthData);
       }
 
-      const orderList: OrderRecord[] = ordersData.orders || [];
-      setOrders(orderList);
-      setEvents(eventsData.events || []);
-
-      if (orderList.length > 0 && !selectedOrder) {
-        setSelectedOrder(orderList[0]);
-      } else if (selectedOrder) {
-        const updated = orderList.find((o) => o.id === selectedOrder.id);
-        if (updated) setSelectedOrder(updated);
+      let cachedList: OrderRecord[] = [];
+      try {
+        const cachedRaw = typeof window !== "undefined" ? window.localStorage.getItem("proofed:shared_orders_v1") : null;
+        if (cachedRaw) {
+          cachedList = JSON.parse(cachedRaw) as OrderRecord[];
+        }
+      } catch {
+        // ignore
       }
+
+      setOrders((prev) => {
+        let merged = mergeOrders(ordersData.orders || [], prev);
+        if (Array.isArray(cachedList) && cachedList.length > 0) {
+          merged = mergeOrders(cachedList, merged);
+        }
+        if (merged.length > 0 && !selectedOrder) {
+          setSelectedOrder(merged[0]);
+        } else if (selectedOrder) {
+          const updated = merged.find((o) => o.id === selectedOrder.id);
+          if (updated) setSelectedOrder(updated);
+        }
+        return merged;
+      });
+
+      setEvents((prev) => mergeEvents(eventsData.events || [], prev));
     } catch (err) {
       console.warn("Failed to refresh backend data:", err);
     } finally {

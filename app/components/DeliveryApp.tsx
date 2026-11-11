@@ -20,6 +20,7 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { mergeOrders } from "@/lib/order-merge";
 import { EmptyOrderState } from "./EmptyOrderState";
 
 type OrderItem = {
@@ -334,12 +335,7 @@ export function DeliveryApp() {
         // ignore
       }
 
-      const combined: DeliveryOrder[] = Array.isArray(cachedOrders) ? [...cachedOrders] : [];
-      for (const s of serverOrders) {
-        if (!combined.some((o) => o.id === s.id)) {
-          combined.push(s);
-        }
-      }
+      const combined: DeliveryOrder[] = mergeOrders(serverOrders, cachedOrders);
 
       const held =
         combined.find((o) => o.status === "AUTHORIZED") ||
@@ -375,12 +371,7 @@ export function DeliveryApp() {
         // ignore
       }
 
-      const combined: DeliveryOrder[] = Array.isArray(cachedOrders) ? [...cachedOrders] : [];
-      for (const s of serverOrders) {
-        if (!combined.some((o) => o.id === s.id)) {
-          combined.push(s);
-        }
-      }
+      const combined: DeliveryOrder[] = mergeOrders(serverOrders, cachedOrders);
 
       // Look strictly for another order that is AUTHORIZED (waiting for delivery)
       const nextPending =

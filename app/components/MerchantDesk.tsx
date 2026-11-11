@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { MoreHorizontal, X } from "lucide-react";
+import { mergeEvents, mergeOrders } from "@/lib/order-merge";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EmptyOrderState } from "./EmptyOrderState";
 import { TransactionPanel } from "./TransactionPanel";
@@ -55,32 +56,54 @@ export function MerchantDesk() {
     const orderPayload = await orderRes.json();
     const eventPayload = await eventRes.json();
     if (!orderRes.ok) throw new Error(orderPayload.error || "Could not load orders");
-    let mergedOrders: PublicOrder[] = orderPayload.orders || [];
+
+    let cachedList: PublicOrder[] = [];
     try {
       const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
       if (cachedRaw) {
-        const cachedList = JSON.parse(cachedRaw) as PublicOrder[];
-        if (Array.isArray(cachedList)) {
-          for (const c of cachedList) {
-            if (!mergedOrders.some((o) => o.id === c.id)) {
-              mergedOrders = [c, ...mergedOrders];
-            }
-          }
-        }
+        cachedList = JSON.parse(cachedRaw) as PublicOrder[];
       }
     } catch {
       // ignore
     }
-    setOrders(mergedOrders);
-    setEvents(eventPayload.events || []);
+
+    setOrders((prev) => {
+      // Monotonically merge server orders, previous React state, and localStorage cache
+      let merged = mergeOrders(orderPayload.orders || [], prev);
+      if (Array.isArray(cachedList) && cachedList.length > 0) {
+        merged = mergeOrders(cachedList, merged);
+      }
+      // Persist the consolidated authoritative orders back to localStorage
+      try {
+        window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(merged.slice(0, 20)));
+      } catch {
+        // ignore
+      }
+
+      // Background-sync with server so stale lambda instances learn about newer states
+      void fetch("/api/orders/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orders: merged }),
+      }).catch(() => {});
+
+      setSelected((current) => {
+        if (!current) return merged[0] || null;
+        const updated = merged.find((item: PublicOrder) => item.id === current.id);
+        return updated ?? current;
+      });
+
+      return merged;
+    });
+
+    setEvents((prev) => {
+      return mergeEvents(eventPayload.events || [], prev);
+    });
+
     if (configRes.ok) {
       const configPayload = await configRes.json();
       if (configPayload.venueName) setVenueName(configPayload.venueName);
     }
-    setSelected((current) => {
-      if (!current) return current;
-      return mergedOrders.find((item: PublicOrder) => item.id === current.id) ?? current;
-    });
   }, []);
 
   useEffect(() => {

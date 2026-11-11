@@ -735,6 +735,27 @@ export function ensureOrderHydrated(snapshot?: {
         .prepare("UPDATE orders SET pickup_code = $pickup WHERE id = $id")
         .run({ pickup: snapshot.pickup_code.trim().toUpperCase(), id: snapshot.id });
     }
+    const STATUS_RANK: Record<string, number> = {
+      CREATED: 1,
+      APPROVED: 2,
+      AUTHORIZED: 3,
+      DELIVERY_CONFIRMED: 4,
+      DELIVERY_FAILED: 5,
+      CAPTURED: 6,
+      VOIDED: 6,
+      REFUNDED: 7,
+      CANCELLED: 7,
+      EXPIRED: 7,
+    };
+    const incomingRank = snapshot.status ? (STATUS_RANK[snapshot.status.toUpperCase()] ?? 0) : 0;
+    const currentRank = STATUS_RANK[existing.status.toUpperCase()] ?? 0;
+    if (incomingRank > currentRank && snapshot.status) {
+      db()
+        .prepare(
+          "UPDATE orders SET status = $status, updated_at = $now WHERE id = $id",
+        )
+        .run({ status: snapshot.status, now: nowIso(), id: snapshot.id });
+    }
     return;
   }
   const cfg = getProjectConfig();
