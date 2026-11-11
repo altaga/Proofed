@@ -7,9 +7,11 @@ import {
   ChevronDown,
   ChevronRight,
   CornerDownLeft,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
   Terminal,
+  XCircle,
 } from "lucide-react";
 import { PayPalApprove } from "./PayPalApprove";
 import { SafeMarkdown } from "./SafeMarkdown";
@@ -125,9 +127,9 @@ export function ShopperChat({
   const currentPrompts = (() => {
     if (activeOrder?.status === "DELIVERY_FAILED") {
       return [
+        "I received the package safely",
         "Send a replacement to my address",
         "Cancel order and release payment hold",
-        "What happened with my delivery?",
       ];
     }
     if (activeOrder?.status === "VOIDED") {
@@ -257,7 +259,7 @@ export function ShopperChat({
               {
                 id: `fail-alert-${Date.now()}`,
                 role: "assistant",
-                content: `**Delivery Update: Package Returned**\n\nThe courier attempted delivery at the wrong door (**#13** instead of **#15**), so the delivery was cancelled and **you were not charged ($0.00)**.\n\nWould you like us to **send a replacement** to your address, or **cancel the order and release the payment hold**?`,
+                content: `**Delivery Update: Verification Issue**\n\nThe courier attempted delivery at the wrong door (**#13** instead of **#15**), so the automatic verification failed and **you were not charged ($0.00)**.\n\nDid the package actually reach you, would you like a **replacement sent**, or should we **cancel and release your payment hold**?`,
                 tier: "DELIVERY-UPDATE",
                 timestamp: Date.now(),
                 order: serverOrder,
@@ -351,6 +353,71 @@ export function ShopperChat({
           id: `err-${Date.now()}`,
           role: "assistant",
           content: `Notice: ${err instanceof Error ? err.message : "Service error"}`,
+          tier: "NOTICE",
+          timestamp: Date.now(),
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleActionConfirmReceived(orderId?: string) {
+    if (!orderId || loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/orders/recover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          action: "confirm_received",
+          confirm: true,
+          actor: "shopper",
+          orderSnapshot: activeOrder || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Could not confirm delivery");
+      }
+
+      const updatedOrder = data.order || { id: orderId, status: "CAPTURED" };
+      try {
+        const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+        const list = cachedRaw ? (JSON.parse(cachedRaw) as Array<{ id: string }>) : [];
+        const next = [updatedOrder, ...list.filter((o) => o.id !== updatedOrder.id)];
+        window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(next.slice(0, 20)));
+      } catch {
+        // ignore
+      }
+
+      setMessages((prev) => [
+        ...prev.map((m) => (m.order?.id === orderId ? { ...m, order: updatedOrder } : m)),
+        {
+          id: `confirm-rec-${Date.now()}`,
+          role: "assistant",
+          content: `**Delivery Confirmed by Customer**\n\nThank you for confirming receipt! We've recorded that you received your package safely. Your payment of **${updatedOrder.formatted_total || "$38.00"}** has now been completed with PayPal.`,
+          tier: "DELIVERY-CONFIRMED",
+          timestamp: Date.now(),
+          order: updatedOrder,
+          toolTrace: [
+            {
+              name: "customer_direct_confirmation",
+              ok: true,
+              summary: "Buyer verified physical receipt of parcel (door mismatch / vision false alarm override)",
+              outcome: `PayPal Payments v2 captured: ${updatedOrder.formatted_total}`,
+            },
+          ],
+        },
+      ]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          content: `Notice: ${err instanceof Error ? err.message : "Error confirming delivery"}`,
           tier: "NOTICE",
           timestamp: Date.now(),
         },
@@ -483,7 +550,19 @@ export function ShopperChat({
 
     // If active order has DELIVERY_FAILED, interpret shopper escalation decision directly
     if (activeOrder?.status === "DELIVERY_FAILED") {
-      if (/^(pedir otro|re-enviar|reenviar|reintentar|volver a enviar|re-dispatch|redispatch|retry|redeliver|send another|another)/i.test(text)) {
+      if (/^(recibido|recibí|si llego|sí llegó|llego bien|llegó bien|received|i received|got it|got the package|package arrived)/i.test(text)) {
+        const userMsg: ShopperMessage = {
+          id: `usr-${Date.now()}`,
+          role: "user",
+          content: text,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setInput("");
+        void handleActionConfirmReceived(activeOrder.id);
+        return;
+      }
+      if (/^(pedir otro|re-enviar|reenviar|reintentar|volver a enviar|re-dispatch|redispatch|retry|redeliver|send another|another|replacement)/i.test(text)) {
         const userMsg: ShopperMessage = {
           id: `usr-${Date.now()}`,
           role: "user",
@@ -804,25 +883,38 @@ export function ShopperChat({
                     <div className="quote-failure-box" role="alert">
                       <div className="failure-box-header">
                         <AlertCircle size={16} />
-                        <span className="failure-box-title">Delivery Attempt Unsuccessful ($0.00 Charged)</span>
+                        <span className="failure-box-title">Delivery Issue Detected ($0.00 Charged)</span>
                       </div>
                       <p className="failure-desc">
-                        The courier couldn&apos;t verify your doorstep address, so the package was returned and you were not charged. How would you like to proceed?
+                        The courier could not verify the doorstep address (#13 instead of #15), so the delivery was paused and you were not charged ($0.00). If this was a mistake and you already received the package, please confirm below.
                       </p>
                       <div className="failure-actions-grid">
                         <button
                           type="button"
+                          className="failure-action-btn btn-confirm-received"
+                          onClick={() => void handleActionConfirmReceived(msg.order?.id)}
+                          disabled={loading}
+                        >
+                          <CheckCircle2 size={13} />
+                          <span>I received the package</span>
+                        </button>
+                        <button
+                          type="button"
                           className="failure-action-btn btn-redispatch"
                           onClick={() => void handleActionRedispatch(msg.order?.id)}
+                          disabled={loading}
                         >
-                          Send a replacement
+                          <RotateCcw size={13} />
+                          <span>Send a replacement</span>
                         </button>
                         <button
                           type="button"
                           className="failure-action-btn btn-release-void"
                           onClick={() => void handleActionVoid(msg.order?.id)}
+                          disabled={loading}
                         >
-                          Cancel order &amp; release hold
+                          <XCircle size={13} />
+                          <span>Cancel &amp; release hold</span>
                         </button>
                       </div>
                     </div>

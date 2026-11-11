@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   try {
     const body = await readJson<{
       orderId?: string;
-      action?: "substitute" | "retry" | "cancel";
+      action?: "substitute" | "retry" | "cancel" | "confirm_received";
       substitute_items?: unknown;
       confirm?: boolean;
       actor?: string;
@@ -21,15 +21,19 @@ export async function POST(request: Request) {
       };
     }>(request);
     if (!body.orderId) return jsonError("MISSING_ORDER", "orderId is required.", 400);
-    if (!body.action) return jsonError("MISSING_ACTION", "action must be substitute, retry, or cancel.", 400);
+    if (!body.action) return jsonError("MISSING_ACTION", "action must be substitute, retry, cancel, or confirm_received.", 400);
     if (!body.confirm) return jsonError("CONFIRM_REQUIRED", "Send confirm: true to recover.", 400);
     if (body.orderSnapshot) ensureOrderHydrated(body.orderSnapshot);
 
     // Cross-reference fulfillment evidence and policy rules before executing recovery
-    const auditAction = body.action === "cancel" ? "refund" : "retry";
-    const audit = evaluateFraudAudit(body.orderId, auditAction);
-    if (!audit.allowed) {
-      return jsonError("FRAUD_POLICY_BLOCKED", audit.auditExplanation, 403, { audit });
+    let audit = { allowed: true, policyRule: "RULE_CUSTOMER_DIRECT_CONFIRMATION", auditExplanation: "Customer confirmed delivery receipt." };
+    if (body.action === "cancel" || body.action === "retry") {
+      const auditAction = body.action === "cancel" ? "refund" : "retry";
+      const evaluated = evaluateFraudAudit(body.orderId, auditAction);
+      if (!evaluated.allowed) {
+        return jsonError("FRAUD_POLICY_BLOCKED", evaluated.auditExplanation, 403, { audit: evaluated });
+      }
+      audit = evaluated;
     }
 
     const recovered = await recoverOrder({

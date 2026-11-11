@@ -5850,7 +5850,7 @@ main[data-testid="page-client"] {
 
 .failure-actions-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 
@@ -5861,7 +5861,11 @@ main[data-testid="page-client"] {
 }
 
 .failure-action-btn {
-  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
   font-size: 11px;
   font-weight: 600;
   border-radius: 4px;
@@ -5869,26 +5873,43 @@ main[data-testid="page-client"] {
   border: 1px solid transparent;
   text-align: center;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
-.btn-release-void {
-  background: #EF4444;
+.btn-confirm-received {
+  background: rgba(0, 214, 135, 0.15);
+  border-color: rgba(0, 214, 135, 0.4);
+  color: #00D687;
+}
+
+.btn-confirm-received:hover {
+  background: rgba(0, 214, 135, 0.25);
+  border-color: #00D687;
   color: #FFFFFF;
 }
 
-.btn-release-void:hover {
-  background: #DC2626;
-}
-
 .btn-redispatch {
-  background: #1F1D19;
+  background: #181714;
   border-color: #2E2B25;
-  color: #EDEDEF;
+  color: #D6D1C4;
 }
 
 .btn-redispatch:hover {
-  border-color: #FF7A3D;
-  color: #FF7A3D;
+  background: #24221C;
+  border-color: #4A453C;
+  color: #FFFFFF;
+}
+
+.btn-release-void {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #FF7B72;
+}
+
+.btn-release-void:hover {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #EF4444;
+  color: #FFFFFF;
 }
 
 /* =========================================================================

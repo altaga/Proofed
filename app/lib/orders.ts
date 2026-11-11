@@ -1308,12 +1308,32 @@ function finalizeRefund(order: OrderRecord, refundId: string, actor: string) {
 
 export async function recoverOrder(input: {
   orderId: string;
-  action: "substitute" | "retry" | "cancel";
+  action: "substitute" | "retry" | "cancel" | "confirm_received";
   substituteItems?: unknown;
   actor?: string;
 }): Promise<{ order: OrderDetails; replacement?: OrderDetails; message: string }> {
   const actor = input.actor ?? "agent";
   const order = requireOrder(input.orderId);
+
+  if (input.action === "confirm_received") {
+    if (order.status !== "DELIVERY_FAILED" && order.status !== "AUTHORIZED") {
+      throw new PolicyError("CANNOT_CONFIRM", `Order cannot be confirmed from status ${order.status}.`);
+    }
+    applyStatus(order, "DELIVERY_CONFIRMED", ", delivered_at = $delivered", { delivered: nowIso() });
+    appendEvent({
+      orderId: order.id,
+      event: "DELIVERY_CONFIRMED_BY_CUSTOMER",
+      fromStatus: order.status,
+      toStatus: "DELIVERY_CONFIRMED",
+      actor,
+      detail: { note: "Customer directly confirmed package receipt (false alarm / address mismatch override)" },
+    });
+    const captured = await captureOrder(order.id, actor);
+    return {
+      order: captured,
+      message: `Customer confirmed delivery receipt. Payment of ${formatMoney(captured.subtotal_cents, captured.currency)} was captured via PayPal.`,
+    };
+  }
 
   if (input.action === "retry") {
     if (order.status !== "DELIVERY_FAILED") {

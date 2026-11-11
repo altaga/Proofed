@@ -19,6 +19,7 @@ describe("order state machine", () => {
   it("allows failure and recovery paths", () => {
     expect(canTransition("AUTHORIZED", "DELIVERY_FAILED")).toBe(true);
     expect(canTransition("DELIVERY_FAILED", "AUTHORIZED")).toBe(true);
+    expect(canTransition("DELIVERY_FAILED", "DELIVERY_CONFIRMED")).toBe(true);
     expect(canTransition("DELIVERY_FAILED", "VOIDED")).toBe(true);
     expect(canTransition("AUTHORIZED", "VOIDED")).toBe(true);
     expect(canTransition("DELIVERY_CONFIRMED", "VOIDED")).toBe(true);
@@ -30,12 +31,10 @@ describe("order state machine", () => {
     expect(canTransition("CAPTURED", "VOIDED")).toBe(false);
     expect(canTransition("VOIDED", "AUTHORIZED")).toBe(false);
     expect(canTransition("REFUNDED", "CAPTURED")).toBe(false);
-    expect(canTransition("DELIVERY_FAILED", "DELIVERY_CONFIRMED")).toBe(false);
     expect(canTransition("DELIVERY_CONFIRMED", "DELIVERY_FAILED")).toBe(false);
     expect(canTransition("CAPTURED", "DELIVERY_FAILED")).toBe(false);
     expect(canTransition("CAPTURED", "DELIVERY_CONFIRMED")).toBe(false);
     expect(() => assertTransition("CREATED", "CAPTURED")).toThrow(StateError);
-    expect(() => assertTransition("DELIVERY_FAILED", "DELIVERY_CONFIRMED")).toThrow(StateError);
     expect(() => assertTransition("DELIVERY_CONFIRMED", "DELIVERY_FAILED")).toThrow(StateError);
   });
 
