@@ -125,28 +125,42 @@ export async function analyzeFulfillmentImage(input: {
   if (isBase64 && apiKey) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 9000);
+      const timeout = setTimeout(() => controller.abort(), 25000);
 
       const prompt = `You are the Proofed Autonomous Multimodal Fulfillment Auditor.
-The courier is delivering to Unit #${targetDoor} at ${targetAddress} (e.g. Airbnb apartment door).
+The courier is delivering to Unit #${targetDoor} at ${targetAddress}.
 
-Inspect this doorstep delivery photo. Extract quantitative and qualitative metrics:
-1. Door/Unit Number Check (Requirement 2):
-   - Locate the number on the apartment door, frame, or unit plaque. Because this is an interior apartment/Airbnb door, it displays ONLY the unit number (e.g. "${targetDoor}"), without street name.
+Inspect this doorstep delivery photo. Detect the key objects and estimate their bounding box coordinates (as percentages 0 to 100 for x, y, width, height from the top-left of the image):
+1. Door/Unit Number Check:
+   - Locate the number on the front door, door frame, or wall plaque (e.g. "${targetDoor}").
    - detectedDoorNumber: string or null (e.g. "${targetDoor}").
+   - doorNumberBox: object { "x": number, "y": number, "w": number, "h": number } or null.
    - isDoorMatch: boolean (strictly true if detectedDoorNumber contains or matches "${targetDoor}").
-2. Package Presence & Integrity (Requirement 3):
-   - packageDetected: boolean (true if a parcel, box, cardboard package, or delivery bag is visible left on the floor/doorstep).
+2. Package Presence & Integrity:
+   - packageDetected: boolean (true if a parcel, box, cardboard package, or delivery bag is visible resting on the floor or doorstep).
+   - packageBox: object { "x": number, "y": number, "w": number, "h": number } or null.
    - packageCondition: "intact" | "damaged" | "unclear" (check if box is intact and not crushed).
    - placementType: "safe_doorstep" | "unprotected_street" | "weather_risk" | "unknown".
 3. Quantitative Scores (0.0 to 100.0):
-   - addressConfidencePct: confidence in unit #${targetDoor} verification on the door.
-   - parcelIntegrityPct: confidence that box is undamaged (100.0 = box intact on floor, 15.0 = crushed).
-   - placementSecurityPct: confidence that box is resting safely on the floor at the door threshold.
-4. visualEvidence: 1 concise factual sentence describing the door number and the box on the floor.
+   - addressConfidencePct: confidence in unit #${targetDoor} verification.
+   - parcelIntegrityPct: confidence that box is undamaged (100.0 = intact, 20.0 = crushed).
+   - placementSecurityPct: confidence that box is resting safely on the floor at the threshold.
+4. visualEvidence: 1 concise factual sentence describing the door number location and package condition.
 
 Respond strictly with valid JSON without markdown formatting:
-{"detectedDoorNumber":"${targetDoor}","isDoorMatch":true,"packageDetected":true,"packageCondition":"intact","addressConfidencePct":98.5,"parcelIntegrityPct":96.0,"placementSecurityPct":95.0,"placementType":"safe_doorstep","visualEvidence":"Unit #${targetDoor} door verified with parcel intact on the floor."}`;
+{
+  "detectedDoorNumber": "${targetDoor}",
+  "doorNumberBox": { "x": 48.0, "y": 25.0, "w": 6.0, "h": 6.0 },
+  "isDoorMatch": true,
+  "packageDetected": true,
+  "packageBox": { "x": 35.0, "y": 70.0, "w": 12.0, "h": 18.0 },
+  "packageCondition": "intact",
+  "addressConfidencePct": 98.5,
+  "parcelIntegrityPct": 96.0,
+  "placementSecurityPct": 95.0,
+  "placementType": "safe_doorstep",
+  "visualEvidence": "Door #${targetDoor} verified with parcel intact on the floor."
+}`;
 
       const aiRes = await fetch("https://api.minimax.io/v1/chat/completions", {
         method: "POST",
@@ -209,24 +223,40 @@ Respond strictly with valid JSON without markdown formatting:
         }
 
         const boxes: BoundingBox[] = [];
-        if (detected) {
+        if (detected || parsed.doorNumberBox) {
+          const rawBox = parsed.doorNumberBox && typeof parsed.doorNumberBox === "object" ? parsed.doorNumberBox : null;
+          const w = Math.max(6, Math.min(45, Number(rawBox?.w) || 8));
+          const h = Math.max(5, Math.min(35, Number(rawBox?.h) || 7));
+          const rawX = Number(rawBox?.x);
+          const rawY = Number(rawBox?.y);
+          const x = Number.isFinite(rawX) ? Math.max(0, Math.min(100 - w, rawX - Math.max(0, (w - (Number(rawBox?.w) || 8)) / 2))) : 48;
+          const y = Number.isFinite(rawY) ? Math.max(0, Math.min(100 - h, rawY - Math.max(0, (h - (Number(rawBox?.h) || 7)) / 2))) : 25;
+
           boxes.push({
-            label: `Unit #${detected} (${addrScore.toFixed(0)}%)`,
-            x: 18,
-            y: 35,
-            w: 16,
-            h: 12,
+            label: `Unit #${detected || targetDoor} (${addrScore.toFixed(0)}%)`,
+            x: Math.round(x * 10) / 10,
+            y: Math.round(y * 10) / 10,
+            w: Math.round(w * 10) / 10,
+            h: Math.round(h * 10) / 10,
             tone: isMatch ? "good" : "bad",
             confidence: addrScore,
           });
         }
-        if (parsed.packageDetected) {
+        if (parsed.packageDetected || parsed.packageBox) {
+          const rawBox = parsed.packageBox && typeof parsed.packageBox === "object" ? parsed.packageBox : null;
+          const w = Math.max(8, Math.min(60, Number(rawBox?.w) || 16));
+          const h = Math.max(8, Math.min(60, Number(rawBox?.h) || 18));
+          const rawX = Number(rawBox?.x);
+          const rawY = Number(rawBox?.y);
+          const x = Number.isFinite(rawX) ? Math.max(0, Math.min(100 - w, rawX - Math.max(0, (w - (Number(rawBox?.w) || 16)) / 2))) : 35;
+          const y = Number.isFinite(rawY) ? Math.max(0, Math.min(100 - h, rawY - Math.max(0, (h - (Number(rawBox?.h) || 18)) / 2))) : 68;
+
           boxes.push({
             label: isDamaged ? `Parcel: Damaged (${parcelScore.toFixed(0)}%)` : `Parcel: Intact on Floor (${parcelScore.toFixed(0)}%)`,
-            x: 52,
-            y: 60,
-            w: 22,
-            h: 22,
+            x: Math.round(x * 10) / 10,
+            y: Math.round(y * 10) / 10,
+            w: Math.round(w * 10) / 10,
+            h: Math.round(h * 10) / 10,
             tone: isDamaged ? "bad" : "good",
             confidence: parcelScore,
           });

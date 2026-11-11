@@ -412,22 +412,62 @@ export function DeliveryApp() {
     void runVisionVerification({ presetId: preset.id });
   }
 
-  function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>, mode: "camera" | "upload") {
+function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width <= maxDimension && height <= maxDimension) {
+          resolve(dataUrl);
+          return;
+        }
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.88));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+}
+
+  async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>, mode: "camera" | "upload") {
     if (isFinalized) return;
     const file = e.target.files?.[0];
     if (!file) return;
     setCustomPhotoName(file.name);
     setMediaMode(mode);
+    setIsAnalyzing(true);
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+    try {
+      const dataUrl = await resizeImageForVision(file, 1200);
+      if (!dataUrl) return;
       const base64 = dataUrl.split(",")[1];
       setPreviewUrl(dataUrl);
       setCustomPhotoBase64(base64);
       void runVisionVerification({ image: dataUrl, presetId: "custom" });
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      setIsAnalyzing(false);
+    }
   }
 
   async function handleConfirmHandover() {
