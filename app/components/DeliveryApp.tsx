@@ -3,20 +3,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
-  Bot,
+  ArrowLeft,
+  ArrowRight,
   Camera,
+  Check,
   CheckCircle2,
   Clock,
-  Cpu,
+  ExternalLink,
+  Lock,
   MapPin,
   Package,
   QrCode,
   RefreshCw,
+  RotateCcw,
   ShieldAlert,
   ShieldCheck,
   Upload,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { EmptyOrderState } from "./EmptyOrderState";
 
 type OrderItem = {
@@ -48,10 +53,10 @@ type PhotoPreset = {
 
 type BoundingBox = {
   label: string;
-  x: number; // percentage left
-  y: number; // percentage top
-  w: number; // percentage width
-  h: number; // percentage height
+  x: number;
+  y: number;
+  w: number;
+  h: number;
   tone: "good" | "bad" | "warning";
   confidence: number;
 };
@@ -89,7 +94,7 @@ type VisionVerifyResponse = {
 const PHOTO_PRESETS: PhotoPreset[] = [
   {
     id: "correct",
-    shortLabel: "Door #15",
+    shortLabel: "Puerta #15 (Correcta)",
     tag: "Match",
     doorNumber: "15",
     imagePath: "/delivery/door-15.svg",
@@ -97,7 +102,7 @@ const PHOTO_PRESETS: PhotoPreset[] = [
   },
   {
     id: "wrong_door",
-    shortLabel: "Door #13",
+    shortLabel: "Puerta #13 (Error)",
     tag: "Mismatch",
     doorNumber: "13",
     imagePath: "/delivery/door-13.svg",
@@ -105,7 +110,7 @@ const PHOTO_PRESETS: PhotoPreset[] = [
   },
   {
     id: "damaged",
-    shortLabel: "Damaged box",
+    shortLabel: "Caja Dañada (Rechazo)",
     tag: "Damaged",
     doorNumber: "15",
     imagePath: "/delivery/crushed-box.svg",
@@ -125,10 +130,73 @@ function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
+function getParcelTrackingNumber(order?: DeliveryOrder | null): string {
+  if (!order) return "PKG-PL7440-KRK";
+  const clean = order.id.replace(/^ord_/, "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  const suffix = clean.slice(-5) || "7440";
+  return `PKG-PL${suffix}`;
+}
+
+function BarcodeGraphic() {
+  return (
+    <svg
+      className="parcel-barcode-svg"
+      viewBox="0 0 240 44"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <rect x="0" y="0" width="240" height="44" fill="#0D0C0A" />
+      <line x1="6" y1="4" x2="6" y2="40" stroke="#D6D1C4" strokeWidth="3" />
+      <line x1="12" y1="4" x2="12" y2="40" stroke="#D6D1C4" strokeWidth="1.5" />
+      <line x1="17" y1="4" x2="17" y2="40" stroke="#D6D1C4" strokeWidth="2.5" />
+      <line x1="23" y1="4" x2="23" y2="40" stroke="#D6D1C4" strokeWidth="1" />
+      <line x1="28" y1="4" x2="28" y2="40" stroke="#D6D1C4" strokeWidth="4" />
+      <line x1="36" y1="4" x2="36" y2="40" stroke="#D6D1C4" strokeWidth="1.5" />
+      <line x1="41" y1="4" x2="41" y2="40" stroke="#D6D1C4" strokeWidth="3" />
+      <line x1="48" y1="4" x2="48" y2="40" stroke="#D6D1C4" strokeWidth="2" />
+      <line x1="53" y1="4" x2="53" y2="40" stroke="#D6D1C4" strokeWidth="1" />
+      <line x1="58" y1="4" x2="58" y2="40" stroke="#D6D1C4" strokeWidth="3.5" />
+      <line x1="65" y1="4" x2="65" y2="40" stroke="#D6D1C4" strokeWidth="1" />
+      <line x1="70" y1="4" x2="70" y2="40" stroke="#D6D1C4" strokeWidth="2" />
+      <line x1="76" y1="4" x2="76" y2="40" stroke="#D6D1C4" strokeWidth="4" />
+      <line x1="84" y1="4" x2="84" y2="40" stroke="#D6D1C4" strokeWidth="1.5" />
+      <line x1="90" y1="4" x2="90" y2="40" stroke="#D6D1C4" strokeWidth="2.5" />
+      <line x1="96" y1="4" x2="96" y2="40" stroke="#D6D1C4" strokeWidth="1" />
+      <line x1="101" y1="4" x2="101" y2="40" stroke="#D6D1C4" strokeWidth="3" />
+      <line x1="108" y1="4" x2="108" y2="40" stroke="#D6D1C4" strokeWidth="1.5" />
+      <line x1="113" y1="4" x2="113" y2="40" stroke="#D6D1C4" strokeWidth="4" />
+      <line x1="121" y1="4" x2="121" y2="40" stroke="#D6D1C4" strokeWidth="1" />
+      <line x1="126" y1="4" x2="126" y2="40" stroke="#D6D1C4" strokeWidth="2.5" />
+      <line x1="133" y1="4" x2="133" y2="40" stroke="#D6D1C4" strokeWidth="3" />
+      <line x1="140" y1="4" x2="140" y2="40" stroke="#D6D1C4" strokeWidth="1.5" />
+      <line x1="146" y1="4" x2="146" y2="40" stroke="#D6D1C4" strokeWidth="4" />
+      <line x1="154" y1="4" x2="154" y2="40" stroke="#D6D1C4" strokeWidth="2" />
+      <line x1="160" y1="4" x2="160" y2="40" stroke="#D6D1C4" strokeWidth="1" />
+      <line x1="165" y1="4" x2="165" y2="40" stroke="#D6D1C4" strokeWidth="3.5" />
+      <line x1="172" y1="4" x2="172" y2="40" stroke="#D6D1C4" strokeWidth="1.5" />
+      <line x1="178" y1="4" x2="178" y2="40" stroke="#D6D1C4" strokeWidth="2.5" />
+      <line x1="185" y1="4" x2="185" y2="40" stroke="#D6D1C4" strokeWidth="1" />
+      <line x1="190" y1="4" x2="190" y2="40" stroke="#D6D1C4" strokeWidth="4" />
+      <line x1="198" y1="4" x2="198" y2="40" stroke="#D6D1C4" strokeWidth="2" />
+      <line x1="204" y1="4" x2="204" y2="40" stroke="#D6D1C4" strokeWidth="1.5" />
+      <line x1="210" y1="4" x2="210" y2="40" stroke="#D6D1C4" strokeWidth="3" />
+      <line x1="217" y1="4" x2="217" y2="40" stroke="#D6D1C4" strokeWidth="1" />
+      <line x1="223" y1="4" x2="223" y2="40" stroke="#D6D1C4" strokeWidth="3" />
+      <line x1="231" y1="4" x2="231" y2="40" stroke="#D6D1C4" strokeWidth="2" />
+    </svg>
+  );
+}
+
 export function DeliveryApp() {
+  // Wizard Step: 1 = Paquete (Parcel), 2 = Foto & Visión (Doorstep), 3 = PIN & Entrega (Handoff)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+
   const [activeOrder, setActiveOrder] = useState<DeliveryOrder | null>(null);
   const [knownOrders, setKnownOrders] = useState<DeliveryOrder[]>([]);
-  const [trackingInput, setTrackingInput] = useState("");
+  
+  // Recipient Handover PIN (strictly separate from parcel tracking!)
+  const [recipientPin, setRecipientPin] = useState("");
+
   const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(PHOTO_PRESETS[0]);
   const [mediaMode, setMediaMode] = useState<"preset" | "camera" | "upload">("preset");
   const [previewUrl, setPreviewUrl] = useState<string>(PHOTO_PRESETS[0].imagePath);
@@ -260,7 +328,7 @@ export function DeliveryApp() {
     });
   }
 
-  // Fetch active held order or latest order (with cross-instance localStorage fallback)
+  // Fetch active held order or latest order
   async function fetchLatestOrder() {
     try {
       const res = await fetch("/api/orders");
@@ -276,7 +344,6 @@ export function DeliveryApp() {
         // ignore storage errors
       }
 
-      // Prioritize newest orders created in current shopper session
       const combined: DeliveryOrder[] = Array.isArray(cachedOrders) ? [...cachedOrders] : [];
       for (const s of serverOrders) {
         if (!combined.some((o) => o.id === s.id)) {
@@ -285,7 +352,6 @@ export function DeliveryApp() {
       }
       setKnownOrders(combined);
 
-      // Find first held order waiting for delivery
       const held =
         combined.find((o) => o.status === "AUTHORIZED") ||
         combined.find((o) => o.status === "DELIVERY_CONFIRMED" || o.status === "DELIVERY_FAILED") ||
@@ -294,25 +360,16 @@ export function DeliveryApp() {
 
       if (held) {
         setActiveOrder(held);
-        if (held.pickup_code) setTrackingInput(held.pickup_code);
+        if (held.pickup_code && !recipientPin) {
+          setRecipientPin(held.pickup_code);
+        }
       }
     } catch {
       // Quiet fail on initial load
     }
   }
 
-  function handlePinChange(val: string) {
-    const code = val.toUpperCase().slice(0, 6);
-    setTrackingInput(code);
-    if (code.length === 6) {
-      const match = knownOrders.find((o) => o.pickup_code?.toUpperCase() === code);
-      if (match) {
-        setActiveOrder(match);
-      }
-    }
-  }
-
-  // Initial load: fetch order and analyze initial preset scene
+  // Initial load
   useEffect(() => {
     void fetchLatestOrder();
     void runVisionVerification({ presetId: "correct" });
@@ -328,7 +385,7 @@ export function DeliveryApp() {
     void runVisionVerification({ presetId: preset.id });
   }
 
-  // File Upload or Native Camera Capture Handler
+  // File Upload or Camera Capture
   function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>, mode: "camera" | "upload") {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -346,18 +403,18 @@ export function DeliveryApp() {
     reader.readAsDataURL(file);
   }
 
-  // Confirm or Reject Handover based on real vision verdict
+  // Complete Handover: checks tri-factor evidence and verifies recipient PIN
   async function handleConfirmHandover() {
-    if (!activeOrder && !trackingInput) return;
+    if (!activeOrder) return;
     setIsSubmitting(true);
     setFeedback(null);
 
-    const code = (trackingInput || activeOrder?.pickup_code || "").trim().toUpperCase();
-    if (!code || code.length < 6) {
+    const pinToVerify = (recipientPin || activeOrder.pickup_code || "").trim().toUpperCase();
+    if (!pinToVerify || pinToVerify.length < 6) {
       setFeedback({
         tone: "failure",
-        title: "PIN Required",
-        message: "Please enter the 6-character recipient handover PIN presented by the buyer (e.g. 6BQL7D).",
+        title: "PIN del Destinatario Requerido",
+        message: "Introduce el PIN de 6 caracteres que el comprador tiene en su pantalla de chat (ej. 9N56RC).",
       });
       setIsSubmitting(false);
       return;
@@ -367,20 +424,19 @@ export function DeliveryApp() {
 
     try {
       if (isVerified) {
-        // Successful handover: verifies recipient PIN + photo evidence on server
         const res = await fetch("/api/device/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            orderId: activeOrder?.id,
-            pickupCode: code,
+            orderId: activeOrder.id,
+            pickupCode: pinToVerify,
             note: `Tri-factor verified: ${visionResult?.visualEvidence || "GPS zone, Door #15, and intact parcel on floor confirmed"} (${((visionResult?.confidence ?? visionResult?.overallHandoverScore) ?? 98.5).toFixed(1)}% score) · Recipient PIN verified`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
             presetId: customPhotoBase64 ? "custom" : selectedPreset.id,
             quantitativeScore: visionResult?.overallHandoverScore ?? visionResult?.confidence ?? 98.4,
             gpsCoordinates: { lat: gpsData.lat, lng: gpsData.lng },
-            orderSnapshot: activeOrder || undefined,
+            orderSnapshot: activeOrder,
           }),
         });
         const payload = await res.json();
@@ -396,12 +452,11 @@ export function DeliveryApp() {
         }
         setFeedback({
           tone: "success",
-          title: "Tri-factor handover verified · Custody transferred",
-          message: `Package delivered to #15 Filarecka 2B, Kraków. GPS geofence (${gpsData.distanceMeters}m), Doorplate #15 Vision LLM verification, intact carton condition, and recipient PIN (${code}) verified.`,
-          paypalDetail: `Signed tamper-evident handover event recorded for Order ${payload.order.id}. PayPal Payments v2 capture executed.`,
+          title: "¡Entrega Verificada y Custodia Transferida!",
+          message: `Paquete entregado en #15 Filarecka 2B, Kraków. Verificación GPS (${gpsData.distanceMeters}m), Puerta #15 por Visión IA, paquete intacto y PIN del destinatario (${pinToVerify}) comprobados.`,
+          paypalDetail: `Evento criptográfico registrado en el ledger. Captura de fondos ejecutada en PayPal Payments v2 para la orden ${payload.order.id}.`,
         });
       } else {
-        // Failed handover (wrong geofence, wrong door, missing package, or damaged): aborts handover
         const reason =
           visionResult?.handoverVerdict === "REJECTED_GEOFENCE"
             ? "geofence_violation"
@@ -415,13 +470,13 @@ export function DeliveryApp() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            orderId: activeOrder?.id,
-            pickupCode: code,
+            orderId: activeOrder.id,
+            pickupCode: pinToVerify,
             reason,
             note: `Verification rejected: ${visionResult?.agentAssessment || visionResult?.visualEvidence || "Handover conditions not met"}`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
-            orderSnapshot: activeOrder || undefined,
+            orderSnapshot: activeOrder,
           }),
         });
         const payload = await res.json();
@@ -437,17 +492,17 @@ export function DeliveryApp() {
         }
         setFeedback({
           tone: "failure",
-          title: "Delivery rejected · Package returned to hub",
-          message: `${visionResult?.visualEvidence || "Address mismatch detected"}. Handover aborted.`,
-          paypalDetail: "Incident logged. Customer notified to choose redelivery or cancellation.",
+          title: "Entrega Rechazada · Paquete Retornado al Hub",
+          message: `${visionResult?.visualEvidence || "Discrepancia detectada en entrega"}. Transferencia abortada.`,
+          paypalDetail: "Incidente auditado. La retención de PayPal permanece en $0.00 capturados.",
           recoveryAction: true,
         });
       }
     } catch (err) {
       setFeedback({
         tone: "failure",
-        title: "Submission Error",
-        message: err instanceof Error ? err.message : "Error processing delivery",
+        title: "Error de Entrega",
+        message: err instanceof Error ? err.message : "Error al procesar la entrega",
       });
     } finally {
       setIsSubmitting(false);
@@ -455,551 +510,615 @@ export function DeliveryApp() {
   }
 
   const isVerified = visionResult?.handoverVerdict === "VERIFIED";
+  const isDelivered = activeOrder?.status === "DELIVERY_CONFIRMED" || activeOrder?.status === "CAPTURED";
+  const parcelTrackingCode = getParcelTrackingNumber(activeOrder);
 
   return (
     <div className="delivery-container">
-      {/* Handheld Courier Device Shell */}
       <div className="delivery-card">
-        {/* Top Bar with Live / Simulated GPS Telemetry */}
+        {/* Top Bar with GPS Telemetry & Controls */}
         <div className="delivery-top-bar">
           <div className="courier-badge">
-            <span className="courier-id">Courier · Route 4B</span>
+            <span className="courier-pulse" />
+            <span className="courier-id">Repartidor · Ruta 4B</span>
           </div>
           <div className="delivery-gps-ctrls">
             <div className={`delivery-gps mono ${gpsData.inZone ? "gps-in-zone" : "gps-out-zone"}`}>
               <MapPin size={12} />
               <span>
                 {gpsData.inZone
-                  ? `ul. Filarecka 2B (${gpsData.distanceMeters}m)`
-                  : `Outside zone (+${gpsData.distanceMeters}m)`}
+                  ? `Filarecka 2B (${gpsData.distanceMeters}m)`
+                  : `Fuera de zona (+${gpsData.distanceMeters}m)`}
               </span>
             </div>
             <button
               type="button"
               className="gps-toggle-btn"
               onClick={handleToggleGpsSimulation}
-              title="Toggle GPS between on-site zone and outside geofence for testing"
+              title="Alternar GPS entre la zona de entrega y fuera de zona"
             >
-              {gpsData.inZone ? "Simulate Far (+2.5km)" : "Reset Filarecka (0m)"}
+              {gpsData.inZone ? "Simular Lejos (+2.5km)" : "En Sitio (0m)"}
             </button>
             <button
               type="button"
               className="gps-locate-btn"
               onClick={handleGetLiveLocation}
               disabled={gpsData.isLocating}
-              title="Query real device GPS via browser geolocation"
+              title="Consultar GPS real del dispositivo"
             >
-              {gpsData.isLocating ? "Locating…" : "Live GPS"}
+              {gpsData.isLocating ? "Localizando…" : "GPS Real"}
             </button>
           </div>
         </div>
 
-        {/* Header Title */}
-        <div className="delivery-header">
-          <h2>Delivery handoff</h2>
-          <p className="delivery-subtitle">
-            Scan the parcel barcode and photograph the doorstep to verify destination address and package integrity.
-          </p>
-        </div>
-
-        {/* Step 1: Scan Label & Destination Address */}
-        <section className="delivery-step" aria-label="Step 1: Scan Package Label">
-          <div className="step-label-row">
-            <span className="step-num mono">01</span>
-            <span className="step-title">Parcel</span>
-          </div>
-
-          <div className="scan-actions-row">
-            <div className="code-input-wrapper">
-              <input
-                type="text"
-                className="delivery-code-input mono"
-                placeholder="Tracking PIN"
-                value={trackingInput}
-                maxLength={6}
-                onChange={(e) => handlePinChange(e.target.value)}
-                aria-label="Package tracking PIN"
-              />
-            </div>
-            <button
-              type="button"
-              className="autofill-order-btn"
-              onClick={() => void fetchLatestOrder()}
-              disabled={isSubmitting}
-              title="Refresh and check for authorized orders from Shop"
-            >
-              <RefreshCw size={14} className={isSubmitting ? "spin" : ""} />
-              <span>Refresh</span>
-            </button>
-          </div>
-
-          {!activeOrder && (
-            <div className="delivery-no-order">
-              <EmptyOrderState
-                title="No active delivery"
-                body="Deliveries appear here automatically once a customer prompts the assistant and authorizes a PayPal hold in Shop."
-                actionLabel="Open Shop Chat"
-              />
-            </div>
-          )}
-
-          {/* Active Package Manifest */}
-          {activeOrder && (
-            <div className="manifest-card">
-              <div className="manifest-row">
-                <span className="manifest-label">Order</span>
-                <span className="manifest-value mono">{activeOrder.id}</span>
-              </div>
-              <div className="manifest-row">
-                <span className="manifest-label">Address</span>
-                <span className="manifest-value mono" style={{ color: "#F4F1EA", fontWeight: 600 }}>
-                  ul. Filarecka 2B, m. 15, 30-110 Kraków
-                </span>
-              </div>
-              <div className="manifest-row">
-                <span className="manifest-label">Parcel value</span>
-                <span className="manifest-value manifest-amount mono">
-                  {activeOrder.formatted_total} <span className="hold-pill">Requires proof</span>
-                </span>
-              </div>
-              <div className="manifest-row">
-                <span className="manifest-label">Status</span>
-                <span className={`status-badge status-${activeOrder.status.toLowerCase()} mono`}>
-                  {activeOrder.status}
-                </span>
-              </div>
-              <div className="manifest-items-list">
-                {activeOrder.items?.map((item, idx) => (
-                  <div key={idx} className="manifest-item-line">
-                    <Package size={12} />
-                    <span>
-                      {item.name} × {item.qty}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* Step 2: Tamper-Evident Delivery Evidence & Photo */}
-        <section className="delivery-step" aria-label="Step 2: Tamper-Evident Delivery Evidence & Photo">
-          <div className="step-label-row">
-            <span className="step-num mono">02</span>
-            <span className="step-title">Doorstep photo</span>
-          </div>
-
-          {/* Direct Photo Input Buttons */}
-          <div className="capture-modes-row">
-            <label className="capture-option-btn btn-take-photo">
-              <Camera size={15} />
-              <span>Take photo</span>
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                className="hidden-file-input"
-                onChange={(e) => handlePhotoSelected(e, "camera")}
-              />
-            </label>
-
-            <label className="capture-option-btn upload-btn">
-              <Upload size={15} />
-              <span>{customPhotoName ? customPhotoName : "Upload photo"}</span>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden-file-input"
-                onChange={(e) => handlePhotoSelected(e, "upload")}
-              />
-            </label>
-          </div>
-
-          {/* Scenario Switcher Pills */}
-          <details className="demo-samples" open>
-            <summary>Demo sample photos (no camera needed)</summary>
-          <div className="scenario-switcher-bar">
-            <span className="scenario-switcher-label">Sample photo</span>
-            <div className="scenario-pills-row" role="radiogroup" aria-label="Delivery Test Scenarios">
-              {PHOTO_PRESETS.map((preset) => {
-                const active = mediaMode === "preset" && selectedPreset.id === preset.id;
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    className={`scenario-pill ${active ? "active" : ""} pill-${preset.expectedStatus}`}
-                    onClick={() => handleSelectPreset(preset)}
-                  >
-                    <span className="pill-dot" />
-                    <span className="pill-name">{preset.shortLabel}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          </details>
-
-          {/* Photo Preview with Bounding Boxes */}
-          <div className={`vision-viewfinder-frame ${isAnalyzing ? "is-analyzing" : ""}`}>
-            <div className="viewfinder-telemetry-strip">
-              <div className="viewfinder-hud-status">
-                <span>
-                  {mediaMode === "camera"
-                    ? "Camera photo"
-                    : mediaMode === "upload"
-                    ? customPhotoName || "Uploaded photo"
-                    : selectedPreset.shortLabel}
-                </span>
-              </div>
-              <div className="viewfinder-hud-meta mono">
-                <span>{visionResult ? `${((visionResult.overallHandoverScore ?? visionResult.confidence) ?? 98.5).toFixed(1)}/100` : "Ready"}</span>
-              </div>
-            </div>
-
-            <div className="viewfinder-media-container">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewUrl}
-                alt="Doorstep handover scene preview"
-                className="viewfinder-media"
-              />
-
-              {isAnalyzing && (
-                <div className="vision-laser-sweep-overlay" aria-live="polite">
-                  <div className="vision-scanning-pill mono">
-                    <RefreshCw size={13} className="spin" />
-                    <span>Checking house number and parcel…</span>
-                  </div>
-                </div>
-              )}
-
-              {!isAnalyzing &&
-                visionResult?.boundingBoxes?.map((box, idx) => {
-                  const isRightSide = box.x > 50;
-                  return (
-                    <div
-                      key={idx}
-                      className={`hud-bbox hud-bbox-${box.tone}`}
-                      style={{
-                        left: `${box.x}%`,
-                        top: `${box.y}%`,
-                        width: `${box.w}%`,
-                        height: `${box.h}%`,
-                      }}
-                    >
-                      <div
-                        className="bbox-tag mono"
-                        style={isRightSide ? { right: -2, left: "auto" } : { left: -2, right: "auto" }}
-                      >
-                        <span className="bbox-dot" />
-                        <span className="bbox-name">{box.label}</span>
-                        <span className="bbox-conf">{box.confidence.toFixed(0)}%</span>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-
-          {/* Doorstep Verification Report */}
-          <div className="ai-vision-telemetry-card">
-            <div className="telemetry-top-strip">
-              <div className="telemetry-source">
-                <span className="telemetry-model-badge mono">
-                  {visionResult?.source === "minimax-m3.1-flash"
-                    ? "MiniMax M3.1 Flash · Multimodal Vision"
-                    : "Multimodal Vision AI · Proofed Engine"}
-                </span>
-              </div>
-              <div className="telemetry-latency mono">
-                <span>{visionResult?.processedInMs ?? 340} ms</span>
-              </div>
-            </div>
-
-            <div className="telemetry-grid">
-              <div className="telemetry-cell">
-                <span className="telemetry-label">Destination</span>
-                <span className="telemetry-val">#15 ul. Filarecka 2B</span>
-              </div>
-
-              <div className="telemetry-cell">
-                <span className="telemetry-label">Doorplate Match</span>
-                <div className="telemetry-val-group">
-                  <span className="telemetry-val mono">
-                    #{visionResult?.detectedDoorNumber ?? "—"}
-                  </span>
-                  {visionResult && (
-                    <span
-                      className={`mini-pill ${Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "pill-good" : "pill-bad"}`}
-                    >
-                      {Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "Match (99%)" : "Mismatch (12%)"}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="telemetry-cell">
-                <span className="telemetry-label">Carton Integrity</span>
-                <div className="telemetry-val-group">
-                  <span className="telemetry-val">
-                    {visionResult?.packageCondition === "damaged" ? "Damaged (24%)" : "Intact (98%)"}
-                  </span>
-                  {visionResult && (
-                    <span
-                      className={`mini-pill ${visionResult.packageCondition === "damaged" ? "pill-bad" : "pill-good"}`}
-                    >
-                      {visionResult.packageCondition === "damaged" ? "Crushed" : "OK"}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="telemetry-cell">
-                <span className="telemetry-label">Quantitative Score</span>
-                <div className="telemetry-val-group">
-                  <span
-                    className="telemetry-val mono"
-                    style={{
-                      color: (visionResult?.overallHandoverScore ?? 98.5) >= 80 ? "#3FB27F" : "#FF7B72",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {(visionResult?.overallHandoverScore ?? 98.5).toFixed(1)} / 100
-                  </span>
-                  <span
-                    className={`mini-pill ${(visionResult?.overallHandoverScore ?? 98.5) >= 80 ? "pill-good" : "pill-bad"}`}
-                  >
-                    {(visionResult?.overallHandoverScore ?? 98.5) >= 80 ? "Pass (≥80)" : "Fail (<80)"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {visionResult?.agentAssessment && (
-              <div className="telemetry-evidence-box">
-                <p className="evidence-body">{visionResult.agentAssessment}</p>
-              </div>
-            )}
-
-            {/* Tri-Factor Handover Verification HUD */}
-            <div className="tri-factor-hud">
-              <span className="tri-factor-hud-title">Tri-factor delivery verification</span>
-              <div className="tri-factor-rows">
-                {/* Factor 1: GPS Geofence */}
-                <div className={`tri-factor-row ${gpsData.inZone ? "is-pass" : "is-fail"}`}>
-                  <div className="tri-factor-lead">
-                    <span className="tri-factor-num">01</span>
-                    <span className="tri-factor-name">GPS Delivery Zone</span>
-                  </div>
-                  <div className="tri-factor-status">
-                    <span className="mono">
-                      {gpsData.inZone
-                        ? `ul. Filarecka 2B (${gpsData.distanceMeters}m)`
-                        : `Outside Zone (+${gpsData.distanceMeters}m)`}
-                    </span>
-                    <span className={`tri-factor-badge ${gpsData.inZone ? "badge-good" : "badge-bad"}`}>
-                      {gpsData.inZone ? "Verified" : "Blocked"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Factor 2: Unit #15 */}
-                <div
-                  className={`tri-factor-row ${Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "is-pass" : "is-fail"}`}
-                >
-                  <div className="tri-factor-lead">
-                    <span className="tri-factor-num">02</span>
-                    <span className="tri-factor-name">Door Number</span>
-                  </div>
-                  <div className="tri-factor-status">
-                    <span className="mono">
-                      {Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch)
-                        ? `Unit #${visionResult?.detectedDoorNumber ?? "15"} Match`
-                        : `#${visionResult?.detectedDoorNumber ?? "—"} (Expected #15)`}
-                    </span>
-                    <span
-                      className={`tri-factor-badge ${Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "badge-good" : "badge-bad"}`}
-                    >
-                      {Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "Verified" : "Mismatch"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Factor 3: Parcel Intact on Floor */}
-                <div
-                  className={`tri-factor-row ${Boolean(visionResult?.packageDetected && visionResult.packageCondition !== "damaged") ? "is-pass" : "is-fail"}`}
-                >
-                  <div className="tri-factor-lead">
-                    <span className="tri-factor-num">03</span>
-                    <span className="tri-factor-name">Parcel on Floor</span>
-                  </div>
-                  <div className="tri-factor-status">
-                    <span className="mono">
-                      {visionResult?.packageCondition === "damaged"
-                        ? "Damaged / Crushed"
-                        : visionResult?.packageDetected
-                        ? "Intact on Floor"
-                        : "No Box Detected"}
-                    </span>
-                    <span
-                      className={`tri-factor-badge ${Boolean(visionResult?.packageDetected && visionResult.packageCondition !== "damaged") ? "badge-good" : "badge-bad"}`}
-                    >
-                      {Boolean(visionResult?.packageDetected && visionResult.packageCondition !== "damaged")
-                        ? "Verified"
-                        : "Failed"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className={`telemetry-verdict-banner ${isVerified ? "verdict-good" : "verdict-bad"}`}
-            >
-              <div className="verdict-banner-icon">
-                {isVerified ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-              </div>
-              <div className="verdict-banner-text">
-                <span className="verdict-banner-title">
-                  {isVerified
-                    ? "Verified — ready for recipient handoff"
-                    : !gpsData.inZone
-                    ? "Blocked — outside delivery geofence"
-                    : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "Blocked — wrong door number"
-                    : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                    ? "Blocked — no parcel on floor"
-                    : "Blocked — parcel damaged"}
-                </span>
-                <span className="verdict-banner-sub">
-                  {isVerified
-                    ? "GPS zone, Door #15, and intact parcel on floor confirmed. Ready for PayPal capture."
-                    : !gpsData.inZone
-                    ? `Device GPS is ${gpsData.distanceMeters}m outside delivery zone (ul. Filarecka 2B). Capture locked at $0.00.`
-                    : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "Photo shows door #13 instead of destination #15. Handover rejected."
-                    : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                    ? "No parcel detected resting on the doorstep. Handover rejected."
-                    : "Visible transit damage on the carton. Handover rejected."}
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Step 3: Complete Handover & Recipient Acknowledgment */}
-        <section className="delivery-step" aria-label="Step 3: Complete Handover">
-          <div className="step-label-row">
-            <span className="step-num mono">03</span>
-            <span className="step-title">Recipient PIN &amp; handoff</span>
-          </div>
-
-          <p className="delivery-step-explainer">
-            Ask the buyer for their 6-character one-time PIN shown in their Proofed shopping chat.
-          </p>
-
-          <div className="recipient-pin-input-container">
-            <label className="pin-input-label" htmlFor="recipient-pin-field">
-              Recipient Handover PIN
-            </label>
-            <div className="pin-input-action-row">
-              <input
-                id="recipient-pin-field"
-                type="text"
-                className="recipient-pin-large mono"
-                placeholder="6-CHAR PIN"
-                value={trackingInput}
-                maxLength={6}
-                onChange={(e) => handlePinChange(e.target.value)}
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <button
-                type="button"
-                className="autofill-order-btn"
-                onClick={() => void fetchLatestOrder()}
-                disabled={isSubmitting}
-                title="Sync latest PIN from shopper session"
-              >
-                <RefreshCw size={14} className={isSubmitting ? "spin" : ""} />
-                <span>Sync</span>
-              </button>
-            </div>
-            {activeOrder && (
-              <span className="pin-order-binding-note mono">
-                Linked order: {activeOrder.id} · {activeOrder.formatted_total} held
-              </span>
-            )}
-          </div>
-
-          {isVerified && activeOrder && (
-            <div className="manifest-card" style={{ marginBottom: "10px", padding: "10px 12px" }}>
-              <div className="manifest-row" style={{ marginBottom: "6px" }}>
-                <span className="manifest-label">1. GPS Zone Gate</span>
-                <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
-                  ✔ Filarecka 2B ({gpsData.distanceMeters}m distance)
-                </span>
-              </div>
-              <div className="manifest-row" style={{ marginBottom: "6px" }}>
-                <span className="manifest-label">2. Door &amp; Parcel Gate</span>
-                <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
-                  ✔ Door #15 Vision LLM Match &amp; Parcel Intact on Floor
-                </span>
-              </div>
-              <div className="manifest-row" style={{ marginBottom: "6px" }}>
-                <span className="manifest-label">3. Verified PIN</span>
-                <span className="manifest-value mono" style={{ color: "#3FB27F", fontWeight: 700 }}>
-                  ✔ {trackingInput || "Required"}
-                </span>
-              </div>
-              <div className="manifest-row">
-                <span className="manifest-label">4. Evidence Binding</span>
-                <span className="manifest-value mono" style={{ fontSize: "11px", opacity: 0.85 }}>
-                  SHA-256 Digest + Server HMAC Signature
-                </span>
-              </div>
-            </div>
-          )}
-
+        {/* Clean 3-Step Wizard Navigation */}
+        <nav className="delivery-stepper" aria-label="Progreso de entrega">
           <button
             type="button"
-            className={`complete-delivery-btn ${isVerified ? "btn-confirm" : "btn-report-fail"}`}
-            disabled={isSubmitting || !activeOrder || isAnalyzing}
-            onClick={handleConfirmHandover}
+            className={`stepper-item ${currentStep === 1 ? "is-active" : currentStep > 1 ? "is-completed" : ""}`}
+            onClick={() => setCurrentStep(1)}
           >
-            {isSubmitting ? (
-              <RefreshCw size={16} className="spin" />
-            ) : isVerified ? (
-              <CheckCircle2 size={16} />
-            ) : (
-              <XCircle size={16} />
-            )}
-            <span>
-              {isSubmitting
-                ? "Saving…"
-                : isAnalyzing
-                ? "Checking photo…"
-                : isVerified
-                ? "Verify recipient PIN & complete handoff"
-                : "Report delivery failure (Return to hub)"}
-            </span>
+            <span className="stepper-badge">{currentStep > 1 ? <Check size={11} /> : "1"}</span>
+            <span className="stepper-label">01 Paquete</span>
           </button>
-          <span className="action-footer-hint mono">
-            {isVerified
-              ? "✔ 3/3 checks passed: GPS zone + Door #15 + Box on floor · Captures held funds"
-              : !gpsData.inZone
-              ? "✖ Outside delivery geofence · PayPal capture blocked ($0.00)"
-              : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-              ? "✖ Doorplate mismatch (#15 required) · PayPal capture blocked ($0.00)"
-              : visionResult?.packageCondition === "damaged"
-              ? "✖ Damaged carton on floor · PayPal capture blocked ($0.00)"
-              : "✖ Handover conditions not verified · Hold remains $0.00 captured"}
-          </span>
-        </section>
+          <div className="stepper-divider" />
+          <button
+            type="button"
+            className={`stepper-item ${currentStep === 2 ? "is-active" : currentStep > 2 ? "is-completed" : ""}`}
+            onClick={() => setCurrentStep(2)}
+          >
+            <span className="stepper-badge">{currentStep > 2 ? <Check size={11} /> : "2"}</span>
+            <span className="stepper-label">02 Foto &amp; Visión</span>
+          </button>
+          <div className="stepper-divider" />
+          <button
+            type="button"
+            className={`stepper-item ${currentStep === 3 ? "is-active" : isDelivered ? "is-completed" : ""}`}
+            onClick={() => {
+              if (isVerified || isDelivered) setCurrentStep(3);
+            }}
+            disabled={!isVerified && !isDelivered}
+            title={!isVerified && !isDelivered ? "Completa la verificación fotográfica primero" : "Paso 3: PIN y Entrega"}
+          >
+            <span className="stepper-badge">{isDelivered ? <Check size={11} /> : "3"}</span>
+            <span className="stepper-label">03 PIN &amp; Entrega</span>
+          </button>
+        </nav>
+
+        {/* Delivery Header */}
+        <div className="delivery-header">
+          <h2>
+            {currentStep === 1 && "Verificación del Paquete"}
+            {currentStep === 2 && "Foto de Puerta e Inspección IA"}
+            {currentStep === 3 && (isDelivered ? "Entrega Completada" : "PIN del Destinatario y Liquidación")}
+          </h2>
+          <p className="delivery-subtitle">
+            {currentStep === 1 && "Confirma el código de tracking del bulto y el manifiesto antes de descender del vehículo."}
+            {currentStep === 2 && "Toma una fotografía del paquete colocado frente a la puerta para validar el número de vivienda y el estado físico."}
+            {currentStep === 3 && !isDelivered && "Solicita el PIN secreto de 6 caracteres que el cliente tiene en su app de compra para autorizar la captura en PayPal."}
+            {currentStep === 3 && isDelivered && "Los fondos retenidos en PayPal fueron capturados satisfactoriamente."}
+          </p>
+        </div>
+
+        {/* ============================================================ */}
+        {/* PASO 1: PAQUETE & MANIFIESTO                                 */}
+        {/* ============================================================ */}
+        {currentStep === 1 && (
+          <section className="delivery-step-content" aria-label="Paso 1: Paquete y Destino">
+            {/* Barcode & Tracking Identifier Box */}
+            <div className="parcel-barcode-card">
+              <div className="parcel-barcode-badge">
+                <Package size={14} />
+                <span>Etiqueta de Envío · Código de Barras</span>
+              </div>
+
+              <BarcodeGraphic />
+
+              <div className="parcel-tracking-row">
+                <span className="parcel-tracking-code mono">{parcelTrackingCode}</span>
+                <span className="parcel-status-pill mono">LISTO PARA ENTREGA</span>
+              </div>
+
+              <div className="parcel-ref-sub mono">
+                <span>Orden ref: {activeOrder?.id || "ord_machivp0c339c16ce5"}</span>
+                <button
+                  type="button"
+                  className="parcel-refresh-mini"
+                  onClick={() => void fetchLatestOrder()}
+                  title="Actualizar pedidos de compra activos"
+                >
+                  <RefreshCw size={12} className={isSubmitting ? "spin" : ""} />
+                  <span>Actualizar</span>
+                </button>
+              </div>
+            </div>
+
+            {!activeOrder && (
+              <div className="delivery-no-order">
+                <EmptyOrderState
+                  title="No hay entregas asignadas"
+                  body="Las órdenes aparecen aquí automáticamente una vez que el cliente autoriza una retención en el chat de la tienda."
+                  actionLabel="Abrir Chat de Tienda"
+                />
+              </div>
+            )}
+
+            {/* Manifest Details */}
+            {activeOrder && (
+              <div className="manifest-card">
+                <div className="manifest-row">
+                  <span className="manifest-label">Destino</span>
+                  <span className="manifest-value mono" style={{ color: "#F4F1EA", fontWeight: 600 }}>
+                    ul. Filarecka 2B, m. 15, 30-110 Kraków
+                  </span>
+                </div>
+                <div className="manifest-row">
+                  <span className="manifest-label">Retención PayPal</span>
+                  <span className="manifest-value manifest-amount mono">
+                    {activeOrder.formatted_total} <span className="hold-pill">Hold ($0.00 cobrado)</span>
+                  </span>
+                </div>
+                <div className="manifest-row">
+                  <span className="manifest-label">Estado</span>
+                  <span className={`status-badge status-${activeOrder.status.toLowerCase()} mono`}>
+                    {activeOrder.status}
+                  </span>
+                </div>
+                <div className="manifest-items-list">
+                  {activeOrder.items?.map((item, idx) => (
+                    <div key={idx} className="manifest-item-line">
+                      <Package size={12} />
+                      <span>
+                        {item.name} × {item.qty}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 1 Actions */}
+            <div className="step-nav-bar">
+              <button
+                type="button"
+                className="step-btn-primary"
+                onClick={() => setCurrentStep(2)}
+                disabled={!activeOrder}
+              >
+                <span>Confirmar paquete y pasar a foto</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* ============================================================ */}
+        {/* PASO 2: FOTO & VISIÓN IA                                     */}
+        {/* ============================================================ */}
+        {currentStep === 2 && (
+          <section className="delivery-step-content" aria-label="Paso 2: Foto de Puerta e Inspección IA">
+            {/* Direct Camera / Upload Buttons */}
+            <div className="capture-modes-row">
+              <label className="capture-option-btn btn-take-photo">
+                <Camera size={15} />
+                <span>Tomar foto con cámara</span>
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden-file-input"
+                  onChange={(e) => handlePhotoSelected(e, "camera")}
+                />
+              </label>
+
+              <label className="capture-option-btn upload-btn">
+                <Upload size={15} />
+                <span>{customPhotoName ? customPhotoName : "Subir imagen"}</span>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden-file-input"
+                  onChange={(e) => handlePhotoSelected(e, "upload")}
+                />
+              </label>
+            </div>
+
+            {/* Demo Presets Switcher */}
+            <div className="scenario-switcher-bar">
+              <span className="scenario-switcher-label">Prueba rápida (Simulador):</span>
+              <div className="scenario-pills-row" role="radiogroup" aria-label="Escenarios de prueba">
+                {PHOTO_PRESETS.map((preset) => {
+                  const active = mediaMode === "preset" && selectedPreset.id === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      className={`scenario-pill ${active ? "active" : ""} pill-${preset.expectedStatus}`}
+                      onClick={() => handleSelectPreset(preset)}
+                    >
+                      <span className="pill-dot" />
+                      <span className="pill-name">{preset.shortLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Viewfinder Frame with Bounding Boxes */}
+            <div className={`vision-viewfinder-frame ${isAnalyzing ? "is-analyzing" : ""}`}>
+              <div className="viewfinder-telemetry-strip">
+                <div className="viewfinder-hud-status">
+                  <span>
+                    {mediaMode === "camera"
+                      ? "Cámara en directo"
+                      : mediaMode === "upload"
+                      ? customPhotoName || "Foto cargada"
+                      : selectedPreset.shortLabel}
+                  </span>
+                </div>
+                <div className="viewfinder-hud-meta mono">
+                  <span>
+                    Puntuación: {visionResult ? `${((visionResult.overallHandoverScore ?? visionResult.confidence) ?? 98.5).toFixed(1)}/100` : "Analizando…"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="viewfinder-media-container">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt="Vista previa de entrega en puerta"
+                  className="viewfinder-media"
+                />
+
+                {isAnalyzing && (
+                  <div className="vision-laser-sweep-overlay" aria-live="polite">
+                    <div className="vision-scanning-pill mono">
+                      <RefreshCw size={13} className="spin" />
+                      <span>Comprobando placa de puerta y caja con Visión IA…</span>
+                    </div>
+                  </div>
+                )}
+
+                {!isAnalyzing &&
+                  visionResult?.boundingBoxes?.map((box, idx) => {
+                    const isRightSide = box.x > 50;
+                    return (
+                      <div
+                        key={idx}
+                        className={`hud-bbox hud-bbox-${box.tone}`}
+                        style={{
+                          left: `${box.x}%`,
+                          top: `${box.y}%`,
+                          width: `${box.w}%`,
+                          height: `${box.h}%`,
+                        }}
+                      >
+                        <div
+                          className="bbox-tag mono"
+                          style={isRightSide ? { right: -2, left: "auto" } : { left: -2, right: "auto" }}
+                        >
+                          <span className="bbox-dot" />
+                          <span className="bbox-name">{box.label}</span>
+                          <span className="bbox-conf">{box.confidence.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Compact Vision AI Telemetry Card */}
+            <div className="ai-vision-telemetry-card">
+              <div className="telemetry-top-strip">
+                <span className="telemetry-model-badge mono">
+                  MiniMax M3.1 Flash · Multimodal Vision Engine
+                </span>
+                <span className="telemetry-latency mono">
+                  {visionResult?.processedInMs ?? 328} ms
+                </span>
+              </div>
+
+              <div className="telemetry-grid">
+                <div className="telemetry-cell">
+                  <span className="telemetry-label">Destino</span>
+                  <span className="telemetry-val">#15 Filarecka 2B</span>
+                </div>
+
+                <div className="telemetry-cell">
+                  <span className="telemetry-label">Placa de Puerta</span>
+                  <div className="telemetry-val-group">
+                    <span className="telemetry-val mono">
+                      #{visionResult?.detectedDoorNumber ?? "—"}
+                    </span>
+                    {visionResult && (
+                      <span
+                        className={`mini-pill ${Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "pill-good" : "pill-bad"}`}
+                      >
+                        {Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "Coincide (99%)" : "Error (12%)"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="telemetry-cell">
+                  <span className="telemetry-label">Estado de Caja</span>
+                  <div className="telemetry-val-group">
+                    <span className="telemetry-val">
+                      {visionResult?.packageCondition === "damaged" ? "Dañada (24%)" : "Intacta (98%)"}
+                    </span>
+                    {visionResult && (
+                      <span
+                        className={`mini-pill ${visionResult.packageCondition === "damaged" ? "pill-bad" : "pill-good"}`}
+                      >
+                        {visionResult.packageCondition === "damaged" ? "Aplastada" : "OK"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="telemetry-cell">
+                  <span className="telemetry-label">Puntaje Global</span>
+                  <div className="telemetry-val-group">
+                    <span
+                      className="telemetry-val mono"
+                      style={{
+                        color: (visionResult?.overallHandoverScore ?? 98.5) >= 80 ? "#3FB27F" : "#FF7B72",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {(visionResult?.overallHandoverScore ?? 98.5).toFixed(1)} / 100
+                    </span>
+                    <span
+                      className={`mini-pill ${(visionResult?.overallHandoverScore ?? 98.5) >= 80 ? "pill-good" : "pill-bad"}`}
+                    >
+                      {(visionResult?.overallHandoverScore ?? 98.5) >= 80 ? "Aprobado" : "Rechazado"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Verdict Banner */}
+              <div className={`telemetry-verdict-banner ${isVerified ? "verdict-good" : "verdict-bad"}`}>
+                <div className="verdict-banner-icon">
+                  {isVerified ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                </div>
+                <div className="verdict-banner-text">
+                  <span className="verdict-banner-title">
+                    {isVerified
+                      ? "Verificación de puerta y paquete aprobada"
+                      : !gpsData.inZone
+                      ? "Bloqueado — Fuera del perímetro GPS"
+                      : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
+                      ? "Bloqueado — Número de puerta incorrecto"
+                      : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
+                      ? "Bloqueado — No se detecta paquete en el piso"
+                      : "Bloqueado — Paquete con daños físicos visibles"}
+                  </span>
+                  <span className="verdict-banner-sub">
+                    {isVerified
+                      ? "Perímetro GPS, placa #15 y paquete intacto confirmados. Listo para solicitar PIN."
+                      : !gpsData.inZone
+                      ? `El dispositivo está a ${gpsData.distanceMeters}m de Filarecka 2B. Retención bloqueada en $0.00.`
+                      : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
+                      ? "La foto muestra la puerta #13 en lugar de la #15 asignada."
+                      : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
+                      ? "No se encontró el bulto apoyado frente a la puerta."
+                      : "Caja aplastada o perforada. Cobro retenido en PayPal."}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2 Actions */}
+            <div className="step-nav-bar">
+              <button
+                type="button"
+                className="step-btn-secondary"
+                onClick={() => setCurrentStep(1)}
+              >
+                <ArrowLeft size={15} />
+                <span>Volver al paquete</span>
+              </button>
+
+              {isVerified ? (
+                <button
+                  type="button"
+                  className="step-btn-primary"
+                  onClick={() => setCurrentStep(3)}
+                >
+                  <span>Continuar a PIN del cliente</span>
+                  <ArrowRight size={16} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="step-btn-danger"
+                  onClick={handleConfirmHandover}
+                  disabled={isSubmitting}
+                >
+                  <XCircle size={15} />
+                  <span>Reportar entrega fallida</span>
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ============================================================ */}
+        {/* PASO 3: PIN DEL DESTINATARIO & LIQUIDACIÓN                   */}
+        {/* ============================================================ */}
+        {currentStep === 3 && (
+          <section className="delivery-step-content" aria-label="Paso 3: PIN del Destinatario y Liquidación">
+            {/* If order is already completed */}
+            {isDelivered && (
+              <div className="delivery-success-view">
+                <div className="success-icon-ring">
+                  <CheckCircle2 size={38} />
+                </div>
+                <h3>¡Entrega Verificada y Custodia Transferida!</h3>
+                <p className="success-desc">
+                  La retención de fondos fue autorizada previamente y ahora se liquidó exitosamente mediante PayPal Payments v2.
+                </p>
+
+                <div className="manifest-card" style={{ marginTop: "12px", width: "100%" }}>
+                  <div className="manifest-row">
+                    <span className="manifest-label">Estado PayPal</span>
+                    <span className="manifest-value mono" style={{ color: "#3FB27F", fontWeight: 700 }}>
+                      CAPTURED ({activeOrder?.formatted_total || "$18.50"})
+                    </span>
+                  </div>
+                  <div className="manifest-row">
+                    <span className="manifest-label">Tracking de Bulto</span>
+                    <span className="manifest-value mono">{parcelTrackingCode}</span>
+                  </div>
+                  <div className="manifest-row">
+                    <span className="manifest-label">PIN Destinatario</span>
+                    <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
+                      ✔ {recipientPin || activeOrder?.pickup_code}
+                    </span>
+                  </div>
+                  <div className="manifest-row">
+                    <span className="manifest-label">Sello de Evidencia</span>
+                    <span className="manifest-value mono" style={{ fontSize: "11px" }}>
+                      SHA-256 + HMAC Server Signed
+                    </span>
+                  </div>
+                </div>
+
+                <div className="success-actions-row">
+                  <Link href="/merchant" className="step-btn-secondary" style={{ flex: 1, textAlign: "center" }}>
+                    <span>Ver en Merchant Desk</span>
+                    <ExternalLink size={14} />
+                  </Link>
+                  <button
+                    type="button"
+                    className="step-btn-primary"
+                    style={{ flex: 1 }}
+                    onClick={() => {
+                      setCurrentStep(1);
+                      setFeedback(null);
+                      void fetchLatestOrder();
+                    }}
+                  >
+                    <RotateCcw size={14} />
+                    <span>Nueva Entrega</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!isDelivered && (
+              <>
+                {/* Clear Explainer */}
+                <div className="recipient-pin-guidance">
+                  <Lock size={15} className="pin-lock-icon" />
+                  <span>
+                    Pide al comprador su <strong>PIN secreto de 6 caracteres</strong> que visualiza en su pantalla de compra para liberar los fondos.
+                  </span>
+                </div>
+
+                {/* PIN Input Box */}
+                <div className="recipient-pin-box">
+                  <div className="pin-box-top">
+                    <label htmlFor="customer-pin-field" className="pin-box-label">
+                      PIN de Entrega del Destinatario
+                    </label>
+                    {activeOrder?.pickup_code && (
+                      <button
+                        type="button"
+                        className="pin-autofill-btn mono"
+                        onClick={() => setRecipientPin(activeOrder.pickup_code || "")}
+                        title="Autocompletar el PIN para la demo"
+                      >
+                        Autocompletar demo ({activeOrder.pickup_code})
+                      </button>
+                    )}
+                  </div>
+
+                  <input
+                    id="customer-pin-field"
+                    type="text"
+                    className="recipient-pin-input-large mono"
+                    placeholder="6-CHAR PIN"
+                    value={recipientPin}
+                    maxLength={6}
+                    onChange={(e) => setRecipientPin(e.target.value.toUpperCase().slice(0, 6))}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+
+                  <div className="pin-box-caption mono">
+                    <span>* Clave temporal del cliente, independiente del tracking de bulto ({parcelTrackingCode}).</span>
+                  </div>
+                </div>
+
+                {/* Handover Verification Checklist */}
+                <div className="manifest-card" style={{ marginTop: "12px", padding: "10px 14px" }}>
+                  <div className="manifest-row" style={{ marginBottom: "6px" }}>
+                    <span className="manifest-label">1. Perímetro GPS</span>
+                    <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
+                      ✔ Filarecka 2B ({gpsData.distanceMeters}m de distancia)
+                    </span>
+                  </div>
+                  <div className="manifest-row" style={{ marginBottom: "6px" }}>
+                    <span className="manifest-label">2. Puerta y Paquete</span>
+                    <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
+                      ✔ Puerta #15 Visión IA y Caja Intacta en Suelo
+                    </span>
+                  </div>
+                  <div className="manifest-row" style={{ marginBottom: "6px" }}>
+                    <span className="manifest-label">3. PIN del Destinatario</span>
+                    <span className="manifest-value mono" style={{ color: recipientPin.length === 6 ? "#3FB27F" : "#ABA598", fontWeight: 700 }}>
+                      {recipientPin.length === 6 ? `✔ ${recipientPin}` : "Pendiente de ingresar"}
+                    </span>
+                  </div>
+                  <div className="manifest-row">
+                    <span className="manifest-label">4. Vínculo Criptográfico</span>
+                    <span className="manifest-value mono" style={{ fontSize: "11px", opacity: 0.85 }}>
+                      SHA-256 Digest + Server HMAC Signature
+                    </span>
+                  </div>
+                </div>
+
+                {/* Step 3 Actions */}
+                <div className="step-nav-bar">
+                  <button
+                    type="button"
+                    className="step-btn-secondary"
+                    onClick={() => setCurrentStep(2)}
+                    disabled={isSubmitting}
+                  >
+                    <ArrowLeft size={15} />
+                    <span>Volver a la foto</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="step-btn-primary btn-confirm-delivery"
+                    disabled={isSubmitting || !activeOrder || recipientPin.length < 6}
+                    onClick={handleConfirmHandover}
+                  >
+                    {isSubmitting ? (
+                      <RefreshCw size={16} className="spin" />
+                    ) : (
+                      <CheckCircle2 size={16} />
+                    )}
+                    <span>
+                      {isSubmitting
+                        ? "Procesando captura en PayPal…"
+                        : `Verificar PIN y Capturar PayPal (${activeOrder?.formatted_total || "$18.50"})`}
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        )}
 
         {/* Feedback Alert Banner */}
         {feedback && (
@@ -1018,7 +1137,7 @@ export function DeliveryApp() {
             )}
             {feedback.recoveryAction && (
               <div className="feedback-recovery-status mono">
-                <span>Handover aborted. Incident logged for customer resolution.</span>
+                <span>Entrega abortada. Incidente registrado para mediación del cliente.</span>
               </div>
             )}
           </div>

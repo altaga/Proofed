@@ -4043,6 +4043,394 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   line-height: 1.4;
 }
 
+/* ==========================================================================
+   Delivery Stepper & 3-Step Wizard Flow
+   ========================================================================== */
+.delivery-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #141310;
+  border-bottom: 1px solid #2E2B25;
+  gap: 8px;
+}
+
+.stepper-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 11px;
+  color: #8E887B;
+}
+
+.stepper-item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: #D6D1C4;
+}
+
+.stepper-item.is-active {
+  background: rgba(255, 122, 61, 0.1);
+  border-color: rgba(255, 122, 61, 0.35);
+  color: #FF7A3D;
+  font-weight: 700;
+}
+
+.stepper-item.is-completed {
+  color: #3FB27F;
+}
+
+.stepper-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 700;
+  background: #24221D;
+  border: 1px solid #38342C;
+  color: #ABA598;
+}
+
+.stepper-item.is-active .stepper-badge {
+  background: #FF7A3D;
+  color: #0A0A0A;
+  border-color: #FF7A3D;
+}
+
+.stepper-item.is-completed .stepper-badge {
+  background: rgba(63, 178, 127, 0.15);
+  color: #3FB27F;
+  border-color: rgba(63, 178, 127, 0.4);
+}
+
+.stepper-divider {
+  flex: 1;
+  height: 1px;
+  background: #2E2B25;
+}
+
+.delivery-step-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Parcel Barcode Card */
+.parcel-barcode-card {
+  background: #0E0D0B;
+  border: 1px solid #2E2B25;
+  border-radius: 8px;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.parcel-barcode-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ABA598;
+}
+
+.parcel-barcode-svg {
+  width: 100%;
+  max-width: 320px;
+  height: 44px;
+  border-radius: 2px;
+}
+
+.parcel-tracking-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.parcel-tracking-code {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: #F4F1EA;
+}
+
+.parcel-status-pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 7px;
+  background: rgba(63, 178, 127, 0.12);
+  color: #3FB27F;
+  border: 1px solid rgba(63, 178, 127, 0.3);
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.parcel-ref-sub {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: #7A7468;
+}
+
+.parcel-refresh-mini {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: #ABA598;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.parcel-refresh-mini:hover {
+  color: #EDEDEF;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Step Navigation Bars */
+.step-nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #2E2B25;
+}
+
+.step-btn-primary {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #FF7A3D;
+  color: #0A0A0A;
+  border: 1px solid #E66629;
+  border-radius: 6px;
+  padding: 12px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.step-btn-primary:hover:not(:disabled) {
+  background: #FF8F57;
+  box-shadow: 0 4px 14px rgba(255, 122, 61, 0.25);
+}
+
+.step-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.step-btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #24221D;
+  color: #D6D1C4;
+  border: 1px solid #38342C;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.step-btn-secondary:hover:not(:disabled) {
+  background: #2E2B25;
+  color: #FFFFFF;
+}
+
+.step-btn-danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #EF4444;
+  color: #FFFFFF;
+  border: 1px solid #DC2626;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.step-btn-danger:hover:not(:disabled) {
+  background: #DC2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.btn-confirm-delivery {
+  background: #00D687;
+  color: #062315;
+  border-color: #00B974;
+}
+
+.btn-confirm-delivery:hover:not(:disabled) {
+  background: #17E797;
+  box-shadow: 0 4px 16px rgba(0, 214, 135, 0.3);
+}
+
+/* Recipient PIN Box */
+.recipient-pin-guidance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 122, 61, 0.08);
+  border: 1px solid rgba(255, 122, 61, 0.25);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #EDEDEF;
+  line-height: 1.4;
+}
+
+.pin-lock-icon {
+  color: #FF7A3D;
+  flex-shrink: 0;
+}
+
+.recipient-pin-box {
+  background: #0E0D0B;
+  border: 1px solid #2E2B25;
+  border-radius: 8px;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pin-box-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pin-box-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #EDEDEF;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.pin-autofill-btn {
+  background: rgba(63, 178, 127, 0.1);
+  color: #3FB27F;
+  border: 1px solid rgba(63, 178, 127, 0.3);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pin-autofill-btn:hover {
+  background: rgba(63, 178, 127, 0.2);
+}
+
+.recipient-pin-input-large {
+  width: 100%;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  text-align: center;
+  text-transform: uppercase;
+  background: #181714;
+  color: #3FB27F;
+  border: 1px solid #38342C;
+  border-radius: 6px;
+  padding: 12px 16px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.recipient-pin-input-large:focus {
+  border-color: #3FB27F;
+  box-shadow: 0 0 0 2px rgba(63, 178, 127, 0.2);
+}
+
+.pin-box-caption {
+  font-size: 11px;
+  color: #8E887B;
+  line-height: 1.4;
+}
+
+/* Success View */
+.delivery-success-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 14px 6px;
+  gap: 12px;
+}
+
+.success-icon-ring {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(63, 178, 127, 0.12);
+  border: 2px solid #3FB27F;
+  color: #3FB27F;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(63, 178, 127, 0.25);
+}
+
+.delivery-success-view h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #EDEDEF;
+  margin: 0;
+}
+
+.success-desc {
+  font-size: 12px;
+  color: #ABA598;
+  margin: 0;
+  line-height: 1.45;
+  max-width: 400px;
+}
+
+.success-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+}
+
 /* Dedicated Step 3 Recipient PIN Entry */
 .delivery-step-explainer {
   font-size: 12px;
