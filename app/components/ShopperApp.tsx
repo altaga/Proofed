@@ -240,9 +240,30 @@ export function ShopperApp({
                             }
                           }}
                         >
-                          <span className="btn-paypal-text">
-                            {authorizingHold ? "Authorizing hold…" : "Approve PayPal hold"}
-                          </span>
+                          <div className="btn-paypal-left">
+                            <svg
+                              className="paypal-btn-monogram"
+                              viewBox="0 0 24 24"
+                              width="20"
+                              height="20"
+                              aria-hidden="true"
+                            >
+                              <path
+                                fill="#003087"
+                                d="M20.067 8.478c-.492.88-1.22 1.458-2.203 1.761-.986.306-2.222.306-3.708.306H12.5l-1.3 8.243h-2.94L10.3 3.5h5.8c1.378 0 2.45.244 3.218.732.767.489 1.05 1.346.749 2.571-.052.212-.128.438-.228.675z"
+                              />
+                              <path
+                                fill="#0079C1"
+                                d="M18.8 9.5c-.3 1.8-1.5 2.8-3.4 2.8h-1.8l-.8 5.2h-2.5l2-12.8h4.5c1.7 0 2.7.5 2.5 2.2-.1.9-.3 1.7-.5 2.6z"
+                              />
+                            </svg>
+                            <span className="paypal-btn-brand-title">
+                              <span className="paypal-logo-text"><span className="pay-blue">Pay</span><span className="pal-blue">Pal</span></span>
+                              <span className="paypal-hold-label">
+                                {authorizingHold ? "Authorizing Hold…" : "Approve Hold"}
+                              </span>
+                            </span>
+                          </div>
                           <span className="btn-paypal-amt mono">${(quoted.unit_price_cents / 100).toFixed(2)}</span>
                         </button>
                         <div className="hold-disclaimer mono">

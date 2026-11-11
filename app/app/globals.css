@@ -2259,40 +2259,82 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   align-items: center;
   justify-content: space-between;
   background: #FFC439;
-  color: #111827;
-  border: 1px solid #E0AC30;
-  border-radius: 6px;
-  padding: 10px 14px;
-  font-weight: 700;
-  font-size: 0.85rem;
+  color: #003087;
+  border: 1px solid #E5B232;
+  border-radius: 4px;
+  padding: 10px 16px;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.05s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
 }
 
-.approve-paypal-hold-btn:hover {
-  background: #F4B92E;
+.approve-paypal-hold-btn:hover:not(:disabled) {
+  background: #F4BB2A;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
 }
 
-.approve-paypal-hold-btn:active {
+.approve-paypal-hold-btn:active:not(:disabled) {
   transform: translateY(1px);
+  background: #E8B026;
 }
 
 .approve-paypal-hold-btn:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
+  opacity: 0.75;
+  cursor: wait;
   transform: none;
   background: #E5B232;
 }
 
-.btn-paypal-text {
+.btn-paypal-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.paypal-btn-monogram {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.paypal-btn-brand-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+}
+
+.paypal-logo-text {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-style: italic;
+  font-weight: 800;
+  font-size: 1.12rem;
+  letter-spacing: -0.04em;
+}
+
+.pay-blue {
+  color: #003087;
+}
+
+.pal-blue {
+  color: #0079C1;
+}
+
+.paypal-hold-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #001C53;
   letter-spacing: -0.01em;
 }
 
 .btn-paypal-amt {
-  background: rgba(0, 0, 0, 0.08);
-  padding: 2px 8px;
+  background: rgba(0, 48, 135, 0.08);
+  color: #003087;
+  border: 1px solid rgba(0, 48, 135, 0.18);
+  padding: 3px 9px;
   border-radius: 4px;
   font-weight: 800;
+  font-size: 0.85rem;
 }
 
 .hold-disclaimer {
