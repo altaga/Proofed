@@ -16,7 +16,7 @@ import { SafeMarkdown } from "./SafeMarkdown";
 import { ProductThumbnail } from "./ProductThumbnail";
 import type { AgentStep } from "./AgentLog";
 
-export type NearDeskMessage = {
+export type ShopperMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
@@ -53,7 +53,7 @@ const STARTERS = [
   { title: "Small budget", hint: "Snacks or coffee with \$20", prompt: "I have a $20 budget, what snacks or coffee do you have?" },
 ];
 
-const DEFAULT_MESSAGES: NearDeskMessage[] = [
+const DEFAULT_MESSAGES: ShopperMessage[] = [
   {
     id: "msg-0",
     role: "assistant",
@@ -64,12 +64,12 @@ const DEFAULT_MESSAGES: NearDeskMessage[] = [
   },
 ];
 
-export function NearDeskChat({
+export function ShopperChat({
   onOrderCreated,
 }: {
-  onOrderCreated?: (order: NearDeskMessage["order"]) => void;
+  onOrderCreated?: (order: ShopperMessage["order"]) => void;
 }) {
-  const [messages, setMessages] = useState<NearDeskMessage[]>(DEFAULT_MESSAGES);
+  const [messages, setMessages] = useState<ShopperMessage[]>(DEFAULT_MESSAGES);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [creatingOrderId, setCreatingOrderId] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export function NearDeskChat({
     try {
       const raw = window.localStorage.getItem(CHAT_STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as { messages?: NearDeskMessage[]; sessionId?: string | null };
+        const saved = JSON.parse(raw) as { messages?: ShopperMessage[]; sessionId?: string | null };
         if (Array.isArray(saved.messages) && saved.messages.length > 0) setMessages(saved.messages);
         if (saved.sessionId) setSessionId(saved.sessionId);
       }
@@ -439,7 +439,7 @@ export function NearDeskChat({
     // If active order has CAPTURED status and buyer claims non-delivery or requests refund, run policy evaluation
     if (activeOrder?.status === "CAPTURED") {
       if (/(never received|not received|no me lleg|reembolso|refund|money back|didn't get|did not receive|missing)/i.test(text)) {
-        const userMsg: NearDeskMessage = {
+        const userMsg: ShopperMessage = {
           id: `usr-${Date.now()}`,
           role: "user",
           content: text,
@@ -455,7 +455,7 @@ export function NearDeskChat({
     // If active order has DELIVERY_FAILED, interpret shopper escalation decision directly
     if (activeOrder?.status === "DELIVERY_FAILED") {
       if (/^(pedir otro|re-enviar|reenviar|reintentar|volver a enviar|re-dispatch|redispatch|retry|redeliver|send another|another)/i.test(text)) {
-        const userMsg: NearDeskMessage = {
+        const userMsg: ShopperMessage = {
           id: `usr-${Date.now()}`,
           role: "user",
           content: text,
@@ -467,7 +467,7 @@ export function NearDeskChat({
         return;
       }
       if (/^(reembolso|reembolsar|cancelar|devolver|liberar|refund|cancel|void|release|release hold)/i.test(text)) {
-        const userMsg: NearDeskMessage = {
+        const userMsg: ShopperMessage = {
           id: `usr-${Date.now()}`,
           role: "user",
           content: text,
@@ -484,7 +484,7 @@ export function NearDeskChat({
       lastMsgWithQuote?.quote &&
       /^(confirm|buy|place order|yes|i'll take it|agree|proceed)/i.test(text)
     ) {
-      const userMsg: NearDeskMessage = {
+      const userMsg: ShopperMessage = {
         id: `usr-${Date.now()}`,
         role: "user",
         content: text,
@@ -496,7 +496,7 @@ export function NearDeskChat({
       return;
     }
 
-    const userMsg: NearDeskMessage = {
+    const userMsg: ShopperMessage = {
       id: `usr-${Date.now()}`,
       role: "user",
       content: text,
@@ -519,7 +519,7 @@ export function NearDeskChat({
       if (payload.sessionId) setSessionId(payload.sessionId);
 
       const quotedLine = payload.quote?.lines?.[0];
-      const assistantMsg: NearDeskMessage = {
+      const assistantMsg: ShopperMessage = {
         id: `ast-${Date.now()}`,
         role: "assistant",
         content: payload.reply || "Done.",
@@ -543,7 +543,7 @@ export function NearDeskChat({
         onOrderCreated(payload.order);
       }
     } catch (err) {
-      const errorMsg: NearDeskMessage = {
+      const errorMsg: ShopperMessage = {
         id: `err-${Date.now()}`,
         role: "assistant",
         content: `Policy execution notice: ${err instanceof Error ? err.message : "Service unavailable"}`,
@@ -566,13 +566,13 @@ export function NearDeskChat({
   const totalToolCount = allToolTraces.length;
 
   return (
-    <div className="neardesk-chat-container">
+    <div className="shopper-chat-container">
       {/* Top Header Bar */}
-      <div className="neardesk-chat-header">
-        <div className="neardesk-header-left">
-          <span className="neardesk-title">Direct Commerce</span>
+      <div className="shopper-chat-header">
+        <div className="shopper-header-left">
+          <span className="shopper-title">Direct Commerce</span>
         </div>
-        <div className="neardesk-header-right">
+        <div className="shopper-header-right">
           {!isFreshChat && (
             <button
               type="button"
@@ -588,14 +588,14 @@ export function NearDeskChat({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="neardesk-messages-scroll">
+      <div className="shopper-messages-scroll">
         {messages.map((msg) => {
           const isUser = msg.role === "user";
           return (
-            <div key={msg.id} className={`neardesk-msg-row ${isUser ? "user-row" : "agent-row"}`}>
+            <div key={msg.id} className={`shopper-msg-row ${isUser ? "user-row" : "agent-row"}`}>
               {/* Message Meta */}
-              <div className="neardesk-msg-meta">
-                <span className={`neardesk-role-label ${isUser ? "role-user" : "role-agent"}`}>
+              <div className="shopper-msg-meta">
+                <span className={`shopper-role-label ${isUser ? "role-user" : "role-agent"}`}>
                   {isUser ? "You" : "Proofed"}
                 </span>
                 <span className="meta-sep">·</span>
@@ -605,9 +605,9 @@ export function NearDeskChat({
               </div>
 
               {/* Message Body */}
-              <div className={`neardesk-msg-body ${isUser ? "user-body" : "agent-body"}`}>
+              <div className={`shopper-msg-body ${isUser ? "user-body" : "agent-body"}`}>
                 {isUser ? (
-                  <div className="neardesk-user-text">{msg.content}</div>
+                  <div className="shopper-user-text">{msg.content}</div>
                 ) : (
                   <SafeMarkdown text={msg.content} />
                 )}
@@ -615,7 +615,7 @@ export function NearDeskChat({
 
               {/* Inline Product Quote Card */}
               {msg.quote && (
-                <div className="neardesk-quote-card">
+                <div className="shopper-quote-card">
                   <div className="quote-product-row">
                     <ProductThumbnail
                       sku={msg.quote.sku}
@@ -700,7 +700,7 @@ export function NearDeskChat({
                               content: `PayPal Authorization Active! **${(next.formatted_total as string) || "$18.50"} authorized, $0.00 captured**. Capture is conditional on physical handover + recipient PIN. One-time recipient PIN: **${(next.pickup_code as string) || "PK-9912"}**.`,
                               tier: "PAYPAL-AUTHORIZE",
                               timestamp: Date.now(),
-                              order: next as NearDeskMessage["order"],
+                              order: next as ShopperMessage["order"],
                             },
                           ]);
                         }}
@@ -879,7 +879,7 @@ export function NearDeskChat({
         )}
 
         {loading && (
-          <div className="neardesk-loading-indicator mono">
+          <div className="shopper-loading-indicator mono">
             <Sparkles className="spin" size={13} />
             <span>Checking catalog and policy…</span>
           </div>
@@ -888,9 +888,9 @@ export function NearDeskChat({
         <div ref={scrollRef} />
       </div>
 
-      {/* Suggested Quick Prompts (NearDesk Style) */}
+      {/* Suggested Quick Prompts (Proofed Shopper Style) */}
       {!isFreshChat && (
-      <div className="neardesk-prompts-bar">
+      <div className="shopper-prompts-bar">
         <span className="prompts-label mono">Suggestions</span>
         <div className="prompts-scroll">
           {currentPrompts.map((preset, idx) => (
@@ -909,8 +909,8 @@ export function NearDeskChat({
       )}
 
       {/* Input Box with CornerDownLeft Button */}
-      <div className="neardesk-input-bar">
-        <div className="neardesk-input-wrap">
+      <div className="shopper-input-bar">
+        <div className="shopper-input-wrap">
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -922,11 +922,11 @@ export function NearDeskChat({
             }}
             placeholder="Ask for a product, e.g. a keychain under $20"
             rows={1}
-            className="neardesk-textarea"
+            className="shopper-textarea"
           />
           <button
             type="button"
-            className="neardesk-send-btn"
+            className="shopper-send-btn"
             disabled={!input.trim() || loading}
             onClick={() => void handleSend()}
             aria-label="Send message"
@@ -937,7 +937,7 @@ export function NearDeskChat({
       </div>
 
       {/* Technical Audit & Policy Guardrail Drawer (Dropdown at the bottom for Tech Guys) */}
-      <div className="neardesk-tech-drawer">
+      <div className="shopper-tech-drawer">
         <button
           type="button"
           className="tech-drawer-toggle"
@@ -976,13 +976,13 @@ export function NearDeskChat({
               allToolTraces.map((tool) => {
                 const isExpanded = Boolean(expandedTools[tool.toolKey]);
                 return (
-                  <div key={tool.toolKey} className="neardesk-tool-card">
+                  <div key={tool.toolKey} className="shopper-tool-card">
                     <button
                       type="button"
-                      className="neardesk-tool-header"
+                      className="shopper-tool-header"
                       onClick={() => toggleTool(tool.toolKey)}
                     >
-                      <div className="neardesk-tool-title mono">
+                      <div className="shopper-tool-title mono">
                         <Terminal className="tool-icon" size={13} />
                         <span>Tool: {tool.name}</span>
                         <span className={`tool-pill ${tool.ok ? "ok" : "err"}`}>
@@ -993,7 +993,7 @@ export function NearDeskChat({
                     </button>
 
                     {isExpanded && (
-                      <div className="neardesk-tool-detail mono">
+                      <div className="shopper-tool-detail mono">
                         {tool.summary && (
                           <div className="tool-line">
                             <span className="tool-key">SUMMARY:</span>

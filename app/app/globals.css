@@ -1630,11 +1630,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 /* ==========================================================================
-   NEARDESK-INSPIRED CHAT STREAM
+   PROOFED SHOPPER CHAT STREAM
    Dark Engineering Aesthetic (Obsidian #12110F + Mint #FF7A3D)
    ========================================================================== */
 
-.neardesk-chat-container {
+.shopper-chat-container {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -1647,7 +1647,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
-.neardesk-chat-header {
+.shopper-chat-header {
   padding: 10px 18px;
   background: #141310;
   border-bottom: 1px solid #24221D;
@@ -1661,19 +1661,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 @media (max-width: 640px) {
-  .neardesk-chat-header {
+  .shopper-chat-header {
     padding: 8px 12px;
     min-height: 36px;
   }
 }
 
-.neardesk-header-left {
+.shopper-header-left {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.neardesk-title {
+.shopper-title {
   font-size: 0.74rem;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -1681,12 +1681,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   text-transform: uppercase;
 }
 
-.neardesk-header-right {
+.shopper-header-right {
   display: flex;
   gap: 6px;
 }
 
-.neardesk-messages-scroll {
+.shopper-messages-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -1697,14 +1697,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   background: #12110F;
 }
 
-.neardesk-msg-row {
+.shopper-msg-row {
   display: flex;
   flex-direction: column;
   gap: 6px;
   max-width: 820px;
 }
 
-.neardesk-msg-meta {
+.shopper-msg-meta {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1712,19 +1712,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   color: #8F897C;
 }
 
-.neardesk-role-label {
+.shopper-role-label {
   font-weight: 600;
 }
 
-.neardesk-role-label.role-user {
+.shopper-role-label.role-user {
   color: #F4F1EA;
 }
 
-.neardesk-role-label.role-agent {
+.shopper-role-label.role-agent {
   color: #D6D1C4;
 }
 
-.neardesk-tier-tag {
+.shopper-tier-tag {
   font-size: 0.62rem;
   letter-spacing: 0.06em;
   padding: 1px 5px;
@@ -1737,13 +1737,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .meta-sep { color: #64748b; }
 .meta-time { color: #ABA598; }
 
-.neardesk-msg-body {
+.shopper-msg-body {
   font-size: 0.85rem;
   line-height: 1.55;
   padding-left: 2px;
 }
 
-.neardesk-user-text {
+.shopper-user-text {
   color: #ededef;
   font-weight: 500;
 }
@@ -1765,8 +1765,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 0.8rem;
 }
 
-/* NearDesk Collapsible Tool Cards */
-.neardesk-tool-list {
+/* Shopper Collapsible Tool Cards */
+.shopper-tool-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1774,7 +1774,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding-left: 2px;
 }
 
-.neardesk-tool-card {
+.shopper-tool-card {
   background: #181714;
   border: 1px solid #2E2B25;
   border-radius: 6px;
@@ -1782,7 +1782,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 0.72rem;
 }
 
-.neardesk-tool-header {
+.shopper-tool-header {
   width: 100%;
   padding: 8px 12px;
   background: transparent;
@@ -1795,12 +1795,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   transition: all 0.15s ease;
 }
 
-.neardesk-tool-header:hover {
+.shopper-tool-header:hover {
   background: #15181f;
   color: #ededef;
 }
 
-.neardesk-tool-title {
+.shopper-tool-title {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1821,7 +1821,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .tool-pill.ok { background: #0c2b1e; color: #FF7A3D; border: 1px solid #134833; }
 .tool-pill.err { background: #2f1217; color: #FF7B72; border: 1px solid #4a1c24; }
 
-.neardesk-tool-detail {
+.shopper-tool-detail {
   padding: 10px 12px;
   background: #08090c;
   border-top: 1px solid #1a1d24;
@@ -1855,7 +1855,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 /* =========================================================================
    TECHNICAL AUDIT DRAWER (COLLAPSIBLE BOTTOM LOGS FOR TECH GUYS)
    ========================================================================= */
-.neardesk-tech-drawer {
+.shopper-tech-drawer {
   flex-shrink: 0;
   border-top: 1px solid #24221D;
   background: #141310;
@@ -1958,8 +1958,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 0.74rem;
 }
 
-/* NearDesk Quote Card */
-.neardesk-quote-card {
+/* Shopper Quote Card */
+.shopper-quote-card {
   margin-top: 8px;
   background: #10131a;
   border: 1px solid #1e2433;
@@ -2290,7 +2290,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   letter-spacing: 0.08em;
 }
 
-.neardesk-loading-indicator {
+.shopper-loading-indicator {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2299,8 +2299,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 6px 2px;
 }
 
-/* NearDesk Prompt Pills Bar */
-.neardesk-prompts-bar {
+/* Shopper Prompt Pills Bar */
+.shopper-prompts-bar {
   padding: 8px 14px;
   background: #0e1015;
   border-top: 1px solid #181b22;
@@ -2356,14 +2356,14 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   cursor: not-allowed;
 }
 
-/* NearDesk Input Wrap */
-.neardesk-input-bar {
+/* Shopper Input Wrap */
+.shopper-input-bar {
   padding: 10px 14px;
   background: #12110F;
   border-top: 1px solid #181b22;
 }
 
-.neardesk-input-wrap {
+.shopper-input-wrap {
   position: relative;
   display: flex;
   align-items: center;
@@ -2374,11 +2374,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   transition: border-color 0.15s ease;
 }
 
-.neardesk-input-wrap:focus-within {
+.shopper-input-wrap:focus-within {
   border-color: #FF7A3D;
 }
 
-.neardesk-textarea {
+.shopper-textarea {
   width: 100%;
   background: transparent;
   border: 0;
@@ -2391,11 +2391,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   line-height: 1.4;
 }
 
-.neardesk-textarea::placeholder {
+.shopper-textarea::placeholder {
   color: #505666;
 }
 
-.neardesk-send-btn {
+.shopper-send-btn {
   position: absolute;
   right: 6px;
   top: 50%;
@@ -2412,11 +2412,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   transition: background 0.15s ease;
 }
 
-.neardesk-send-btn:hover:not(:disabled) {
+.shopper-send-btn:hover:not(:disabled) {
   background: #00ffa3;
 }
 
-.neardesk-send-btn:disabled {
+.shopper-send-btn:disabled {
   opacity: 0.25;
   cursor: not-allowed;
 }
@@ -4360,8 +4360,8 @@ main[data-testid="page-client"] {
   font-size: 12px;
 }
 
-/* NearDesk Chat additions: catalog pill, autonomy toggles, failure cards */
-.neardesk-catalog-pill {
+/* Shopper Chat additions: catalog pill, autonomy toggles, failure cards */
+.shopper-catalog-pill {
   font-size: 10px;
   background: rgba(255, 122, 61, 0.1);
   color: #FF7A3D;
@@ -5325,7 +5325,7 @@ main[data-testid="page-client"] {
 /* =========================================================================
    QUIET PASS — unify all views under Swiss warm carbon & strip glow/HUD noise
    ========================================================================= */
-.neardesk-status-dot, .courier-pulse, .terminal-pulse, .live-pulse, .pulse-dot, .hud-dot, .crisis-radar-dot {
+.shopper-status-dot, .courier-pulse, .terminal-pulse, .live-pulse, .pulse-dot, .hud-dot, .crisis-radar-dot {
   width: 6px;
   height: 6px;
   background: #3FB27F;
@@ -5333,15 +5333,15 @@ main[data-testid="page-client"] {
   animation: none !important;
 }
 .crisis-radar-dot.alarm { background: #FF7B72; }
-.neardesk-title { font-family: var(--font-sans), Inter, sans-serif; font-size: 0.9rem; letter-spacing: -0.01em; font-weight: 600; color: #F4F1EA; text-transform: none; }
-.neardesk-catalog-pill { background: transparent; border: 1px solid #2E2B25; color: #ABA598; font-weight: 500; margin-left: 4px; }
-.neardesk-tier-tag { display: none; }
-.neardesk-role-label, .autonomy-label, .prompts-label, .step-title, .telemetry-label, .detail-section-title, .drawer-subtitle, .manifest-label, .scenario-switcher-label, .chaos-strip-label, .mode-switcher-label, .wallet-cell-label, .wallet-title {
+.shopper-title { font-family: var(--font-sans), Inter, sans-serif; font-size: 0.9rem; letter-spacing: -0.01em; font-weight: 600; color: #F4F1EA; text-transform: none; }
+.shopper-catalog-pill { background: transparent; border: 1px solid #2E2B25; color: #ABA598; font-weight: 500; margin-left: 4px; }
+.shopper-tier-tag { display: none; }
+.shopper-role-label, .autonomy-label, .prompts-label, .step-title, .telemetry-label, .detail-section-title, .drawer-subtitle, .manifest-label, .scenario-switcher-label, .chaos-strip-label, .mode-switcher-label, .wallet-cell-label, .wallet-title {
   text-transform: none;
   letter-spacing: 0;
 }
 .autonomy-pill.active { box-shadow: none; background: #23201B; color: #F4F1EA; }
-.scenario-pill.active, .btn-take-photo:hover, .hud-bbox-good, .hud-bbox-bad, .hud-bbox-warning, .neardesk-chat-container, .delivery-card, .vision-viewfinder-frame, .agent-crisis-hub, .cm-card-recommended, .complete-delivery-btn:hover {
+.scenario-pill.active, .btn-take-photo:hover, .hud-bbox-good, .hud-bbox-bad, .hud-bbox-warning, .shopper-chat-container, .delivery-card, .vision-viewfinder-frame, .agent-crisis-hub, .cm-card-recommended, .complete-delivery-btn:hover {
   box-shadow: none !important;
 }
 .prompts-label { text-transform: none; letter-spacing: 0; }

@@ -51,8 +51,8 @@
     <!-- View Switcher Tabs -->
     <div class="flex items-center gap-1.5 overflow-x-auto">
       <span class="text-[#64748b] text-[11px] mr-1">SCREENS:</span>
-      <button onclick="selectScreen('gallery', 'NearDesk UI Gallery & Chat', 'assets/gallery/gallery.png', 'http://localhost:3000/gallery')" id="btn-gallery" class="screen-btn px-3 py-1.5 rounded-lg bg-[#00ec97] text-black font-bold border border-[#00ec97] transition-all">
-        💬 NearDesk Chat & Gallery
+      <button onclick="selectScreen('gallery', 'Proofed UI Gallery & Chat', 'assets/gallery/gallery.png', 'http://localhost:3000/gallery')" id="btn-gallery" class="screen-btn px-3 py-1.5 rounded-lg bg-[#00ec97] text-black font-bold border border-[#00ec97] transition-all">
+        💬 Proofed Chat & Gallery
       </button>
       <button onclick="selectScreen('demo', 'Presenter Screen & Crisis Hub', 'assets/gallery/demo.png', 'http://localhost:3000/demo')" id="btn-demo" class="screen-btn px-3 py-1.5 rounded-lg bg-[#121620] text-[#94a3b8] hover:text-white border border-[#202738] transition-all">
         ⚡ Presenter & Crisis Hub
@@ -89,7 +89,7 @@
         <!-- Viewport Metadata Header -->
         <div class="flex justify-between items-center text-xs font-mono text-[#94a3b8]">
           <div class="flex items-center gap-2">
-            <span class="text-white font-bold" id="current-screen-name">NearDesk UI Gallery & Chat</span>
+            <span class="text-white font-bold" id="current-screen-name">Proofed UI Gallery & Chat</span>
             <span class="text-[#64748b]">·</span>
             <span id="current-resolution">1280 × 800 (DPI 2.0x)</span>
           </div>
@@ -188,7 +188,7 @@
     let activeScreen = 'gallery';
     let activeMode = 'snapshot';
     const screens = {
-      gallery: { name: 'NearDesk UI Gallery & Chat', img: 'assets/gallery/gallery.png', url: 'http://localhost:3000/gallery' },
+      gallery: { name: 'Proofed UI Gallery & Chat', img: 'assets/gallery/gallery.png', url: 'http://localhost:3000/gallery' },
       demo: { name: 'Presenter Screen & Crisis Hub', img: 'assets/gallery/demo.png', url: 'http://localhost:3000/demo' },
       shop: { name: 'Shopper Experience & AI Chat', img: 'assets/gallery/shop.png', url: 'http://localhost:3000/' },
       device: { name: 'Hardware Kiosk Terminal (Bay #04)', img: 'assets/gallery/device.png', url: 'http://localhost:3000/device' },

@@ -1,4 +1,4 @@
-﻿import { NearDeskChat } from "@/components/NearDeskChat";
+﻿import { ShopperChat } from "@/components/ShopperChat";
 
 export const metadata = {
   title: "Client Marketplace Chat · Proofed",
@@ -8,7 +8,7 @@ export const metadata = {
 export default function ClientPage() {
   return (
     <main data-testid="page-client" className="client-page-layout">
-      <NearDeskChat />
+      <ShopperChat />
     </main>
   );
 }

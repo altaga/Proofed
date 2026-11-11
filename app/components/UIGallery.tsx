@@ -16,7 +16,7 @@ import {
   Terminal,
   Zap,
 } from "lucide-react";
-import { NearDeskChat } from "./NearDeskChat";
+import { ShopperChat } from "./ShopperChat";
 import { AgentCrisisHub } from "./AgentCrisisHub";
 import { DeviceKiosk } from "./DeviceKiosk";
 import { TransactionPanel } from "./TransactionPanel";
@@ -108,7 +108,7 @@ export function UIGallery() {
             onClick={() => setActiveTab("chat")}
           >
             <MessageSquare size={15} />
-            <span>NearDesk Agent Chat</span>
+            <span>Shopper Agent Chat</span>
           </button>
 
           <button
@@ -157,12 +157,12 @@ export function UIGallery() {
         </nav>
       </header>
 
-      {/* Tab 1: NearDesk Agent Chat Showcase */}
+      {/* Tab 1: Shopper Agent Chat Showcase */}
       {activeTab === "chat" && (
-        <section className="gallery-tab-section" aria-label="NearDesk Chat Showcase">
+        <section className="gallery-tab-section" aria-label="Shopper Chat Showcase">
           <div className="section-meta-bar">
             <div>
-              <h3>NearDesk-Style Agentic Chat Stream</h3>
+              <h3>Proofed Shopper Agentic Chat Stream</h3>
               <p>
                 Dark engineering terminal with operator vs agent micro-headers, tier tags, collapsible
                 tool executions, inline quotes, and prompt chips.
@@ -172,7 +172,7 @@ export function UIGallery() {
           </div>
 
           <div className="gallery-chat-wrapper">
-            <NearDeskChat />
+            <ShopperChat />
           </div>
         </section>
       )}
@@ -356,7 +356,7 @@ export function UIGallery() {
                   <span className="swatch-box" style={{ background: "#12110F" }} />
                   <div className="swatch-info mono">
                     <strong>#12110F</strong>
-                    <span>Base Background (NearDesk Obsidian)</span>
+                    <span>Base Background (Proofed Dark Obsidian)</span>
                   </div>
                 </div>
                 <div className="swatch-row">
@@ -370,7 +370,7 @@ export function UIGallery() {
                   <span className="swatch-box" style={{ background: "#FF7A3D" }} />
                   <div className="swatch-info mono">
                     <strong>#FF7A3D</strong>
-                    <span>NearDesk Mint / Handover Accent</span>
+                    <span>Proofed Amber / Handover Accent</span>
                   </div>
                 </div>
                 <div className="swatch-row">
