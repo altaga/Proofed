@@ -16,6 +16,7 @@ import {
   publicQuote,
   recoverOrder,
 } from "./orders";
+import { evaluateFraudAudit } from "./fraud-audit";
 
 const itemList = z
   .array(
@@ -162,6 +163,22 @@ export const agentToolDefinitions = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "audit_fraud_risk",
+      description:
+        "Cross-reference physical delivery evidence, doorplate photo hashes, order event history, and retry velocity against fraud and abuse rules before issuing refunds or re-dispatching.",
+      parameters: {
+        type: "object",
+        properties: {
+          order_id: { type: "string", description: "Order ID to evaluate" },
+          action: { type: "string", enum: ["refund", "retry"], description: "Action being evaluated" },
+        },
+        required: ["order_id", "action"],
+      },
+    },
+  },
 ];
 
 export type ToolExecution = {
@@ -260,7 +277,20 @@ export async function executeAgentTool(name: string, rawArgs: unknown): Promise<
       case "investigate_failure": {
         const args = z.object({ order_id: z.string() }).parse(rawArgs);
         try {
-          return { name, ok: true, result: await investigateFailure(args.order_id) };
+          const investigation = await investigateFailure(args.order_id);
+          const refundAudit = evaluateFraudAudit(args.order_id, "refund");
+          const retryAudit = evaluateFraudAudit(args.order_id, "retry");
+          return {
+            name,
+            ok: true,
+            result: {
+              ...investigation,
+              fraud_audit: {
+                refund: refundAudit,
+                retry: retryAudit,
+              },
+            },
+          };
         } catch (err) {
           return {
             name,
@@ -268,6 +298,21 @@ export async function executeAgentTool(name: string, rawArgs: unknown): Promise<
             result: {
               error: `Cannot investigate order '${args.order_id}': ${err instanceof Error ? err.message : "Order not found"}.`,
             },
+          };
+        }
+      }
+      case "audit_fraud_risk": {
+        const args = z
+          .object({ order_id: z.string(), action: z.enum(["refund", "retry"]) })
+          .parse(rawArgs);
+        try {
+          const audit = evaluateFraudAudit(args.order_id, args.action);
+          return { name, ok: true, result: audit };
+        } catch (err) {
+          return {
+            name,
+            ok: false,
+            result: { error: err instanceof Error ? err.message : "Audit failed" },
           };
         }
       }
@@ -286,6 +331,21 @@ export async function executeAgentTool(name: string, rawArgs: unknown): Promise<
             result: { error: "substitute_items are required when action is substitute" },
           };
         }
+
+        // Cross-reference physical evidence and velocity before executing recovery
+        const auditAction = args.action === "cancel" ? "refund" : "retry";
+        const audit = evaluateFraudAudit(args.order_id, auditAction);
+        if (!audit.allowed) {
+          return {
+            name,
+            ok: false,
+            result: {
+              error: `Fraud Policy Blocked: ${audit.auditExplanation}`,
+              audit,
+            },
+          };
+        }
+
         const recovered = await recoverOrder({
           orderId: args.order_id,
           action: args.action,
@@ -299,6 +359,7 @@ export async function executeAgentTool(name: string, rawArgs: unknown): Promise<
             message: recovered.message,
             order: publicOrderView(recovered.order),
             replacement: recovered.replacement ? publicOrderView(recovered.replacement) : undefined,
+            audit,
           },
         };
       }

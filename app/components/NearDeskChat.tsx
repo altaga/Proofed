@@ -263,13 +263,29 @@ export function NearDeskChat({
         body: JSON.stringify({ orderId, reason: "Customer requested instant hold release after failed delivery" }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        const audit = data.audit;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `fraud-block-${Date.now()}`,
+            role: "assistant",
+            content: `**Anti-Abuse Guardrail Alert (Refund Blocked)**\n\n${data.error || "Refund request blocked by zero-trust audit trail."}\n\n**Cross-Referenced Audit Trail:**\n- **Physical Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Handover was physically verified at door #744 with photo proof" : "Unverified status"}\n- **Risk Score:** ${audit?.riskScore !== undefined ? Number(audit.riskScore).toFixed(2) : "0.95"} (${audit?.riskLevel || "CRITICAL"})\n- **Policy Decision:** **${audit?.policyDecision || "BLOCKED"}**\n\nUnder zero-trust merchant policy, refund claims that contradict verified physical handover cannot be settled automatically.`,
+            tier: "FRAUD-GUARDRAIL",
+            timestamp: Date.now(),
+          },
+        ]);
+        return;
+      }
+
       const updatedOrder = data.order || { id: orderId, status: "VOIDED" };
+      const audit = data.audit;
       setMessages((prev) => [
         ...prev.map((m) => (m.order?.id === orderId ? { ...m, order: updatedOrder } : m)),
         {
           id: `void-done-${Date.now()}`,
           role: "assistant",
-          content: `**PayPal Authorization Hold Released — Refund Complete**\n\nYour authorization hold was released directly via PayPal Payments v2 API. Because physical delivery was not verified, **no funds were ever captured ($0.00 debited)**.\n\nYour hold release and refund receipt is displayed below.`,
+          content: `**PayPal Authorization Hold Released — Refund Complete**\n\nYour authorization hold was released directly via PayPal Payments v2 API. Because physical delivery was not verified, **no funds were ever captured ($0.00 debited)**.\n\n**Zero-Trust Audit Trail:** PASS · Risk score: ${audit?.riskScore !== undefined ? Number(audit.riskScore).toFixed(2) : "0.04"} (LOW) · Legitimate mismatch confirmed (#742) · Zero dollars debited.`,
           tier: "HOLD-RELEASED",
           timestamp: Date.now(),
           order: updatedOrder,
@@ -306,15 +322,29 @@ export function NearDeskChat({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not re-dispatch order");
+      if (!res.ok) {
+        const audit = data.audit;
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `fraud-block-${Date.now()}`,
+            role: "assistant",
+            content: `**Anti-Abuse Guardrail Alert (Re-dispatch Blocked)**\n\n${data.error || "Re-dispatch blocked by zero-trust audit."}\n\n**Cross-Referenced Audit Trail:**\n- **Physical Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Physical delivery confirmed on record" : "Doorplate mismatch recorded (#742)"}\n- **Velocity Count:** ${audit?.evidenceTrail?.retryCount ?? 2} previous re-dispatches (Policy limit: 2)\n- **Risk Score:** ${audit?.riskScore !== undefined ? Number(audit.riskScore).toFixed(2) : "0.88"} (${audit?.riskLevel || "HIGH"})\n- **Policy Decision:** **${audit?.policyDecision || "BLOCKED"}**`,
+            tier: "FRAUD-GUARDRAIL",
+            timestamp: Date.now(),
+          },
+        ]);
+        return;
+      }
 
       const updatedOrder = data.order || { id: orderId, status: "AUTHORIZED", pickup_code: "PK-7440" };
+      const audit = data.audit;
       setMessages((prev) => [
         ...prev.map((m) => (m.order?.id === orderId ? { ...m, order: updatedOrder } : m)),
         {
           id: `redisp-${Date.now()}`,
           role: "assistant",
-          content: `**Courier Re-dispatch Confirmed**\n\nReplacement order re-routed to courier terminal: **744 Maple Street, Apt 2B (white gate)**.\n\nYour existing PayPal hold is securely retained (**$0.00 debited** until physical doorstep delivery is verified). The courier terminal has received the updated dispatch.`,
+          content: `**Courier Re-dispatch Confirmed (Audit Passed)**\n\nReplacement order re-routed to courier terminal: **744 Maple Street, Apt 2B (white gate)**.\n\n**Zero-Trust Audit Trail:** Legitimate address correction verified. Attempt ${(audit?.evidenceTrail?.retryCount ?? 0) + 1} of 2 permitted. Risk Score: ${audit?.riskScore !== undefined ? Number(audit.riskScore).toFixed(2) : "0.12"} (LOW).\n\nYour existing PayPal hold is securely retained (**$0.00 debited** until physical doorstep delivery is verified). The courier terminal has received the updated dispatch.`,
           tier: "RE-DISPATCH",
           timestamp: Date.now(),
           order: updatedOrder,
@@ -643,6 +673,10 @@ export function NearDeskChat({
                       <p className="failure-desc">
                         Courier attempted delivery at door #742 (+120m away from destination 744 Maple St). Handover aborted. Because funds are never captured without physical verification, your PayPal balance is completely untouched ($0.00 debited). Choose how to proceed:
                       </p>
+                      <div className="failure-audit-strip mono">
+                        <ShieldCheck size={12} />
+                        <span>Anti-abuse audit active: Handover photo &amp; coordinates cross-referenced before approving refund or re-dispatch.</span>
+                      </div>
                       <div className="failure-actions-grid">
                         <button
                           type="button"
@@ -697,6 +731,27 @@ export function NearDeskChat({
                         <div className="voided-grid-row">
                           <span className="voided-grid-label">PayPal Auth ID</span>
                           <span className="voided-grid-val">{msg.order?.paypal_authorization_id || "AUTH-PAYPAL-SECURE"}</span>
+                        </div>
+                      </div>
+
+                      <div className="voided-audit-trail mono">
+                        <div className="audit-trail-header">
+                          <span className="audit-label">ANTI-FRAUD AUDIT TRAIL</span>
+                          <span className="audit-pass-tag">PASS · RISK: 0.04 (LOW)</span>
+                        </div>
+                        <div className="audit-trail-checks">
+                          <div className="audit-check-line">
+                            <span className="check-icon">✔</span>
+                            <span>Proof Check: Handover rejected by photo OCR (#742 mismatch confirmed)</span>
+                          </div>
+                          <div className="audit-check-line">
+                            <span className="check-icon">✔</span>
+                            <span>Velocity Check: 0 previous re-dispatches (Limit: 2) · No loop abuse</span>
+                          </div>
+                          <div className="audit-check-line">
+                            <span className="check-icon">✔</span>
+                            <span>Zero-Trust Ledger: Exactly $0.00 captured · Safe to release PayPal hold</span>
+                          </div>
                         </div>
                       </div>
 

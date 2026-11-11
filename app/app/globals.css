@@ -4596,6 +4596,75 @@ main[data-testid="page-client"] {
   border-top: 1px solid #26241F;
 }
 
+.failure-audit-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #191815;
+  border: 1px dashed rgba(255, 122, 61, 0.35);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 10px;
+  color: #D6D1C4;
+  line-height: 1.4;
+}
+
+.failure-audit-strip svg {
+  color: #FF7A3D;
+  flex-shrink: 0;
+}
+
+.voided-audit-trail {
+  background: #141310;
+  border: 1px solid #2B2822;
+  border-radius: 4px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.audit-trail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #22201B;
+}
+
+.audit-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #8C867A;
+}
+
+.audit-pass-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: #3FB27F;
+  letter-spacing: 0.03em;
+}
+
+.audit-trail-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  color: #D6D1C4;
+}
+
+.audit-check-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.check-icon {
+  color: #3FB27F;
+  font-size: 11px;
+}
+
 .client-page-layout {
   flex: 1;
   min-height: 0;

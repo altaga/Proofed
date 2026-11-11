@@ -356,6 +356,20 @@ function summarizeTool(execution: { name: string; ok: boolean; result: unknown; 
         decidedBy: "Policy engine + PayPal",
       };
     }
+    case "audit_fraud_risk": {
+      const riskScore = typeof result.riskScore === "number" ? result.riskScore.toFixed(2) : "0.00";
+      const decision = typeof result.policyDecision === "string" ? result.policyDecision : "VERIFIED";
+      const allowed = result.allowed === true;
+      return {
+        name: execution.name,
+        ok: allowed,
+        input,
+        summary: allowed ? `Audit passed (Risk: ${riskScore})` : `Audit blocked (Risk: ${riskScore})`,
+        outcome: typeof result.auditExplanation === "string" ? result.auditExplanation : `${decision} by fraud engine`,
+        guardrail: "Zero-trust physical proof & velocity guardrail",
+        decidedBy: "Fraud & Risk Audit Engine",
+      };
+    }
     default:
       return {
         name: execution.name,
