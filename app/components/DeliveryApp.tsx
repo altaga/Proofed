@@ -397,7 +397,7 @@ export function DeliveryApp() {
         setFeedback({
           tone: "success",
           title: "Tri-factor handover verified · Custody transferred",
-          message: `Package delivered to #15 Filarecka 2B, Kraków. GPS geofence (${gpsData.distanceMeters}m), Doorplate #15 OCR, intact carton condition, and recipient PIN (${code}) verified.`,
+          message: `Package delivered to #15 Filarecka 2B, Kraków. GPS geofence (${gpsData.distanceMeters}m), Doorplate #15 Vision LLM verification, intact carton condition, and recipient PIN (${code}) verified.`,
           paypalDetail: `Signed tamper-evident handover event recorded for Order ${payload.order.id}. PayPal Payments v2 capture executed.`,
         });
       } else {
@@ -947,7 +947,7 @@ export function DeliveryApp() {
               <div className="manifest-row" style={{ marginBottom: "6px" }}>
                 <span className="manifest-label">2. Door &amp; Parcel Gate</span>
                 <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
-                  ✔ Door #15 OCR &amp; Parcel Intact on Floor
+                  ✔ Door #15 Vision LLM Match &amp; Parcel Intact on Floor
                 </span>
               </div>
               <div className="manifest-row" style={{ marginBottom: "6px" }}>

@@ -19,6 +19,7 @@ This document serves as the formal technical response and architecture manual ad
 | **"Repeating PayPal Sandbox 404 errors on `/v2/payments/authorizations/AUTH-PP-...`"** | Local synthetic strings (`AUTH-PP-xxxxxx`) were repeatedly queried by an unneeded background reconciliation loop every 60 seconds against PayPal Sandbox. | **Background Polling Deactivated & Live PayPal IDs**: Completely halted the looping background worker. Orders now invoke real PayPal Orders v2 (`POST /v2/checkout/orders` with `intent: "AUTHORIZE"`), yielding clean `201 Created` responses with legitimate PayPal-issued IDs. Sandbox logs are clean and 404-free. |
 | **"Not a Kiosk/Locker; it was a manual residential delivery"** | Legacy stadium locker / kiosk presets ("Tokyo Dome City / Bay 04") created terminology confusion. | **Pivoted to Real-World Residential Doorstep Delivery**: Relocated the scenario to `ul. Filarecka 2B, 30-110 Kraków`, Unit `#15`. Purged locker references from the primary command hub. Consolidated the application into 4 core sections: `Client`, `Delivery`, `Backend`, and `Merchant`. |
 | **"PIN requested but failed or disappeared"** | Session state isolation between separate browser tabs/instances caused lookup mismatches. | **Interactive Recipient PIN & Credential Lookup**: Added explicit interactive PIN input in Step 03 of the courier app, backed by a direct `pickup_code` lookup and cloud database sync. |
+| **"Vision Verification: OCR vs Multimodal LLM"** | Describing the visual inspection as "OCR" misrepresents the technology. | **Native Multimodal Vision LLM**: Proofed does **not** run brittle legacy OCR scripts. It feeds the doorstep photograph directly to **MiniMax Multimodal Vision LLM** (`MiniMax-M3.1-Flash`) for end-to-end spatial understanding: reading Door `#15` in scene context, inspecting carton integrity on the floor, and computing weighted risk metrics. |
 | **"Browser tab title had verbose tagline and missing favicon"** | Header metadata was rendering `Proofed — Authorize now...` with default browser icons. | **Clean Tab Title & Official [✓] Favicon**: Enforced strict `Proofed` tab title across all views. Generated and registered multi-resolution `.ico` and vector `.svg` icons matching the orange box checkmark logo (`#FF7A3D`). |
 
 ---
@@ -45,7 +46,7 @@ Unlike traditional agentic checkout where agents charge immediately (`intent: "C
                         TRI-FACTOR VERIFICATION ENGINE
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │ 1. GPS Zone Gate (Haversine)   : Filarecka 2B, Kraków (50.0556, 19.9203) <= 250m │ [30 pts]
-│ 2. Door Number Recognition     : Multimodal OCR detects Unit "#15" on doorplate │ [35 pts]
+│ 2. Door Number Recognition     : Multimodal Vision LLM identifies Unit "#15"   │ [35 pts]
 │ 3. Parcel Status & Placement   : Packaging confirmed intact on doorstep floor   │ [35 pts]
 └─────────────────────────────────────────────────────────────────────────────────┘
                                          │

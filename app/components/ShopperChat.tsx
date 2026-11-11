@@ -303,7 +303,7 @@ export function ShopperChat({
           {
             id: `fraud-block-${Date.now()}`,
             role: "assistant",
-            content: `**Automated Refund Paused — Escalated to Merchant Review**\n\n${data.error || "Post-capture claim conflicts with recorded fulfillment evidence."}\n\n**Fulfillment Evidence & Policy Evaluation:**\n- **Policy Rule:** \`${audit?.policyRule || "RULE_CONTRADICTORY_EVIDENCE_ESCALATION"}\`\n- **Recorded Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Doorstep OCR match (#15), verified recipient one-time handover PIN, and tamper-evident SHA-256 photo digest on record" : "Unverified status"}\n- **Outcome:** **ESCALATED_FOR_REVIEW** (Self-service refund paused; case and evidence forwarded to Merchant Operations)`,
+            content: `**Automated Refund Paused — Escalated to Merchant Review**\n\n${data.error || "Post-capture claim conflicts with recorded fulfillment evidence."}\n\n**Fulfillment Evidence & Policy Evaluation:**\n- **Policy Rule:** \`${audit?.policyRule || "RULE_CONTRADICTORY_EVIDENCE_ESCALATION"}\`\n- **Recorded Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Doorstep Vision LLM match (#15), verified recipient one-time handover PIN, and tamper-evident SHA-256 photo digest on record" : "Unverified status"}\n- **Outcome:** **ESCALATED_FOR_REVIEW** (Self-service refund paused; case and evidence forwarded to Merchant Operations)`,
             tier: "POLICY-ESCALATION",
             timestamp: Date.now(),
           },
@@ -394,7 +394,7 @@ export function ShopperChat({
         {
           id: `redisp-${Date.now()}`,
           role: "assistant",
-          content: `**Courier Re-dispatch Confirmed (Policy Check Passed)**\n\nReplacement order re-routed to courier terminal: **ul. Filarecka 2B / 15, 30-110 Kraków**.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_VALID_REDISPATCH_WITHIN_LIMIT"}\` · Attempt ${(audit?.evidenceTrail?.retryCount ?? 0) + 1} of 2 permitted within PayPal 3-day honor window.\n\nYour existing PayPal authorization remains active (**$0.00 captured** until doorstep OCR and recipient handover PIN are verified).`,
+          content: `**Courier Re-dispatch Confirmed (Policy Check Passed)**\n\nReplacement order re-routed to courier terminal: **ul. Filarecka 2B / 15, 30-110 Kraków**.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_VALID_REDISPATCH_WITHIN_LIMIT"}\` · Attempt ${(audit?.evidenceTrail?.retryCount ?? 0) + 1} of 2 permitted within PayPal 3-day honor window.\n\nYour existing PayPal authorization remains active (**$0.00 captured** until doorstep Vision LLM inspection and recipient handover PIN are verified).`,
           tier: "RE-DISPATCH",
           timestamp: Date.now(),
           order: updatedOrder,
@@ -749,7 +749,7 @@ export function ShopperChat({
                       </div>
                       <div className="auth-customer-guidance mono">
                         <span>
-                          PayPal Order: <strong>{msg.order.paypal_order_id || "ORDER-PP"}</strong> · Auth ID: <strong>{msg.order.paypal_authorization_id || "AUTH-PP"}</strong> · Valid 29 days (3-day honor period). Capture occurs only after doorstep OCR + recipient PIN verification.
+                          PayPal Order: <strong>{msg.order.paypal_order_id || "ORDER-PP"}</strong> · Auth ID: <strong>{msg.order.paypal_authorization_id || "AUTH-PP"}</strong> · Valid 29 days (3-day honor period). Capture occurs only after doorstep Vision LLM + recipient PIN verification.
                         </span>
                       </div>
                     </div>
@@ -764,7 +764,7 @@ export function ShopperChat({
                             Handover Verified · {msg.quote?.formatted_price || "$18.50"} captured
                           </span>
                           <span className="auth-sub">
-                            Door #15 OCR + Recipient One-Time PIN ({msg.order.pickup_code || "VERIFIED"}) confirmed
+                            Door #15 Vision LLM + Recipient One-Time PIN ({msg.order.pickup_code || "VERIFIED"}) confirmed
                           </span>
                         </div>
                         <div className="auth-code mono">
@@ -791,11 +791,11 @@ export function ShopperChat({
                         </span>
                       </div>
                       <p className="failure-desc">
-                        Courier attempted delivery at door #13 (+80m away from destination Filarecka 2B / 15). Because doorstep OCR and recipient PIN verification were not completed, handover was aborted and capture was blocked ($0.00 captured). Choose how to proceed:
+                        Courier attempted delivery at door #13 (+80m away from destination Filarecka 2B / 15). Because doorstep Vision LLM audit and recipient PIN verification were not completed, handover was aborted and capture was blocked ($0.00 captured). Choose how to proceed:
                       </p>
                       <div className="failure-audit-strip mono">
                         <ShieldCheck size={12} />
-                        <span>Fulfillment policy active: Tamper-evident doorstep OCR &amp; retry limits evaluated before voiding authorization or re-dispatching.</span>
+                        <span>Fulfillment policy active: Tamper-evident doorstep Vision LLM inspection &amp; retry limits evaluated before voiding authorization or re-dispatching.</span>
                       </div>
                       <div className="failure-actions-grid">
                         <button
@@ -864,7 +864,7 @@ export function ShopperChat({
                         <div className="audit-trail-checks">
                           <div className="audit-check-line">
                             <span className="check-icon">✔</span>
-                            <span>Evidence Check: Handover rejected by computer vision OCR (#13 mismatch)</span>
+                            <span>Evidence Check: Handover rejected by Multimodal Vision LLM (#13 mismatch)</span>
                           </div>
                           <div className="audit-check-line">
                             <span className="check-icon">✔</span>

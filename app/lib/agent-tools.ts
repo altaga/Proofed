@@ -185,7 +185,7 @@ export const agentToolDefinitions = [
     function: {
       name: "verify_handover_evidence",
       description:
-        "Execute quantitative multimodal vision analysis on a doorstep delivery photo using MiniMax Multimodal AI. Measures address OCR match percentage, parcel integrity/damage score, placement security score, and cross-references recipient handover PIN to determine whether PayPal capture is mathematically authorized.",
+        "Execute quantitative multimodal vision analysis on a doorstep delivery photo using MiniMax Multimodal LLM. Measures door number visual match percentage, parcel integrity/damage score, placement security score, and cross-references recipient handover PIN to determine whether PayPal capture is mathematically authorized.",
       parameters: {
         type: "object",
         properties: {

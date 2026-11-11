@@ -97,7 +97,7 @@ export function evaluateFraudAudit(
       flags.push("VERIFIED_PHOTO_ON_RECORD");
       flags.push("ESCALATED_FOR_MERCHANT_REVIEW");
       verificationFactors.push(
-        "Doorstep OCR matched destination (#744 Maple St)",
+        "Doorstep Vision LLM matched destination (#15 Filarecka 2B)",
         recipientPinVerified
           ? `Recipient one-time handover PIN verified (${order.pickup_code})`
           : "Signed handover event bound to order & authorization",
@@ -110,7 +110,7 @@ export function evaluateFraudAudit(
       const hashSnippet = evidenceTrail.photoHash
         ? evidenceTrail.photoHash.slice(0, 10)
         : "e3b0c442";
-      auditExplanation = `Automated refund paused & escalated for review (Rule: ${policyRule}): Tamper-evident fulfillment evidence records doorstep OCR match (#744), verified recipient handover credential, and SHA-256 photo digest (${hashSnippet}...). Because a non-delivery claim conflicts with recorded handover evidence, automated self-service refund is paused and the case is escalated to Merchant Operations with full dispute evidence attached.`;
+      auditExplanation = `Automated refund paused & escalated for review (Rule: ${policyRule}): Tamper-evident fulfillment evidence records doorstep Vision LLM match (#15), verified recipient handover credential, and SHA-256 photo digest (${hashSnippet}...). Because a non-delivery claim conflicts with recorded handover evidence, automated self-service refund is paused and the case is escalated to Merchant Operations with full dispute evidence attached.`;
 
       appendEvent({
         orderId: order.id,
@@ -132,7 +132,7 @@ export function evaluateFraudAudit(
       flags.push("GENUINE_DELIVERY_FAILURE_VERIFIED");
       flags.push("ZERO_CAPTURE_CONFIRMED");
       verificationFactors.push(
-        "Computer vision OCR confirmed address mismatch (#742 vs #744 Maple St)",
+        "Multimodal Vision LLM confirmed address mismatch (#13 vs #15 Filarecka 2B)",
         "Recipient handover PIN was not completed",
         "Zero funds captured ($0.00 captured)",
       );
@@ -140,7 +140,7 @@ export function evaluateFraudAudit(
       riskLevel = "LOW";
       allowed = true;
       policyDecision = "APPROVED";
-      auditExplanation = `Policy Check Passed (Rule: ${policyRule}): Computer vision OCR recorded address mismatch (#742 vs destination #744 Maple St) and handover was aborted. $0.00 was captured. Eligible to void PayPal authorization; fund release timing depends on the buyer's payment provider.`;
+      auditExplanation = `Policy Check Passed (Rule: ${policyRule}): Multimodal Vision LLM recorded address mismatch (#13 vs destination #15 Filarecka 2B) and handover was aborted. $0.00 was captured. Eligible to void PayPal authorization; fund release timing depends on the buyer's payment provider.`;
     }
     // Rule 3: Active Pre-Delivery Authorization Cancellation
     else if (isAuthorized) {
