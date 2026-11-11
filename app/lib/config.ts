@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export type ProjectConfig = {
@@ -15,9 +15,23 @@ export type ProjectConfig = {
 
 let cached: ProjectConfig | null = null;
 
+function resolveConfigPath(): string {
+  const candidates = [
+    path.join(process.cwd(), "project.config.json"),
+    path.join(process.cwd(), "app", "project.config.json"),
+    path.resolve(__dirname, "..", "project.config.json"),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return candidates[0];
+}
+
 export function getProjectConfig(): ProjectConfig {
   if (cached) return cached;
-  const file = path.join(process.cwd(), "project.config.json");
+  const file = resolveConfigPath();
   const raw = JSON.parse(readFileSync(file, "utf8")) as ProjectConfig;
   if (!raw.name || !raw.slug || !raw.venueName || !raw.currency) {
     throw new Error("project.config.json is missing required fields");
