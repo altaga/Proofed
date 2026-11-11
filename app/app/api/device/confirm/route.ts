@@ -12,6 +12,7 @@ export async function POST(request: Request) {
       photoMime?: string;
       presetId?: "correct" | "wrong_door" | "damaged" | "custom";
       quantitativeScore?: number;
+      gpsCoordinates?: { lat: number; lng: number };
       orderSnapshot?: {
         id?: string;
         status?: string;
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
       photoMime: body.photoMime,
       presetId: body.presetId,
       quantitativeScore: body.quantitativeScore,
+      gpsCoordinates: body.gpsCoordinates,
       actor: "courier",
     });
     return jsonOk({ order: publicOrderView(order) });

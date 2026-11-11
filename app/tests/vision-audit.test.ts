@@ -136,4 +136,42 @@ describe("Quantitative Multimodal Vision Audit & Agent Tool", () => {
     });
     expect(captured.status).toBe("CAPTURED");
   });
+
+  it("tri-factor gate: blocks capture when GPS is outside delivery geofence (+850m away)", async () => {
+    seedCatalog();
+    const order = await createCheckout({
+      items: [{ sku: "PAN-COF-ETH", qty: 1 }],
+      autoAuthorize: true,
+    });
+
+    // Device located in central Kraków or Warsaw, far from Filarecka 2B (> 250m)
+    await expect(
+      confirmDelivery({
+        orderId: order.id,
+        pickupCode: order.pickup_code!,
+        presetId: "correct",
+        gpsCoordinates: { lat: 50.0647, lng: 19.9450 }, // Main Square Kraków, ~2.5km away
+        note: "Attempt handover outside delivery geofence",
+      }),
+    ).rejects.toThrow(/Server-side quantitative vision gate blocked capture/);
+  });
+
+  it("tri-factor gate: passes when GPS zone, Door #15, and intact parcel are all verified", async () => {
+    seedCatalog();
+    const order = await createCheckout({
+      items: [{ sku: "PAN-COF-ETH", qty: 1 }],
+      autoAuthorize: true,
+    });
+
+    // Exact or near coordinates at Filarecka 2B, Kraków (< 250m)
+    const captured = await confirmDelivery({
+      orderId: order.id,
+      pickupCode: order.pickup_code!,
+      presetId: "correct",
+      gpsCoordinates: { lat: 50.0556092, lng: 19.9203676 },
+      note: "Tri-factor verified: on-site GPS + Door #15 + Box on floor",
+    });
+
+    expect(captured.status).toBe("CAPTURED");
+  });
 });

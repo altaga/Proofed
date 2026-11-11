@@ -803,6 +803,7 @@ export async function confirmDelivery(input: {
   photoMime?: string;
   presetId?: "correct" | "wrong_door" | "damaged" | "custom";
   quantitativeScore?: number;
+  gpsCoordinates?: { lat: number; lng: number };
   actor?: string;
 }): Promise<OrderDetails> {
   const code = input.pickupCode.trim().toUpperCase();
@@ -828,6 +829,7 @@ export async function confirmDelivery(input: {
     presetId: input.presetId,
     recipientPin: code,
     orderId: order.id,
+    gpsCoordinates: input.gpsCoordinates,
   });
   const effectiveScore =
     typeof input.quantitativeScore === "number"
@@ -846,6 +848,8 @@ export async function confirmDelivery(input: {
         address_confidence_pct: visionAudit.addressConfidencePct,
         parcel_integrity_pct: visionAudit.parcelIntegrityPct,
         placement_security_pct: visionAudit.placementSecurityPct,
+        gps_zone_verified: visionAudit.gpsZoneVerified,
+        gps_distance_meters: visionAudit.gpsDistanceMeters,
         verdict: visionAudit.handoverVerdict,
       },
     });
@@ -877,6 +881,8 @@ export async function confirmDelivery(input: {
       address_confidence_pct: visionAudit.addressConfidencePct,
       parcel_integrity_pct: visionAudit.parcelIntegrityPct,
       placement_security_pct: visionAudit.placementSecurityPct,
+      gps_zone_verified: visionAudit.gpsZoneVerified,
+      gps_distance_meters: visionAudit.gpsDistanceMeters,
       vision_hmac_sig: visionAudit.serverHmacSignature,
     },
   });

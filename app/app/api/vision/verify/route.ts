@@ -10,6 +10,7 @@ type VisionVerifyBody = {
   presetId?: "correct" | "wrong_door" | "damaged" | "custom";
   recipientPin?: string;
   orderId?: string;
+  gpsCoordinates?: { lat: number; lng: number };
 };
 
 export async function POST(req: Request) {
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
       presetId: body.presetId,
       recipientPin: body.recipientPin,
       orderId: body.orderId,
+      gpsCoordinates: body.gpsCoordinates,
     });
 
     return NextResponse.json(metrics);

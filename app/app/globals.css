@@ -3861,6 +3861,146 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   color: #EDEDEF;
 }
 
+/* Tri-Factor Delivery Verification HUD & Controls */
+.delivery-gps-ctrls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.gps-in-zone {
+  color: #3FB27F;
+}
+
+.gps-out-zone {
+  color: #FF7B72;
+}
+
+.gps-toggle-btn,
+.gps-locate-btn {
+  background: #1C1A16;
+  border: 1px solid #38342D;
+  color: #ABA598;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gps-toggle-btn:hover,
+.gps-locate-btn:hover:not(:disabled) {
+  background: #28241E;
+  color: #EDEDEF;
+  border-color: #524C41;
+}
+
+.gps-locate-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.tri-factor-hud {
+  background: #141310;
+  border-top: 1px solid #2E2B25;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tri-factor-hud-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8E887B;
+}
+
+.tri-factor-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tri-factor-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: 4px;
+  background: #181714;
+  border: 1px solid #282520;
+  font-size: 11px;
+  transition: border-color 0.15s ease;
+}
+
+.tri-factor-row.is-pass {
+  border-left: 3px solid #3FB27F;
+}
+
+.tri-factor-row.is-fail {
+  border-left: 3px solid #FF7B72;
+}
+
+.tri-factor-lead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tri-factor-num {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: #716C62;
+  font-weight: 700;
+}
+
+.tri-factor-name {
+  color: #EDEDEF;
+  font-weight: 600;
+}
+
+.tri-factor-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.tri-factor-badge {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.tri-factor-badge.badge-good {
+  background: rgba(63, 178, 127, 0.15);
+  color: #3FB27F;
+  border: 1px solid rgba(63, 178, 127, 0.3);
+}
+
+.tri-factor-badge.badge-bad {
+  background: rgba(255, 123, 114, 0.15);
+  color: #FF7B72;
+  border: 1px solid rgba(255, 123, 114, 0.3);
+}
+
+.action-footer-hint {
+  display: block;
+  font-size: 11px;
+  text-align: center;
+  color: #ABA598;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
 .feedback-header {
   display: flex;
   align-items: center;

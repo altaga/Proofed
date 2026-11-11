@@ -64,6 +64,9 @@ type VisionVerifyResponse = {
   placementSecurityPct?: number;
   overallHandoverScore?: number;
   captureAuthorized?: boolean;
+  gpsZoneVerified?: boolean;
+  gpsDistanceMeters?: number;
+  gpsCoordinates?: { lat: number; lng: number };
   detectedDoorNumber: string | null;
   targetDoorNumber?: string;
   targetAddress?: string;
@@ -75,7 +78,7 @@ type VisionVerifyResponse = {
   visualEvidence: string;
   agentAssessment?: string;
   boundingBoxes: BoundingBox[];
-  handoverVerdict: "VERIFIED" | "REJECTED_MISMATCH" | "REJECTED_DAMAGED" | "REJECTED_NO_PACKAGE" | "REJECTED_INVALID_PIN";
+  handoverVerdict: "VERIFIED" | "REJECTED_MISMATCH" | "REJECTED_DAMAGED" | "REJECTED_NO_PACKAGE" | "REJECTED_INVALID_PIN" | "REJECTED_GEOFENCE";
   photoSha256Digest?: string;
   serverHmacSignature?: string;
   recipientPinVerified?: boolean;
@@ -110,6 +113,18 @@ const PHOTO_PRESETS: PhotoPreset[] = [
   },
 ];
 
+function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
 export function DeliveryApp() {
   const [activeOrder, setActiveOrder] = useState<DeliveryOrder | null>(null);
   const [trackingInput, setTrackingInput] = useState("");
@@ -118,6 +133,25 @@ export function DeliveryApp() {
   const [previewUrl, setPreviewUrl] = useState<string>(PHOTO_PRESETS[0].imagePath);
   const [customPhotoName, setCustomPhotoName] = useState<string | null>(null);
   const [customPhotoBase64, setCustomPhotoBase64] = useState<string | null>(null);
+
+  // GPS Geofence state (Filarecka 2B, Kraków: 50.0556092, 19.9203676)
+  const [gpsData, setGpsData] = useState<{
+    lat: number;
+    lng: number;
+    accuracyMeters?: number;
+    distanceMeters: number;
+    inZone: boolean;
+    mode: "live" | "simulated";
+    isLocating: boolean;
+  }>({
+    lat: 50.0556092,
+    lng: 19.9203676,
+    accuracyMeters: 4,
+    distanceMeters: 0,
+    inZone: true,
+    mode: "simulated",
+    isLocating: false,
+  });
 
   // Vision Pipeline states
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -135,6 +169,95 @@ export function DeliveryApp() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Trigger computer vision & tri-factor verification
+  const runVisionVerification = useCallback(
+    async (params: { image?: string; presetId?: string; gpsCoords?: { lat: number; lng: number } }) => {
+      setIsAnalyzing(true);
+      try {
+        const coords = params.gpsCoords ?? { lat: gpsData.lat, lng: gpsData.lng };
+        const res = await fetch("/api/vision/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            image: params.image,
+            presetId: params.presetId,
+            targetDoorNumber: "15",
+            targetAddress: "ul. Filarecka 2B, m. 15, 30-110 Kraków",
+            gpsCoordinates: coords,
+          }),
+        });
+        const data: VisionVerifyResponse = await res.json();
+        if (data.ok) {
+          setVisionResult(data);
+        } else {
+          throw new Error(data.error || "Vision analysis failed");
+        }
+      } catch (err) {
+        console.error("Vision verify error:", err);
+      } finally {
+        setIsAnalyzing(false);
+      }
+    },
+    [gpsData.lat, gpsData.lng],
+  );
+
+  function handleGetLiveLocation() {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    setGpsData((prev) => ({ ...prev, isLocating: true }));
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const dist = calculateDistanceMeters(lat, lng, 50.0556092, 19.9203676);
+        const inZone = dist <= 250;
+        setGpsData({
+          lat,
+          lng,
+          accuracyMeters: Math.round(pos.coords.accuracy),
+          distanceMeters: dist,
+          inZone,
+          mode: "live",
+          isLocating: false,
+        });
+        void runVisionVerification({
+          presetId: mediaMode === "preset" ? selectedPreset.id : "custom",
+          image: customPhotoBase64 ? `data:image/jpeg;base64,${customPhotoBase64}` : undefined,
+          gpsCoords: { lat, lng },
+        });
+      },
+      (err) => {
+        console.warn("Geolocation notice:", err.message);
+        setGpsData((prev) => ({ ...prev, isLocating: false }));
+        alert(`Notice: ${err.message}. Using calibrated venue coordinates (ul. Filarecka 2B).`);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  }
+
+  function handleToggleGpsSimulation() {
+    const nextInZone = !gpsData.inZone;
+    const lat = nextInZone ? 50.0556092 : 50.0647;
+    const lng = nextInZone ? 19.9203676 : 19.945;
+    const dist = nextInZone ? 0 : 2500;
+    setGpsData({
+      lat,
+      lng,
+      accuracyMeters: 5,
+      distanceMeters: dist,
+      inZone: nextInZone,
+      mode: "simulated",
+      isLocating: false,
+    });
+    void runVisionVerification({
+      presetId: mediaMode === "preset" ? selectedPreset.id : "custom",
+      image: customPhotoBase64 ? `data:image/jpeg;base64,${customPhotoBase64}` : undefined,
+      gpsCoords: { lat, lng },
+    });
+  }
 
   // Fetch active held order or latest order (with cross-instance localStorage fallback)
   async function fetchLatestOrder() {
@@ -171,36 +294,6 @@ export function DeliveryApp() {
       // Quiet fail on initial load
     }
   }
-
-  // Trigger computer vision verification
-  const runVisionVerification = useCallback(
-    async (params: { image?: string; presetId?: string }) => {
-      setIsAnalyzing(true);
-      try {
-        const res = await fetch("/api/vision/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            image: params.image,
-            presetId: params.presetId,
-            targetDoorNumber: "15",
-            targetAddress: "ul. Filarecka 2B, m. 15, 30-110 Kraków",
-          }),
-        });
-        const data: VisionVerifyResponse = await res.json();
-        if (data.ok) {
-          setVisionResult(data);
-        } else {
-          throw new Error(data.error || "Vision analysis failed");
-        }
-      } catch (err) {
-        console.error("Vision verify error:", err);
-      } finally {
-        setIsAnalyzing(false);
-      }
-    },
-    [],
-  );
 
   // Initial load: fetch order and analyze initial preset scene
   useEffect(() => {
@@ -264,11 +357,12 @@ export function DeliveryApp() {
           body: JSON.stringify({
             orderId: activeOrder?.id,
             pickupCode: code,
-            note: `Handover verified: ${visionResult?.visualEvidence || "Doorstep OCR and parcel condition confirmed"} (${((visionResult?.confidence ?? visionResult?.overallHandoverScore) ?? 98.5).toFixed(1)}% confidence) · Recipient handover PIN verified`,
+            note: `Tri-factor verified: ${visionResult?.visualEvidence || "GPS zone, Door #15, and intact parcel on floor confirmed"} (${((visionResult?.confidence ?? visionResult?.overallHandoverScore) ?? 98.5).toFixed(1)}% score) · Recipient PIN verified`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
             presetId: customPhotoBase64 ? "custom" : selectedPreset.id,
             quantitativeScore: visionResult?.overallHandoverScore ?? visionResult?.confidence ?? 98.4,
+            gpsCoordinates: { lat: gpsData.lat, lng: gpsData.lng },
             orderSnapshot: activeOrder || undefined,
           }),
         });
@@ -285,14 +379,16 @@ export function DeliveryApp() {
         }
         setFeedback({
           tone: "success",
-          title: "Handover verified · Custody transferred",
-          message: `Package delivered to #15 Filarecka 2B, Kraków. Doorplate OCR, parcel condition (${((visionResult?.confidence ?? visionResult?.overallHandoverScore) ?? 98.5).toFixed(1)}%), and recipient handover PIN (${code}) verified.`,
-          paypalDetail: `Signed tamper-evident handover event recorded for Order ${payload.order.id}.`,
+          title: "Tri-factor handover verified · Custody transferred",
+          message: `Package delivered to #15 Filarecka 2B, Kraków. GPS geofence (${gpsData.distanceMeters}m), Doorplate #15 OCR, intact carton condition, and recipient PIN (${code}) verified.`,
+          paypalDetail: `Signed tamper-evident handover event recorded for Order ${payload.order.id}. PayPal Payments v2 capture executed.`,
         });
       } else {
-        // Failed handover (wrong door, missing package, or damaged): aborts handover
+        // Failed handover (wrong geofence, wrong door, missing package, or damaged): aborts handover
         const reason =
-          visionResult?.handoverVerdict === "REJECTED_MISMATCH"
+          visionResult?.handoverVerdict === "REJECTED_GEOFENCE"
+            ? "geofence_violation"
+            : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
             ? "wrong_address"
             : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
             ? "missing_product"
@@ -347,14 +443,37 @@ export function DeliveryApp() {
     <div className="delivery-container">
       {/* Handheld Courier Device Shell */}
       <div className="delivery-card">
-        {/* Top Bar */}
+        {/* Top Bar with Live / Simulated GPS Telemetry */}
         <div className="delivery-top-bar">
           <div className="courier-badge">
             <span className="courier-id">Courier · Route 4B</span>
           </div>
-          <div className="delivery-gps mono">
-            <MapPin size={12} />
-            <span>ul. Filarecka 2B, Kraków</span>
+          <div className="delivery-gps-ctrls">
+            <div className={`delivery-gps mono ${gpsData.inZone ? "gps-in-zone" : "gps-out-zone"}`}>
+              <MapPin size={12} />
+              <span>
+                {gpsData.inZone
+                  ? `ul. Filarecka 2B (${gpsData.distanceMeters}m)`
+                  : `Outside zone (+${gpsData.distanceMeters}m)`}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="gps-toggle-btn"
+              onClick={handleToggleGpsSimulation}
+              title="Toggle GPS between on-site zone and outside geofence for testing"
+            >
+              {gpsData.inZone ? "Simulate Far (+2.5km)" : "Reset Filarecka (0m)"}
+            </button>
+            <button
+              type="button"
+              className="gps-locate-btn"
+              onClick={handleGetLiveLocation}
+              disabled={gpsData.isLocating}
+              title="Query real device GPS via browser geolocation"
+            >
+              {gpsData.isLocating ? "Locating…" : "Live GPS"}
+            </button>
           </div>
         </div>
 
@@ -649,6 +768,78 @@ export function DeliveryApp() {
               </div>
             )}
 
+            {/* Tri-Factor Handover Verification HUD */}
+            <div className="tri-factor-hud">
+              <span className="tri-factor-hud-title">Tri-factor delivery verification</span>
+              <div className="tri-factor-rows">
+                {/* Factor 1: GPS Geofence */}
+                <div className={`tri-factor-row ${gpsData.inZone ? "is-pass" : "is-fail"}`}>
+                  <div className="tri-factor-lead">
+                    <span className="tri-factor-num">01</span>
+                    <span className="tri-factor-name">GPS Delivery Zone</span>
+                  </div>
+                  <div className="tri-factor-status">
+                    <span className="mono">
+                      {gpsData.inZone
+                        ? `ul. Filarecka 2B (${gpsData.distanceMeters}m)`
+                        : `Outside Zone (+${gpsData.distanceMeters}m)`}
+                    </span>
+                    <span className={`tri-factor-badge ${gpsData.inZone ? "badge-good" : "badge-bad"}`}>
+                      {gpsData.inZone ? "Verified" : "Blocked"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Factor 2: Unit #15 */}
+                <div
+                  className={`tri-factor-row ${Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "is-pass" : "is-fail"}`}
+                >
+                  <div className="tri-factor-lead">
+                    <span className="tri-factor-num">02</span>
+                    <span className="tri-factor-name">Door Number</span>
+                  </div>
+                  <div className="tri-factor-status">
+                    <span className="mono">
+                      {Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch)
+                        ? `Unit #${visionResult?.detectedDoorNumber ?? "15"} Match`
+                        : `#${visionResult?.detectedDoorNumber ?? "—"} (Expected #15)`}
+                    </span>
+                    <span
+                      className={`tri-factor-badge ${Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "badge-good" : "badge-bad"}`}
+                    >
+                      {Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "Verified" : "Mismatch"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Factor 3: Parcel Intact on Floor */}
+                <div
+                  className={`tri-factor-row ${Boolean(visionResult?.packageDetected && visionResult.packageCondition !== "damaged") ? "is-pass" : "is-fail"}`}
+                >
+                  <div className="tri-factor-lead">
+                    <span className="tri-factor-num">03</span>
+                    <span className="tri-factor-name">Parcel on Floor</span>
+                  </div>
+                  <div className="tri-factor-status">
+                    <span className="mono">
+                      {visionResult?.packageCondition === "damaged"
+                        ? "Damaged / Crushed"
+                        : visionResult?.packageDetected
+                        ? "Intact on Floor"
+                        : "No Box Detected"}
+                    </span>
+                    <span
+                      className={`tri-factor-badge ${Boolean(visionResult?.packageDetected && visionResult.packageCondition !== "damaged") ? "badge-good" : "badge-bad"}`}
+                    >
+                      {Boolean(visionResult?.packageDetected && visionResult.packageCondition !== "damaged")
+                        ? "Verified"
+                        : "Failed"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div
               className={`telemetry-verdict-banner ${isVerified ? "verdict-good" : "verdict-bad"}`}
             >
@@ -659,19 +850,23 @@ export function DeliveryApp() {
                 <span className="verdict-banner-title">
                   {isVerified
                     ? "Verified — ready for recipient handoff"
+                    : !gpsData.inZone
+                    ? "Blocked — outside delivery geofence"
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "Blocked — wrong house number"
+                    ? "Blocked — wrong door number"
                     : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                    ? "Blocked — no parcel in photo"
+                    ? "Blocked — no parcel on floor"
                     : "Blocked — parcel damaged"}
                 </span>
                 <span className="verdict-banner-sub">
                   {isVerified
-                    ? "Door #15 matches the order address and the parcel is intact on the floor."
+                    ? "GPS zone, Door #15, and intact parcel on floor confirmed. Ready for PayPal capture."
+                    : !gpsData.inZone
+                    ? `Device GPS is ${gpsData.distanceMeters}m outside delivery zone (ul. Filarecka 2B). Capture locked at $0.00.`
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "Photo shows door #13 instead of destination #15 Filarecka 2B. Handover rejected."
+                    ? "Photo shows door #13 instead of destination #15. Handover rejected."
                     : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                    ? "No parcel detected on the doorstep. Handover rejected."
+                    ? "No parcel detected resting on the doorstep. Handover rejected."
                     : "Visible transit damage on the carton. Handover rejected."}
                 </span>
               </div>
@@ -689,21 +884,27 @@ export function DeliveryApp() {
           {isVerified && activeOrder && (
             <div className="manifest-card" style={{ marginBottom: "10px", padding: "10px 12px" }}>
               <div className="manifest-row" style={{ marginBottom: "6px" }}>
-                <span className="manifest-label">1. Computer Vision</span>
+                <span className="manifest-label">1. GPS Zone Gate</span>
+                <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
+                  ✔ Filarecka 2B ({gpsData.distanceMeters}m distance)
+                </span>
+              </div>
+              <div className="manifest-row" style={{ marginBottom: "6px" }}>
+                <span className="manifest-label">2. Door &amp; Parcel Gate</span>
                 <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
                   ✔ Door #15 OCR &amp; Parcel Intact on Floor
                 </span>
               </div>
               <div className="manifest-row" style={{ marginBottom: "6px" }}>
-                <span className="manifest-label">2. Recipient One-Time PIN</span>
+                <span className="manifest-label">3. Recipient One-Time PIN</span>
                 <span className="manifest-value mono" style={{ color: "#F4F1EA" }}>
                   {trackingInput || "Enter 6-char code"}
                 </span>
               </div>
               <div className="manifest-row">
-                <span className="manifest-label">3. Evidence Binding</span>
+                <span className="manifest-label">4. Evidence Binding</span>
                 <span className="manifest-value mono" style={{ fontSize: "11px", opacity: 0.85 }}>
-                  SHA-256 Digest + Server HMAC
+                  SHA-256 Digest + Server HMAC Signature
                 </span>
               </div>
             </div>
@@ -732,6 +933,17 @@ export function DeliveryApp() {
                 : "Report delivery failure (Return to hub)"}
             </span>
           </button>
+          <span className="action-footer-hint mono">
+            {isVerified
+              ? "✔ 3/3 checks passed: GPS zone + Door #15 + Box on floor · Captures held funds"
+              : !gpsData.inZone
+              ? "✖ Outside delivery geofence · PayPal capture blocked ($0.00)"
+              : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
+              ? "✖ Doorplate mismatch (#15 required) · PayPal capture blocked ($0.00)"
+              : visionResult?.packageCondition === "damaged"
+              ? "✖ Damaged carton on floor · PayPal capture blocked ($0.00)"
+              : "✖ Handover conditions not verified · Hold remains $0.00 captured"}
+          </span>
         </section>
 
         {/* Feedback Alert Banner */}
