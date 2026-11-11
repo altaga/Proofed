@@ -32,13 +32,6 @@ const MODULES = [
     line: "Settlement desk. Capture, void or refund with a reason on file.",
     meta: "Payments v2",
   },
-  {
-    no: "05",
-    name: "Locker",
-    href: "/device",
-    line: "Pickup station. Six digits in, funds out.",
-    meta: "Kiosk · OTP",
-  },
 ];
 
 export function CommandHub() {
@@ -82,9 +75,6 @@ export function CommandHub() {
       </nav>
 
       <footer className="ix-foot">
-        <Link href="/client" className="ix-btn">
-          Start in Client →
-        </Link>
         <button type="button" className="ix-link" onClick={reset}>
           Reset data
         </button>
