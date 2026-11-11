@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Bot, Camera, Layers, CreditCard, RotateCcw, ShieldCheck, MapPin } from "lucide-react";
+import { ArrowRight, Bot, Camera, Layers, CreditCard, RotateCcw } from "lucide-react";
 
 interface ModuleDef {
   no: string;
@@ -58,13 +58,6 @@ const MODULES: ModuleDef[] = [
   },
 ];
 
-const GUARDRAILS = [
-  { label: "PAYPAL INTENT", val: "AUTHORIZE ($0.00 upfront)", status: "verified" },
-  { label: "ZERO-TRUST PRICING", val: "Catalog Integer Cents", status: "verified" },
-  { label: "HANDOVER GATE", val: "Vision LLM + PIN (≥80 pts)", status: "verified" },
-  { label: "TESTBENCH VENUE", val: "Filarecka 2B / 15, Kraków", status: "verified" },
-];
-
 export function CommandHub() {
   const [note, setNote] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
@@ -98,11 +91,6 @@ export function CommandHub() {
     <div className="ix-hub-container">
       {/* Hero Header */}
       <header className="ix-hub-header">
-        <div className="ix-pill-badge mono">
-          <ShieldCheck size={13} className="ix-pill-icon" />
-          <span>Two-Phase Physical Commerce Protocol · PayPal Authorize &amp; Capture</span>
-        </div>
-
         <h1 className="ix-hub-title">
           Hold the money.
           <br />
@@ -114,19 +102,6 @@ export function CommandHub() {
           Zero dollars are captured until Multimodal Vision AI and the buyer&apos;s handover PIN confirm physical delivery at the door.
         </p>
       </header>
-
-      {/* Protocol Guardrails Strip */}
-      <div className="ix-guardrails-strip mono" aria-label="Protocol Security Guardrails">
-        {GUARDRAILS.map((g, idx) => (
-          <div key={idx} className="ix-guardrail-cell">
-            <span className="ix-guardrail-label">{g.label}</span>
-            <span className="ix-guardrail-val">
-              <span className="ix-guardrail-dot" />
-              {g.val}
-            </span>
-          </div>
-        ))}
-      </div>
 
       {/* 2x2 Interactive Module Cards */}
       <section className="ix-cards-grid" aria-label="Proofed Functional Modules">
@@ -163,11 +138,6 @@ export function CommandHub() {
 
       {/* Footer System Strip */}
       <footer className="ix-hub-footer">
-        <div className="ix-foot-left mono">
-          <MapPin size={13} />
-          <span>Active Testbed: ul. Filarecka 2B, Kraków (Lat: 50.0556°, Lng: 19.9204°)</span>
-        </div>
-
         <div className="ix-foot-right">
           <button
             type="button"
