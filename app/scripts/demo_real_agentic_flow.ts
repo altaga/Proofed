@@ -18,20 +18,20 @@ try {
   }
 } catch {}
 
-import { createCheckout, confirmDelivery, failDelivery } from "../lib/orders";
+import { createCheckout, confirmDelivery, failDelivery, listEvents, voidOrder } from "../lib/orders";
 import { evaluateFraudAudit } from "../lib/fraud-audit";
 import { runAgentTurn } from "../lib/agent";
 
 async function runDemoProof() {
   console.log("================================================================================");
-  console.log("PROOFED: 100% AGENTIC COMMERCE & ANTI-FRAUD VERIFICATION DEMO RUNNER");
+  console.log("PROOFED: TRUST LAYER BETWEEN AI PAYMENTS AND THE PHYSICAL WORLD");
   console.log("Mission: Authorize now. Capture only on verified proof of physical handover.");
   console.log("================================================================================\n");
 
   // --------------------------------------------------------------------------
-  // SCENARIO 1: Autonomous Commerce & Automated Hold
+  // SCENARIO 1: Autonomous Commerce & Conditional Capture Authorization
   // --------------------------------------------------------------------------
-  console.log(">>> [SCENARIO 1] AUTONOMOUS AGENT COMMERCE WITH BUDGET");
+  console.log(">>> [SCENARIO 1] AUTONOMOUS AGENT COMMERCE & BUYER-APPROVED AUTHORIZATION");
   console.log("Prompt: 'I have a $20 budget, what snacks or coffee do you have?'");
 
   const turn = await runAgentTurn({
@@ -39,86 +39,106 @@ async function runDemoProof() {
   });
 
   console.log("Agent Reply:", turn.reply);
-  console.log("Agent Tools Executed:", turn.toolTrace?.map(t => `${t.name} -> ${t.summary}`));
+  console.log("Agent Tools Executed:", turn.toolTrace?.map((t) => `${t.name} -> ${t.summary}`));
   console.log("Staged Quote:", turn.quote ? JSON.stringify(turn.quote) : "No quote");
 
-  // Create order with automated hold
   const order1 = await createCheckout({
     items: [{ sku: "PAN-COF-ETH", qty: 1 }],
     autoAuthorize: true,
     actor: "shopper",
   });
   console.log(`Order Created: ${order1.id}`);
-  console.log(`Status: ${order1.status} (intent=AUTHORIZE, PIN: ${order1.pickup_code})`);
-  console.log(`Charged Amount: $0.00 (Funds held: $${(order1.subtotal_cents / 100).toFixed(2)})\n`);
+  console.log(`PayPal Sandbox Order ID: ${order1.paypal_order_id}`);
+  console.log(`PayPal Authorization ID: ${order1.paypal_authorization_id}`);
+  console.log(`One-Time Recipient Handover PIN: ${order1.pickup_code}`);
+  console.log(
+    `Financial State: $${(order1.subtotal_cents / 100).toFixed(2)} authorized · $0.00 captured (intent=AUTHORIZE)\n`,
+  );
 
   // --------------------------------------------------------------------------
-  // SCENARIO 2: Real Physical Delivery Failure & Genuine Refund Audit
+  // SCENARIO 2: Real Physical Delivery Failure & Conditional Authorization Void
   // --------------------------------------------------------------------------
   console.log(">>> [SCENARIO 2] REAL DELIVERY FAILURE AT DOOR #742 & ESCALATION");
-  console.log("Courier arrives at wrong door #742 (+120m away). Vision engine detects mismatch.");
+  console.log("Courier arrives at wrong door #742 (+120m away). Computer vision OCR detects mismatch.");
 
   const failedOrder = failDelivery({
     orderId: order1.id,
     pickupCode: order1.pickup_code!,
     reason: "wrong_address",
-    note: "OCR detected door #742 instead of destination #744 Maple St (+120m distance)",
+    note: "Computer vision OCR detected door #742 instead of destination #744 Maple St (+120m distance)",
     photoBase64: "dGVzdC1kb29yLTc0Mi1taXNtYXRjaA==",
   });
   console.log(`Delivery Status: ${failedOrder.status} (Reason: ${failedOrder.failure_reason})`);
 
-  console.log("\nEvaluating Customer Refund Request via Anti-Fraud Cross-Referencing Engine...");
+  console.log("\nEvaluating Customer Void Request via Fulfillment Policy Engine...");
   const audit2 = evaluateFraudAudit(order1.id, "refund");
-  console.log("Audit Decision:", audit2.policyDecision);
-  console.log(`Risk Score: ${audit2.riskScore.toFixed(2)} (${audit2.riskLevel})`);
-  console.log("Flags:", audit2.flags);
-  console.log("Audit Explanation:", audit2.auditExplanation);
-  console.log("Audit Allowed:", audit2.allowed);
-  console.log("Result: PayPal authorization hold successfully voided. Zero dollars charged ($0.00).\n");
+  console.log("Policy Rule:", audit2.policyRule);
+  console.log("Policy Decision:", audit2.policyDecision);
+  console.log("Verification Factors:", audit2.verificationFactors);
+  console.log("Explanation:", audit2.auditExplanation);
+
+  const voidedOrder = await voidOrder(order1.id, "shopper", "unverified_handover_release");
+  console.log(
+    `Result: PayPal authorization voided (Status: ${voidedOrder.status}). $0.00 captured; release timing depends on payment provider.\n`,
+  );
 
   // --------------------------------------------------------------------------
-  // SCENARIO 3: Friendly Fraud Attempt Blocked by Cryptographic Proof of Delivery
+  // SCENARIO 3: Two-Factor Handover & Contradictory Evidence Escalation
   // --------------------------------------------------------------------------
-  console.log(">>> [SCENARIO 3] FRIENDLY FRAUD CLAIM BLOCKED BY PHYSICAL PROOF");
-  console.log("A new order is created and verified with photo proof at correct door #744.");
+  console.log(">>> [SCENARIO 3] TWO-FACTOR HANDOVER & CONTRADICTORY CLAIM ESCALATION");
+  console.log("Creating second order and verifying 1) Door #744 OCR + 2) One-Time Recipient PIN...");
 
   const order2 = await createCheckout({
     items: [{ sku: "PAN-COF-ETH", qty: 1 }],
     autoAuthorize: true,
   });
 
-  // Courier photographs correct door #744 and confirms delivery
+  // Test invalid recipient PIN rejection first
+  try {
+    await confirmDelivery({
+      orderId: order2.id,
+      pickupCode: "WRONG1",
+      note: "Attempt with unverified recipient PIN",
+    });
+  } catch (err) {
+    console.log(
+      `Server-Side PIN Guardrail: Invalid PIN rejected -> ${(err as Error).message}`,
+    );
+  }
+
+  // Confirm with valid one-time recipient PIN + doorstep photo
   const verifiedOrder = await confirmDelivery({
     orderId: order2.id,
     pickupCode: order2.pickup_code!,
-    note: "Doorplate OCR confirmed #744 Maple St. Parcel intact at doorstep.",
+    note: "Doorplate OCR confirmed #744 Maple St + Recipient one-time PIN verified.",
     photoBase64: "dGVzdC1kb29yLTc0NC12ZXJpZmllZC1waG90bw==",
   });
-  console.log(`Handover Status: ${verifiedOrder.status} (Delivered at #744)`);
-  console.log(`Evidence Stored: Photo SHA-256 recorded in immutable ledger.`);
+  const latestEvents = listEvents(order2.id, 3);
+  console.log(`Handover Status: ${verifiedOrder.status} (PayPal Capture ID: ${verifiedOrder.paypal_capture_id})`);
+  console.log(
+    `Tamper-Evident Event Record: ${latestEvents[0]?.event} -> ${latestEvents[0]?.detail_json}`,
+  );
 
-  console.log("\nShopper maliciously claims: 'I did not receive the package. Refund me now!'");
-  console.log("Agent runs evaluateFraudAudit('refund')...");
+  console.log("\nShopper claims post-capture: 'I did not receive the package. Refund me now!'");
   const audit3 = evaluateFraudAudit(order2.id, "refund");
-  console.log("Audit Decision:", audit3.policyDecision);
-  console.log(`Risk Score: ${audit3.riskScore.toFixed(2)} (${audit3.riskLevel})`);
+  console.log("Policy Rule:", audit3.policyRule);
+  console.log("Policy Decision:", audit3.policyDecision);
   console.log("Flags:", audit3.flags);
-  console.log("Audit Explanation:", audit3.auditExplanation);
-  console.log("Audit Allowed:", audit3.allowed);
-  console.log("Result: FRAUD BLOCKED. Cryptographic photo proof protects merchant from friendly fraud.\n");
+  console.log("Verification Factors:", audit3.verificationFactors);
+  console.log("Explanation:", audit3.auditExplanation);
+  console.log(
+    "Result: Self-service refund paused & ESCALATED TO MERCHANT OPERATIONS with tamper-evident handover evidence attached.\n",
+  );
 
   // --------------------------------------------------------------------------
-  // SCENARIO 4: Velocity & Loop Abuse Prevention (Exceeded Max Retries)
+  // SCENARIO 4: Automated Retry Limit & Merchant Concierge Escalation
   // --------------------------------------------------------------------------
-  console.log(">>> [SCENARIO 4] VELOCITY & RE-DISPATCH LOOP ABUSE BLOCKED");
-  console.log("Shopper attempts repeated re-dispatches after multiple delivery failures.");
-
+  console.log(">>> [SCENARIO 4] AUTOMATED RE-DISPATCH LIMIT & CONCIERGE ESCALATION");
   const order3 = await createCheckout({
     items: [{ sku: "PAN-COF-ETH", qty: 1 }],
     autoAuthorize: true,
   });
 
-  // Simulate first failure
   failDelivery({
     orderId: order3.id,
     pickupCode: order3.pickup_code!,
@@ -126,23 +146,29 @@ async function runDemoProof() {
   });
 
   const retry1 = evaluateFraudAudit(order3.id, "retry");
-  console.log(`Retry Attempt 1: ${retry1.policyDecision} (Risk: ${retry1.riskScore.toFixed(2)})`);
+  console.log(`Retry Attempt 1: ${retry1.policyDecision} (Rule: ${retry1.policyRule})`);
 
-  // Simulate that attempt 1 was executed and failed again
   const { getDb } = await import("../lib/db");
-  getDb().prepare(`INSERT INTO event_log (order_id, event, from_status, to_status, actor, detail_json, created_at)
-                   VALUES ('${order3.id}', 'RECOVERY_RETRY', 'DELIVERY_FAILED', 'AUTHORIZED', 'shopper', '{}', datetime('now'))`).run();
-  getDb().prepare(`INSERT INTO event_log (order_id, event, from_status, to_status, actor, detail_json, created_at)
-                   VALUES ('${order3.id}', 'RECOVERY_RETRY', 'DELIVERY_FAILED', 'AUTHORIZED', 'shopper', '{}', datetime('now'))`).run();
+  getDb()
+    .prepare(
+      `INSERT INTO event_log (order_id, event, from_status, to_status, actor, detail_json, created_at)
+       VALUES ('${order3.id}', 'RECOVERY_RETRY', 'DELIVERY_FAILED', 'AUTHORIZED', 'shopper', '{}', datetime('now'))`,
+    )
+    .run();
+  getDb()
+    .prepare(
+      `INSERT INTO event_log (order_id, event, from_status, to_status, actor, detail_json, created_at)
+       VALUES ('${order3.id}', 'RECOVERY_RETRY', 'DELIVERY_FAILED', 'AUTHORIZED', 'shopper', '{}', datetime('now'))`,
+    )
+    .run();
 
-  console.log("Customer attempts Attempt 3 (exceeding maximum retry limit of 2)...");
+  console.log("Customer attempts Attempt 3 (exceeding automated retry limit of 2)...");
   const retry3 = evaluateFraudAudit(order3.id, "retry");
-  console.log("Audit Decision:", retry3.policyDecision);
-  console.log(`Risk Score: ${retry3.riskScore.toFixed(2)} (${retry3.riskLevel})`);
+  console.log("Policy Rule:", retry3.policyRule);
+  console.log("Policy Decision:", retry3.policyDecision);
   console.log("Flags:", retry3.flags);
-  console.log("Audit Explanation:", retry3.auditExplanation);
-  console.log("Audit Allowed:", retry3.allowed);
-  console.log("Result: LOOP ABUSE BLOCKED. Escalated to Merchant Concierge for manual dispatch.\n");
+  console.log("Explanation:", retry3.auditExplanation);
+  console.log("Result: Automated retry paused & ESCALATED TO MERCHANT CONCIERGE.\n");
 
   console.log("================================================================================");
   console.log("ALL 4 REAL-WORLD AGENTIC SCENARIOS VERIFIED 100% OPERATIONAL");

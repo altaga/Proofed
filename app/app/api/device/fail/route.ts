@@ -1,5 +1,5 @@
 import { handleRouteError, jsonError, jsonOk, readJson } from "@/lib/http";
-import { failDelivery, publicOrderView } from "@/lib/orders";
+import { ensureOrderHydrated, failDelivery, publicOrderView } from "@/lib/orders";
 
 export async function POST(request: Request) {
   try {
@@ -10,8 +10,18 @@ export async function POST(request: Request) {
       note?: string;
       photoBase64?: string;
       photoMime?: string;
+      orderSnapshot?: {
+        id?: string;
+        status?: string;
+        subtotal_cents?: number;
+        pickup_code?: string | null;
+        paypal_order_id?: string | null;
+        paypal_authorization_id?: string | null;
+        items?: Array<{ sku: string; name?: string; qty: number; unit_price_cents?: number }>;
+      };
     }>(request);
     if (!body.pickupCode) return jsonError("PICKUP_CODE_REQUIRED", "pickupCode is required.", 400);
+    if (body.orderSnapshot) ensureOrderHydrated(body.orderSnapshot);
     const order = failDelivery({
       orderId: body.orderId,
       pickupCode: body.pickupCode,

@@ -64,10 +64,9 @@ describe("Fraud Audit & Anti-Abuse Guardrail", () => {
     const audit = evaluateFraudAudit(order.id, "refund");
     expect(audit.allowed).toBe(false);
     expect(audit.policyDecision).toBe("BLOCKED");
-    expect(audit.riskLevel).toBe("CRITICAL");
-    expect(audit.riskScore).toBeGreaterThan(0.9);
+    expect(audit.policyRule).toBe("RULE_CONTRADICTORY_EVIDENCE_ESCALATION");
     expect(audit.flags).toContain("CONTRADICTS_PHYSICAL_PROOF");
-    expect(audit.auditExplanation).toMatch(/Refund BLOCKED/);
+    expect(audit.auditExplanation).toMatch(/RULE_CONTRADICTORY_EVIDENCE_ESCALATION/);
   });
 
   it("permits initial re-dispatch for legitimate address correction", async () => {

@@ -127,12 +127,27 @@ export function DeliveryApp() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Fetch active held order or latest order
+  // Fetch active held order or latest order (with cross-instance localStorage fallback)
   async function fetchLatestOrder() {
     try {
       const res = await fetch("/api/orders");
       const data = await res.json();
-      const orders: DeliveryOrder[] = data.orders || [];
+      let orders: DeliveryOrder[] = data.orders || [];
+      try {
+        const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+        if (cachedRaw) {
+          const cachedOrders = JSON.parse(cachedRaw) as DeliveryOrder[];
+          if (Array.isArray(cachedOrders)) {
+            for (const c of cachedOrders) {
+              if (!orders.some((o) => o.id === c.id)) {
+                orders = [c, ...orders];
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore storage errors
+      }
       const held = orders.find(
         (o) => o.status === "AUTHORIZED" || o.status === "DELIVERY_CONFIRMED" || o.status === "DELIVERY_FAILED",
       );
@@ -233,29 +248,38 @@ export function DeliveryApp() {
 
     try {
       if (isVerified) {
-        // Successful handover: triggers PayPal Payments v2 /capture
+        // Successful handover: verifies recipient PIN + photo evidence on server
         const res = await fetch("/api/device/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             orderId: activeOrder?.id,
             pickupCode: code,
-            note: `Agent Certified: ${visionResult?.visualEvidence || "Doorstep and parcel verified"} (${visionResult?.confidence.toFixed(1)}% confidence)`,
+            note: `Handover verified: ${visionResult?.visualEvidence || "Doorstep OCR and parcel condition confirmed"} (${visionResult?.confidence.toFixed(1)}% confidence) · Recipient handover PIN verified`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
+            orderSnapshot: activeOrder || undefined,
           }),
         });
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.error || "Confirmation failed");
         setActiveOrder(payload.order);
+        try {
+          const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+          const list = cachedRaw ? (JSON.parse(cachedRaw) as DeliveryOrder[]) : [];
+          const next = [payload.order, ...list.filter((o) => o.id !== payload.order.id)];
+          window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(next.slice(0, 20)));
+        } catch {
+          // ignore
+        }
         setFeedback({
           tone: "success",
-          title: "Delivery confirmed · Payment captured",
-          message: `Package delivered to #744 Maple Street. House number and parcel condition verified (${visionResult?.confidence.toFixed(1)}%).`,
-          paypalDetail: `PayPal capture completed (${payload.order.formatted_total}).`,
+          title: "Handover verified · Custody transferred",
+          message: `Package delivered to #744 Maple Street. Doorplate OCR, parcel condition (${visionResult?.confidence.toFixed(1)}%), and recipient handover PIN (${code}) verified.`,
+          paypalDetail: `Signed tamper-evident handover event recorded for Order ${payload.order.id}.`,
         });
       } else {
-        // Failed handover (wrong door, missing package, or damaged): locks capture, leaves hold intact
+        // Failed handover (wrong door, missing package, or damaged): aborts handover
         const reason =
           visionResult?.handoverVerdict === "REJECTED_MISMATCH"
             ? "wrong_address"
@@ -273,11 +297,20 @@ export function DeliveryApp() {
             note: `Verification rejected: ${visionResult?.agentAssessment || visionResult?.visualEvidence || "Handover conditions not met"}`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
+            orderSnapshot: activeOrder || undefined,
           }),
         });
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.error || "Delivery failure report failed");
         setActiveOrder(payload.order);
+        try {
+          const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+          const list = cachedRaw ? (JSON.parse(cachedRaw) as DeliveryOrder[]) : [];
+          const next = [payload.order, ...list.filter((o) => o.id !== payload.order.id)];
+          window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(next.slice(0, 20)));
+        } catch {
+          // ignore
+        }
         setFeedback({
           tone: "failure",
           title: "Delivery rejected · Package returned to hub",
@@ -605,7 +638,7 @@ export function DeliveryApp() {
               <div className="verdict-banner-text">
                 <span className="verdict-banner-title">
                   {isVerified
-                    ? "Verified — ready to capture"
+                    ? "Verified — ready for recipient handoff"
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
                     ? "Blocked — wrong house number"
                     : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
@@ -626,12 +659,35 @@ export function DeliveryApp() {
           </div>
         </section>
 
-        {/* Step 3: Complete Handover & Settle */}
+        {/* Step 3: Complete Handover & Recipient Acknowledgment */}
         <section className="delivery-step" aria-label="Step 3: Complete Handover">
           <div className="step-label-row">
             <span className="step-num mono">03</span>
-            <span className="step-title">Handover recording</span>
+            <span className="step-title">Recipient acknowledgment &amp; handoff</span>
           </div>
+
+          {isVerified && activeOrder && (
+            <div className="manifest-card" style={{ marginBottom: "10px", padding: "10px 12px" }}>
+              <div className="manifest-row" style={{ marginBottom: "6px" }}>
+                <span className="manifest-label">1. Computer Vision</span>
+                <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
+                  ✔ Door #744 OCR &amp; Parcel Intact
+                </span>
+              </div>
+              <div className="manifest-row" style={{ marginBottom: "6px" }}>
+                <span className="manifest-label">2. Recipient One-Time PIN</span>
+                <span className="manifest-value mono" style={{ color: "#F4F1EA" }}>
+                  {trackingInput || "Enter 6-char code"}
+                </span>
+              </div>
+              <div className="manifest-row">
+                <span className="manifest-label">3. Evidence Binding</span>
+                <span className="manifest-value mono" style={{ fontSize: "11px", opacity: 0.85 }}>
+                  SHA-256 Digest + Server HMAC
+                </span>
+              </div>
+            </div>
+          )}
 
           <button
             type="button"
@@ -652,7 +708,7 @@ export function DeliveryApp() {
                 : isAnalyzing
                 ? "Checking photo…"
                 : isVerified
-                ? "Verify delivery & complete handoff"
+                ? "Verify recipient PIN & complete handoff"
                 : "Report delivery failure (Return to hub)"}
             </span>
           </button>

@@ -1,238 +1,156 @@
-# Proofed — Autonomous Commerce & Physical Handover Settlement
+# Proofed — The Trust Layer Between AI Payments and the Physical World
 > **Mission**: Authorize now. Capture only after verified proof of physical handover.  
+> **Positioning**: AI agents can initiate purchases, but they cannot assume that physical delivery succeeds. Proofed connects buyer-approved PayPal authorizations, two-factor physical fulfillment verification, conditional capture, and autonomous exception recovery into one transaction workflow.  
 > **Production Deployment**: [https://proofed-ai.vercel.app](https://proofed-ai.vercel.app)  
-> **Hackathon Target**: PayPal AI Hackathon 2026  
-> **Core Integration**: PayPal Orders v2 (`intent=AUTHORIZE`) & PayPal Payments v2 (`/capture`, `/void`, `/refund`)
+> **Core PayPal Integration**: PayPal Orders v2 (`intent=AUTHORIZE`) & PayPal Payments v2 (`/capture`, `/void`, `/refund`) with deterministic `PayPal-Request-Id` idempotency.
 
 ---
 
-## 1. Executive Summary
+## 1. Executive Summary & Target Market
 
-**Proofed** solves the fundamental accountability gap in agentic physical commerce.
+**Proofed** doesn't just help AI agents buy physical goods. It helps them establish what happened after the purchase—and make the appropriate payment decision.
 
-While digital transactions can execute atomically (pay token $\rightarrow$ receive digital file), physical delivery is messy: couriers deliver to the wrong house number, locker solenoids jam, packages arrive crushed, and dishonest customers commit friendly fraud by falsely claiming items were never delivered.
+While digital transactions settle atomically, physical fulfillment is uncertain: couriers arrive at the wrong house number, smart locker solenoids jam, or packages suffer transit damage. If an autonomous shopping agent blindly captures payment upfront, any physical exception forces the buyer and merchant into manual customer support, refund delays, or payment disputes.
 
-Because of this friction, autonomous AI agents cannot safely use standard consumer payment methods. If an AI agent blindly swipes a card or captures funds upfront, every real-world delivery exception creates a 14-day chargeback dispute, merchant processing penalties, and buyer mistrust.
+### Primary Initial Market: Short-Window Local & Automated Retail
+Proofed is purpose-built for **local merchants, micro-fulfillment hubs, stadium/venue commerce, and unattended smart lockers** handling short-duration transactions. Short fulfillment windows align directly with PayPal's authorization lifecycle (29-day authorization validity and **3-day recommended honor period**), avoiding multi-week carrier expiration and reauthorization overhead.
 
-**Proofed eliminates this friction through a strict zero-trust protocol:**
-1. **Zero-Trust Pricing**: The AI agent never decides prices. All quotes are computed deterministically in integer cents against a SQLite catalog.
-2. **Pre-Handover Hold**: When a customer confirms an item, PayPal Orders v2 creates an authorization hold (`intent: "AUTHORIZE"`). **Exactly $0.00 is charged upfront.**
-3. **Computer Vision Verification**: At the delivery doorstep or locker kiosk, edge computer vision performs doorplate OCR and box integrity checks.
-4. **Conditional Capture**: Funds are captured via PayPal Payments v2 **ONLY** when immutable proof of physical handover (cryptographic photo hash, doorplate OCR match, timestamp) is committed to the ledger.
-5. **Autonomous Escalation & Anti-Fraud**: If delivery fails, the agent escalates the issue directly to the customer in chat. If a malicious customer attempts friendly fraud, the agent cross-references the immutable physical ledger and blocks the refund attempt.
+### Complementary Division of Labor: AI vs. Deterministic Code
+- **AI Handles Ambiguity & Exceptions**: Interpreting unstructured budget requests, identifying valid inventory, evaluating doorstep computer vision telemetry, explaining recovery options to the buyer, and routing contested claims.
+- **Deterministic Code Enforces Financial Safety**: Integer-cent catalog pricing (`app/lib/policy.ts`), state-machine transitions (`app/lib/state-machine.ts`), one-time recipient PIN verification, idempotency keys (`PayPal-Request-Id`), and PayPal API execution.
 
 ---
 
 ## 2. What Proofed Does vs. What It Does NOT Do
 
-| Capability | What Proofed DOES | What Proofed DOES NOT Do |
+| Dimension | What Proofed DOES | What Proofed DOES NOT Do |
 |---|---|---|
-| **Pricing & Money** | Calculates all prices, subtotals, and taxes strictly in **integer cents** ($18.50 = `1850`) via deterministic TypeScript policy (`app/lib/policy.ts`). | **NEVER** allows the LLM to invent, discount, calculate, or hallucinate prices or currency amounts. Floating-point currency math is banned. |
-| **Payment Flow** | Stages checkouts with PayPal Orders v2 using `intent: "AUTHORIZE"`. Buyer sees an authorization hold with `$0.00` charged until delivery. | **NEVER** uses `intent: "CAPTURE"` upfront. Funds are never debited before physical proof is established. |
-| **Physical Verification** | Uses computer vision to read doorstep numbers (`#744` vs `#742`), inspect packaging condition, and compute SHA-256 hashes of handover photos. | Does not rely on unverified human trust or unverifiable driver checkboxes. |
-| **Actor Separation** | Isolates actor interfaces: Shopper (`/client`), Courier (`/delivery`), Kiosk (`/device`), and Seller (`/merchant`). Couriers only see delivery logistics. | **NEVER** exposes buyer financial details, PayPal IDs, or hold statuses to the courier on `/delivery`. |
-| **Fulfillment Failures** | Autonomously detects physical mismatches (e.g., door `#742` instead of `#744`), returns package to hub, and escalates to buyer chat with options (`Pedir otro` or `Recibir reembolso`). | Does not silently cancel orders without buyer input, nor does it leave authorization holds hanging indefinitely. |
-| **Dispute & Fraud Defense** | Cross-references customer refund claims against immutable physical evidence (`evidence` table). Blocks friendly fraud if photo hash confirms delivery. | Does not blindly issue refunds when physical proof contradicts the claim. |
-| **Velocity Limits** | Caps automated re-dispatches to 2 attempts per destination before requiring human Merchant Concierge review. | Does not permit infinite automated re-dispatch loops from malicious users or bots. |
+| **Pricing & Currency** | Computes all quotes, subtotals, and limits strictly in **integer cents** (`$18.50` = `1850`) via deterministic TypeScript against catalog records (`app/lib/policy.ts`). | **NEVER** allows the LLM to invent, discount, calculate, or modify prices. Floating-point currency math is banned. |
+| **PayPal Authorization Semantics** | Uses **conditional capture via PayPal Orders v2 (`intent=AUTHORIZE`)**. Displays exact financial state: **`$18.50 authorized · $0.00 captured`**. | Does not mischaracterize PayPal authorizations as legal escrow, nor claim that authorizations leave available bank balances unaffected prior to void settlement. |
+| **Two-Factor Handover Verification** | Combines **1) Computer vision verification** (doorstep OCR `#744` + parcel condition check) with **2) Server-verified one-time Recipient Handover PIN** (`pickup_code`). | Does not treat a standalone photograph or SHA-256 image digest as indisputable proof of customer receipt without recipient acknowledgment. |
+| **Tamper-Evident Audit Log** | Records state transitions and evidence digests in an append-only log chained with **server-side HMAC-SHA256 signatures** (`_sig`, `_prev_sig`), plus cross-instance state rehydration for serverless environments. | Does not claim an unsigned SQLite file is inherently immutable. |
+| **Authorization Void & Timing** | Voids uncaptured authorizations via PayPal Payments v2 `/void` when delivery fails (`$0.00 captured`), noting that **balance release timing depends on the buyer's payment provider**. | Does not promise instantaneous bank-level balance restoration across all issuing banks. |
+| **Exception & Dispute Handling** | Uses **explainable policy rules** (`RULE_CONTRADICTORY_EVIDENCE_ESCALATION`, `RULE_MAX_REDISPATCH_LIMIT_REACHED`) to flag conflicting post-capture claims and escalate them to Merchant Operations with tamper-evident handover evidence attached. | Does not use arbitrary uncalibrated decimal fraud scores, accuse customers of dishonesty automatically, or claim to eliminate PayPal's 180-day dispute rights. |
 
 ---
 
-## 3. Why This Is Critical for PayPal
+## 3. Four-Step Handover Verification Protocol
 
-1. **Unlocking Autonomous Agentic Commerce**:  
-   AI agents will conduct trillions of dollars in physical commerce over the next decade. Autonomous agents cannot operate on traditional credit card rails where funds are captured blindly. PayPal's `intent: "AUTHORIZE"` provides the ideal programmatic escrow layer.
-2. **Re-Activating Underutilized Core PayPal Infrastructure**:  
-   Most modern e-commerce implementations default to immediate capture (`intent: "CAPTURE"`). Proofed showcases the true power of PayPal Orders v2 two-phase commit: **Authorize $\rightarrow$ Verify Physical Handover $\rightarrow$ Capture (or Void)**.
-3. **Eliminating the 14-Day Chargeback Dispute Window**:  
-   Traditional disputes cost merchants \$15–\$50 in dispute fees plus lost merchandise. By retaining holds and capturing *only* upon verified handover—backed by cryptographic photo hashes and OCR—Proofed prevents chargebacks from ever occurring.
-4. **True Two-Sided Trust**:  
-   - **Shopper Peace of Mind**: Shoppers know their money never leaves their account until the package is physically at their door.
-   - **Merchant Protection**: Merchants are shielded against friendly fraud (false "item not received" claims) through cryptographic audit trails.
+To move beyond simple image classification into a credible transaction-assurance workflow, Proofed enforces a 4-step handover sequence before capturing funds:
+
+1. **Physical Evidence (Computer Vision)**: Courier photograph analyzed for doorstep number OCR match (`#744` vs `#742`) and intact carton condition, producing a SHA-256 content digest.
+2. **Customer Handover Code (Recipient Acknowledgment)**: A server-generated, 6-character one-time credential (`pickup_code`) supplied by the recipient (or signed hardware dispense signal at `/device`) and verified server-side. Invalid PINs are rejected (`PICKUP_CODE_MISMATCH`).
+3. **Signed Handover Event**: Evidence ID, SHA-256 photo digest, and verified recipient PIN are bound to the `order_id` and `paypal_authorization_id` in an HMAC-SHA256 signed event record.
+4. **Conditional PayPal Capture**: Only after steps 1–3 succeed does the backend execute `POST /v2/payments/authorizations/{authorization_id}/capture` with a deterministic `PayPal-Request-Id`.
 
 ---
 
-## 4. System Architecture & Actor Surfaces
+## 4. Explainable Policy Rules (Replacing Arbitrary Risk Scores)
 
-```
-                    ┌────────────────────────────────────────────────────────┐
-                    │                      MINIMAX LLM                       │
-                    │        (Natural Language & Tool Calling Engine)        │
-                    └───────────▲────────────────────────────────▲───────────┘
-                                │                                │
-                      Tool Calls│                      Tool Calls│
-                      (Search,  │                      (Audit,   │
-                      Quote)    │                      Recover)  │
-                                │                                │
-┌───────────────────────────────┴──────────┐   ┌─────────────────┴────────────────────────┐
-│             SHOPPER APP                  │   │              MERCHANT DESK               │
-│               (/client)                  │   │          (/merchant & /backend)          │
-│ • Natural language chat with budget      │   │ • Real-time order ledger (AG Grid)       │
-│ • Zero-trust catalog pricing             │   │ • Active holds vs. captured revenue      │
-│ • PayPal hold badge ($0.00 charged)      │   │ • Append-only event audit trail          │
-│ • Autonomous escalation on delivery fail │   │ • Fraud attempt alerts & evidence drawer │
-└───────────────────────▲──────────────────┘   └─────────────────▲────────────────────────┘
-                        │                                        │
-                        │               SQLITE LEDGER            │
-                        │    (node:sqlite · Immutable Evidence)  │
-                        └───────┬────────────────────────┬───────┘
-                                │                        │
-                                │                        │
-┌───────────────────────────────┴──────────┐   ┌─────────┴────────────────────────────────┐
-│             COURIER APP                  │   │               PAYPAL APIS                │
-│              (/delivery)                 │   │      (Orders v2 & Payments v2)           │
-│ • Physical manifest (#744 Maple St)      │   │ • POST /v2/checkout/orders (AUTHORIZE)   │
-│ • Edge Computer Vision (Doorplate OCR)   │   │ • POST /v2/payments/authorizations/      │
-│ • Box condition assessment               │   │        {id}/capture                      │
-│ • Zero payment jargon (Pure logistics)   │   │ • POST /v2/payments/authorizations/      │
-└──────────────────────────────────────────┘   │        {id}/void                         │
-                                               └──────────────────────────────────────────┘
-```
+Rather than opaque numerical scores, `app/lib/fraud-audit.ts` evaluates deterministic, explainable policy rules:
+
+| Policy Rule | Trigger Condition | System Action |
+|---|---|---|
+| `RULE_UNVERIFIED_HANDOVER_RELEASE` | Delivery failed (e.g., Door `#742` OCR mismatch), recipient PIN never used, `$0.00` captured. | **APPROVED**: Executes PayPal `/void` to cancel the authorization. |
+| `RULE_PRE_DELIVERY_BUYER_RELEASE` | Buyer cancels order while in `AUTHORIZED` status prior to handover. | **APPROVED**: Executes PayPal `/void`. |
+| `RULE_VALID_REDISPATCH_WITHIN_LIMIT` | Delivery failed, buyer requests re-dispatch (`Pedir otro`), previous retry count $< 2$. | **APPROVED**: Re-queues courier dispatch while keeping existing PayPal authorization active within the 3-day honor period. |
+| `RULE_CONTRADICTORY_EVIDENCE_ESCALATION` | Buyer requests refund claiming non-delivery *after* Door `#744` OCR, recipient one-time PIN, and SHA-256 photo digest were verified. | **ESCALATED FOR REVIEW**: Pauses automated self-service refund; logs `DISPUTE_ESCALATED_FOR_REVIEW` and attaches tamper-evident handover evidence for Merchant Operations. |
+| `RULE_MAX_REDISPATCH_LIMIT_REACHED` | Buyer or bot requests a 3rd consecutive automated re-dispatch ($\ge 2$ retries). | **ESCALATED FOR REVIEW**: Pauses automated re-dispatch (`RETRY_LIMIT_ESCALATED`) and routes to Merchant Concierge. |
 
 ---
 
-## 5. The 4 Real-World Agentic Demos (Step-by-Step Script)
+## 5. The 3-Minute Video & Live Demo Script
 
-### Screen Setup for Demonstrations
-Open two browser windows side-by-side:
-- **Left Window (Shopper)**: `https://proofed-ai.vercel.app/client`
-- **Right Window (Courier)**: `https://proofed-ai.vercel.app/delivery`
-*(Optional 3rd Window on second screen for Merchant/Auditor: `/merchant` or `/backend`)*
+### Recommended Presentation Structure (3 Minutes)
 
----
-
-### Demo 1: Autonomous Commerce & Automated Hold (`intent=AUTHORIZE`)
-> **Core Concept**: Autonomous AI shopping with strict budget guardrails, verified integer cent pricing, and zero upfront capture.
-
-| Step | Actor | Action & UI Flow | Agentic Under-the-Hood Behavior |
-|:---:|:---:|---|---|
-| **1.1** | **Shopper** (`/client`) | Enters: *"I have a $20 budget, what snacks or coffee do you have?"* | MiniMax LLM executes tools: `search_catalog` and `propose_checkout`. Parses budget (\$20 = 2000¢). Queries catalog for items $\le$ 2000¢. |
-| **1.2** | **Agent** | Returns quote for *Ethiopian Yirgacheffe Whole Beans* (\$18.50 = 1850¢). | Validates stock and pricing against SQLite integer cents. Zero pricing hallucination. |
-| **1.3** | **Shopper** (`/client`) | Observes product quote card with official SVG illustration and **Powered by PayPal** badge: `Hold active · $0.00 charged · PIN: [6-char]`. | Calls PayPal Orders v2 with `intent: "AUTHORIZE"`. PayPal authorization hold ID generated. |
-| **1.4** | **Auditor** (`/client`) | Opens bottom drawer: **`System Audit · Inspect logs`**. | Shows live execution trace: tool arguments, policy compliance check, zero-trust integer verification (`PASS`). |
-| **1.5** | **Seller** (`/merchant`) | Refreshes merchant console. | Order appears as `AUTHORIZED`. Funds held: `$18.50`. Funds captured: `$0.00`. |
-| **1.6** | **Courier** (`/delivery`) | Arrives at destination `#744 Maple St`. Selects **Door #744 (Match)** and clicks **`Verify delivery & complete handoff`**. | Edge Vision AI verifies door number matches manifest. Generates SHA-256 photo hash. |
-| **1.7** | **System** | Order status flips to `CAPTURED`. Shopper sees verified delivery; Seller sees `$18.50` captured. | Server calls PayPal Payments v2 `/capture` strictly upon receipt of verified physical evidence. |
+| Time | Segment | Key Narrative & Visuals |
+|---|---|---|
+| **0:00–0:15** | **The Problem** | An AI agent can buy an item in milliseconds, but physical delivery can fail (wrong door, damaged box, jammed locker). |
+| **0:15–0:35** | **Proofed & PayPal Authorizations** | Introduce Proofed as the trust layer between AI payments and the physical world using conditional capture (`intent=AUTHORIZE`). |
+| **0:35–1:15** | **Full Demo 1: Successful Transaction** | Buyer budget request $\rightarrow$ Buyer approval $\rightarrow$ `$18.50 authorized · $0.00 captured` $\rightarrow$ Courier Door `#744` OCR + Recipient One-Time PIN $\rightarrow$ PayPal `/capture`. |
+| **1:15–1:55** | **Full Demo 2: Failed Delivery & Void** | Courier at Door `#742` (Mismatch) $\rightarrow$ Handover blocked $\rightarrow$ AI escalates to buyer chat $\rightarrow$ Buyer selects release $\rightarrow$ PayPal `/void`. |
+| **1:55–2:15** | **Policy Escalations (Demos 3 & 4)** | Show `RULE_CONTRADICTORY_EVIDENCE_ESCALATION` (post-capture dispute paused & escalated with evidence) and `RULE_MAX_REDISPATCH_LIMIT_REACHED`. |
+| **2:15–2:35** | **Merchant Operational Views & Close** | Show `/merchant` filtered by **"Rejected Fulfillment · Active Auth"** and **"Escalated / Review Required"**, plus HMAC-signed event timeline. |
 
 ---
 
-### Demo 2: Real Physical Delivery Failure & Autonomous Escalation
-> **Core Concept**: Courier arrives at the wrong house. Vision AI rejects handover. Zero dollars charged. Agent autonomously escalates incident to the buyer chat and allows instant release of hold.
+### Detailed Actor-by-Actor Walkthrough
 
-| Step | Actor | Action & UI Flow | Agentic Under-the-Hood Behavior |
-|:---:|:---:|---|---|
-| **2.1** | **Shopper** (`/client`) | Has an active order destined for **#744 Maple St**. | Order is in `AUTHORIZED` state with \$0.00 debited. |
-| **2.2** | **Courier** (`/delivery`) | Arrives at address, takes photo. Selects sample **Door #742 (Mismatch)**. | Vision AI runs doorstep OCR, detects doorplate `#742` instead of `#744` (+120m distance). |
-| **2.3** | **Courier** (`/delivery`) | Screen flags: `Blocked — wrong house number. Handover rejected.` Courier clicks **`Report delivery failure (Return to hub)`**. | Courier UI contains zero payment jargon. Package custody returned to hub. Order status becomes `DELIVERY_FAILED`. |
-| **2.4** | **Seller** (`/merchant`) | Console updates: Order status `DELIVERY_FAILED`. | Append-only event logged: `DELIVERY_FAILED` (Actor: `courier_vision`, Reason: `wrong_address`). Hold remains uncaptured. |
-| **2.5** | **Shopper** (`/client`) | Agent **autonomously escalates** the incident directly into chat: *"Delivery Notice: Handover Not Verified. Courier arrived at door #742... Your funds remain 100% safe ($0.00 debited)."* | Background poller detects physical exception and initiates natural language recovery prompt with 2 action buttons. |
-| **2.6** | **Shopper** (`/client`) | Clicks **`Recibir reembolso (Liberar retención)`** (or types *"reembolso"*). | Triggers Anti-Fraud engine `evaluateFraudAudit(orderId, 'refund')`. Engine confirms failure was genuine (Risk Score: `0.04 LOW · PASS`). |
-| **2.7** | **System** | Calls PayPal Payments v2 `/void`. Displays **Official Settlement & Refund Receipt**: Original Hold: `$18.50`, Charged: **`$0.00 USD`**, Returned: **`100% available`**, Audit Decision: **`APPROVED`**. | Hold is instantly released. Zero banking delays. Seller inventory is safely unlocked. |
+#### Demo 1: Buyer Approval, Two-Factor Handover & Conditional Capture
+1. **Shopper (`/client`)**:
+   - Enters: *"I have a $20 budget, what snacks or coffee do you have?"*
+   - **Agent**: Calls `search_catalog` and `propose_checkout`. Quotes *Ethiopian Yirgacheffe Whole Beans* (`$18.50` = `1850` cents).
+   - **Authorization**: Creates PayPal Order (`intent=AUTHORIZE`). Card displays:
+     - **`$18.50 authorized · $0.00 captured`**
+     - **`RECIPIENT PIN: [6-char one-time code]`**
+     - PayPal Order ID & Authorization ID (`Valid 29 days · 3-day honor period`).
+   - **System Audit Drawer**: Expand bottom **`System Audit · Inspect logs`** to show real tool calls and policy checks.
+2. **Courier (`/delivery`)**:
+   - Views manifest for `#744 Maple St, Apt 2B`.
+   - Selects **Door #744 (Match)**. Vision verifies `#744` and intact box.
+   - In **Step 03 (Recipient Acknowledgment & Handoff)**: verifies 1) Computer Vision OCR, 2) Recipient One-Time PIN, and 3) SHA-256 + Server HMAC binding.
+   - Clicks **`Verify recipient PIN & complete handoff`**.
+3. **Settlement**:
+   - Backend verifies the recipient PIN and photo digest, records the HMAC-signed `DELIVERY_CONFIRMED` event, and calls PayPal `/capture`.
+
+#### Demo 2: Failed Delivery at Door #742, Escalation & Authorization Void
+1. **Courier (`/delivery`)**:
+   - Selects **Door #742 (Mismatch)**.
+   - Computer vision detects doorplate `#742` (+120m from `#744`) and blocks handover: `Blocked — wrong house number`.
+   - Courier clicks **`Report delivery failure (Return to hub)`** (pure logistics UI; zero buyer payment jargon).
+2. **Shopper (`/client`)**:
+   - Agent autonomously escalates the exception into the buyer's chat:
+     > *"Delivery Notice: Handover Not Verified... Payment Status: $18.50 authorized · $0.00 captured."*
+   - Buyer clicks **`Recibir reembolso (Anular autorización)`**.
+   - Policy rule `RULE_UNVERIFIED_HANDOVER_RELEASE` passes; backend calls PayPal `/void`.
+   - Shopper sees the **PayPal Authorization Voided Receipt**:
+     - Authorized amount: `$18.50`
+     - Amount captured: **`$0.00 USD`**
+     - Authorization status: **`VOIDED (Release timing depends on payment provider)`**
+
+#### Demo 3 & 4: Contradictory Evidence Escalation & Retry Limits
+- **Demo 3 (Post-Capture Contradictory Claim)**: On a `CAPTURED` order where Door `#744` OCR, recipient PIN, and SHA-256 photo digest are on record, the buyer types: *"I never received my package! I want an instant refund!"* The agent evaluates `RULE_CONTRADICTORY_EVIDENCE_ESCALATION`, pauses automated self-service refund, and escalates the case to Merchant Operations with the full fulfillment evidence bundle attached.
+- **Demo 4 (Automated Re-dispatch Limit)**: After 2 failed delivery retries, `RULE_MAX_REDISPATCH_LIMIT_REACHED` pauses further automated retries and escalates to Merchant Concierge.
+
+#### Merchant Desk (`/merchant`): Operational Intelligence Views
+- Open `/merchant` and toggle the operational filter pills:
+  - **`Rejected Fulfillment · Active Auth`** (surfaces orders where delivery failed while a PayPal authorization is still open)
+  - **`Escalated / Review Required`** (surfaces orders with contradictory post-capture claims or retry-limit escalations)
+  - **`Verified Handover · Captured`**
 
 ---
 
-### Demo 3: Friendly Fraud Claim Blocked by Cryptographic Evidence
-> **Core Concept**: A dishonest customer claims they never received a package that was actually delivered. The agent audits the immutable physical ledger, cross-references photo hashes, and blocks the refund.
+## 6. Programmatic Verification (End-to-End CLI Proof)
 
-| Step | Actor | Action & UI Flow | Agentic Under-the-Hood Behavior |
-|:---:|:---:|---|---|
-| **3.1** | **Context** | Order was successfully delivered to **#744 Maple St** in Demo 1. Order status is `CAPTURED`. | The SQLite database holds an immutable evidence record: doorplate `#744` match, timestamp, and photo SHA-256 hash. |
-| **3.2** | **Malicious Shopper** (`/client`) | Types in chat: *"I never received my package! I want an instant refund!"* | MiniMax agent receives complaint and calls tool `audit_fraud_risk(orderId, 'refund')`. |
-| **3.3** | **Agent Anti-Fraud** | Evaluates claim against immutable physical ledger: 1) Delivery confirmed? `YES`. 2) Photo hash on record? `YES (SHA-256)`. 3) Captured upon proof? `YES`. | Computes Risk Score: **`0.95 (CRITICAL)`**. Flags: `CONTRADICTS_PHYSICAL_PROOF`, `VERIFIED_PHOTO_ON_RECORD`. Policy decision: `BLOCKED`. |
-| **3.4** | **Shopper** (`/client`) | Agent replies with firm rejection: *"Refund BLOCKED by Zero-Trust Audit: Physical handover was verified at doorstep #744 with cryptographic photo hash (SHA: 86bd1711...). Non-delivery claims contradict immutable ledger evidence."* | The agent protects the merchant from friendly fraud without needing human intervention. |
-| **3.5** | **Seller** (`/merchant`) | Merchant console logs event: `FRAUD_ATTEMPT_BLOCKED` (Risk: 0.95). | Merchant is saved from a 14-day PayPal dispute and penalty fees. |
-
----
-
-### Demo 4: Velocity & Loop Abuse Prevention
-> **Core Concept**: Prevent automated bots or malicious users from repeatedly requesting re-dispatches after consecutive delivery failures.
-
-| Step | Actor | Action & UI Flow | Agentic Under-the-Hood Behavior |
-|:---:|:---:|---|---|
-| **4.1** | **Shopper** (`/client`) | After a delivery failure, shopper selects **`Pedir otro (Re-enviar a 744 Maple St)`**. | Agent calls `evaluateFraudAudit(orderId, 'retry')`. Retry count = 1. Decision: `APPROVED (Risk: 0.12)`. Re-dispatch scheduled. |
-| **4.2** | **Shopper / Bot** (`/client`) | After repeated consecutive failures, user attempts a 3rd re-dispatch. | Velocity counter evaluates `RECOVERY_RETRY >= 2`. |
-| **4.3** | **Agent Anti-Fraud** | Risk evaluation triggers: **Risk Score: `0.88 (HIGH)`**. Flag: `VELOCITY_LIMIT_EXCEEDED`, `REPEAT_FAILURE_LOOP_DETECTED`. Decision: `BLOCKED`. | Agent frena el bucle: *"Re-dispatch BLOCKED by Anti-Fraud Guardrail: Maximum automated attempts (2) reached for destination #744 Maple St. Case escalated to Merchant Concierge."* |
-| **4.4** | **Seller** (`/merchant`) | Order is locked with a warning tag for manual merchant resolution. | Protects courier fleet and warehouse inventory from runaway automated dispatch loops. |
-
----
-
-## 6. Programmatic Verification (Proof It Is 100% Agentic)
-
-Judges, evaluators, and peer AI agents can independently verify that every scenario, tool invocation, and cryptographic check is 100% operational by running:
+Run the live verification script to execute all 4 scenarios against the MiniMax LLM, PayPal Sandbox / order state machine, two-factor PIN check, and HMAC-signed event logger:
 
 ```bash
-# From workspace root:
 cd app
 npx tsx scripts/demo_real_agentic_flow.ts
 ```
 
-### Live Script Output:
+### Live Output Excerpt:
 ```text
-================================================================================
-PROOFED: 100% AGENTIC COMMERCE & ANTI-FRAUD VERIFICATION DEMO RUNNER
-Mission: Authorize now. Capture only on verified proof of physical handover.
-================================================================================
-
->>> [SCENARIO 1] AUTONOMOUS AGENT COMMERCE WITH BUDGET
-Prompt: 'I have a $20 budget, what snacks or coffee do you have?'
-Agent Tools Executed: [
-  'search_catalog -> Found 1 catalog item',
-  'list_catalog -> Found 68 catalog items',
-  'propose_checkout -> Quote $18.50'
-]
-Order Created: ord_mwc1c73r3366328f60
-Status: AUTHORIZED (intent=AUTHORIZE, PIN: CPCTTT)
-Charged Amount: $0.00 (Funds held: $18.50)
+>>> [SCENARIO 1] AUTONOMOUS AGENT COMMERCE & BUYER-APPROVED AUTHORIZATION
+Order Created: ord_...
+PayPal Sandbox Order ID: ...
+PayPal Authorization ID: ...
+One-Time Recipient Handover PIN: ...
+Financial State: $18.50 authorized · $0.00 captured (intent=AUTHORIZE)
 
 >>> [SCENARIO 2] REAL DELIVERY FAILURE AT DOOR #742 & ESCALATION
-Courier arrives at wrong door #742 (+120m away). Vision engine detects mismatch.
-Delivery Status: DELIVERY_FAILED (Reason: wrong_address)
-Evaluating Customer Refund Request via Anti-Fraud Cross-Referencing Engine...
-Audit Decision: APPROVED
-Risk Score: 0.04 (LOW)
-Flags: [ 'GENUINE_DELIVERY_FAILURE_VERIFIED', 'ZERO_CAPTURE_CONFIRMED' ]
-Result: PayPal authorization hold successfully voided. Zero dollars charged ($0.00).
+Policy Rule: RULE_UNVERIFIED_HANDOVER_RELEASE
+Policy Decision: APPROVED
+Result: PayPal authorization voided (Status: VOIDED). $0.00 captured; release timing depends on payment provider.
 
->>> [SCENARIO 3] FRIENDLY FRAUD CLAIM BLOCKED BY PHYSICAL PROOF
-A new order is created and verified with photo proof at correct door #744.
-Handover Status: CAPTURED (Delivered at #744)
-Shopper maliciously claims: 'I did not receive the package. Refund me now!'
-Agent runs evaluateFraudAudit('refund')...
-Audit Decision: BLOCKED
-Risk Score: 0.95 (CRITICAL)
-Flags: [ 'CONTRADICTS_PHYSICAL_PROOF', 'VERIFIED_PHOTO_ON_RECORD' ]
-Result: FRAUD BLOCKED. Cryptographic photo proof protects merchant from friendly fraud.
+>>> [SCENARIO 3] TWO-FACTOR HANDOVER & CONTRADICTORY CLAIM ESCALATION
+Server-Side PIN Guardrail: Invalid PIN rejected -> Recipient handover PIN does not match the server-generated credential for this order.
+Handover Status: CAPTURED
+Tamper-Evident Event Record: PAYPAL_CAPTURED -> {"paypal_capture_id":"...","_prev_sig":"...","_sig":"..."}
+Policy Rule: RULE_CONTRADICTORY_EVIDENCE_ESCALATION
+Result: Self-service refund paused & ESCALATED TO MERCHANT OPERATIONS with tamper-evident handover evidence attached.
 
->>> [SCENARIO 4] VELOCITY & RE-DISPATCH LOOP ABUSE BLOCKED
-Shopper attempts repeated re-dispatches after multiple delivery failures.
-Retry Attempt 1: APPROVED (Risk: 0.12)
-Customer attempts Attempt 3 (exceeding maximum retry limit of 2)...
-Audit Decision: BLOCKED
-Risk Score: 0.88 (HIGH)
-Flags: [ 'VELOCITY_LIMIT_EXCEEDED', 'REPEAT_FAILURE_LOOP_DETECTED' ]
-Result: LOOP ABUSE BLOCKED. Escalated to Merchant Concierge for manual dispatch.
-
-================================================================================
-ALL 4 REAL-WORLD AGENTIC SCENARIOS VERIFIED 100% OPERATIONAL
-================================================================================
+>>> [SCENARIO 4] AUTOMATED RE-DISPATCH LIMIT & CONCIERGE ESCALATION
+Policy Rule: RULE_MAX_REDISPATCH_LIMIT_REACHED
+Result: Automated retry paused & ESCALATED TO MERCHANT CONCIERGE.
 ```
-
-### Full Unit Test Suite:
-```bash
-npm test
-# Result: 20/20 unit tests passed (state-machine, policy, budget, text, fraud-audit)
-```
-
----
-
-## 7. Repository Structure & Key Source Files
-
-- `app/lib/policy.ts`: Strict zero-trust pricing engine (integer cents, catalog limits).
-- `app/lib/orders.ts`: Order lifecycle repository, inventory reservation, and event logging.
-- `app/lib/paypal.ts`: Direct client for PayPal Orders v2 (`AUTHORIZE`) and Payments v2 (`CAPTURE`, `VOID`, `REFUND`).
-- `app/lib/fraud-audit.ts`: Cross-referencing risk engine protecting against friendly fraud and loop abuse.
-- `app/lib/state-machine.ts`: Formal state machine: `CREATED` $\rightarrow$ `AUTHORIZED` $\rightarrow$ `DELIVERY_CONFIRMED` $\rightarrow$ `CAPTURED` (or `VOIDED`/`REFUNDED`).
-- `app/app/api/vision/verify/route.ts`: Computer vision endpoint performing doorstep doorplate OCR and condition analysis.
-- `app/components/NearDeskChat.tsx`: Shopper natural language chat, automated hold display, and incident escalation UI.
-- `app/components/DeliveryApp.tsx`: Courier mobile terminal with pure logistics terminology.
-- `app/components/MerchantDesk.tsx`: Merchant operations desk with AG Grid order ledger and live audit event stream.
-- `app/scripts/demo_real_agentic_flow.ts`: End-to-end executable test of all 4 real-world agentic scenarios.

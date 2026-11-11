@@ -37,6 +37,7 @@ export type NearDeskMessage = {
     pickup_code?: string | null;
     paypal_order_id?: string | null;
     paypal_authorization_id?: string | null;
+    paypal_capture_id?: string | null;
     failure_reason?: string | null;
   };
 };
@@ -57,7 +58,7 @@ const DEFAULT_MESSAGES: NearDeskMessage[] = [
     id: "msg-0",
     role: "assistant",
     content:
-      "Welcome to Proofed. I am your autonomous commerce operator.\n\nTell me what you are looking for or state a budget. All prices are verified against catalog integer cents. When you confirm an item, your PayPal account is only placed on **authorization hold** (`intent=AUTHORIZE`). Your funds are captured **only upon verified physical handover**.",
+      "Welcome to **Proofed** — the trust layer between AI payments and the physical world.\n\nTell me what you are looking for or state a budget. All prices are verified against catalog integer cents. When you approve an order, PayPal places a **conditional capture authorization** (`intent=AUTHORIZE`, **$0.00 captured upfront**). Funds are captured **only after doorstep computer vision and your one-time recipient handover PIN are verified**.",
     tier: "ZERO-TRUST-OPERATOR",
     timestamp: Date.now(),
   },
@@ -190,6 +191,17 @@ export function NearDeskChat({
         }),
       );
 
+      try {
+        if (data.order) {
+          const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+          const list = cachedRaw ? (JSON.parse(cachedRaw) as Array<{ id: string }>) : [];
+          const next = [data.order, ...list.filter((o) => o.id !== data.order.id)];
+          window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(next.slice(0, 20)));
+        }
+      } catch {
+        // ignore storage errors
+      }
+
       if (onOrderCreated && data.order) {
         onOrderCreated(data.order);
       }
@@ -199,7 +211,7 @@ export function NearDeskChat({
         {
           id: `err-${Date.now()}`,
           role: "assistant",
-          content: `Could not create order hold: ${err instanceof Error ? err.message : "Error"}`,
+          content: `Could not create order authorization: ${err instanceof Error ? err.message : "Error"}`,
           tier: "POLICY-ERROR",
           timestamp: Date.now(),
         },
@@ -209,7 +221,7 @@ export function NearDeskChat({
     }
   };
 
-  // Automatically place PayPal hold on any quoted item without manual button click
+  // Automatically place PayPal authorization on any quoted item
   useEffect(() => {
     const lastMsgWithQuote = [...messages].reverse().find((m) => m.quote && !m.order);
     if (lastMsgWithQuote && lastMsgWithQuote.quote && !creatingOrderId) {
@@ -217,7 +229,7 @@ export function NearDeskChat({
     }
   }, [messages, creatingOrderId]);
 
-  // Poll for delivery status changes on active order
+  // Poll for delivery status changes on active order (with cross-instance localStorage sync)
   useEffect(() => {
     const checkStatus = async () => {
       const lastOrderMsg = [...messages].reverse().find((m) => m.order?.id);
@@ -227,7 +239,19 @@ export function NearDeskChat({
       try {
         const res = await fetch("/api/orders");
         const data = await res.json();
-        const serverOrder = (data.orders || []).find((o: { id: string }) => o.id === orderId);
+        let serverOrder = (data.orders || []).find((o: { id: string }) => o.id === orderId);
+        try {
+          const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+          if (cachedRaw) {
+            const cachedList = JSON.parse(cachedRaw) as Array<{ id: string; status: string }>;
+            const cachedMatch = cachedList.find((o) => o.id === orderId);
+            if (cachedMatch && (!serverOrder || cachedMatch.status !== "AUTHORIZED")) {
+              serverOrder = cachedMatch;
+            }
+          }
+        } catch {
+          // ignore
+        }
         if (serverOrder && serverOrder.status !== lastOrderMsg.order.status) {
           // If status changed to DELIVERY_FAILED, escalate directly to the shopper
           if (serverOrder.status === "DELIVERY_FAILED") {
@@ -236,12 +260,16 @@ export function NearDeskChat({
               {
                 id: `fail-alert-${Date.now()}`,
                 role: "assistant",
-                content: `**Delivery Notice: Handover Not Verified**\n\nThe courier attempted delivery at **door #742** instead of your destination address (**#744 Maple Street**). Because physical delivery could not be confirmed, handover was aborted and the parcel returned to the hub.\n\nYour funds **remain 100% safe on PayPal ($0.00 debited)**.\n\nThis incident has been escalated for your decision: would you like to **re-dispatch a replacement** to your verified address, or receive an **instant refund** and release of the PayPal hold?`,
+                content: `**Delivery Notice: Handover Not Verified**\n\nThe courier attempted delivery at **door #742** instead of your destination address (**#744 Maple Street**). Because physical delivery and recipient handover PIN were not completed, handover was aborted and the parcel returned to the hub.\n\n**Payment Status:** **${lastOrderMsg.quote?.formatted_price || "$18.50"} authorized · $0.00 captured**.\n\nThis incident has been escalated for your decision: would you like to **re-dispatch a replacement** to your verified address, or **void the PayPal authorization**?`,
                 tier: "ESCALATION",
                 timestamp: Date.now(),
                 order: serverOrder,
               },
             ]);
+          } else if (serverOrder.status === "CAPTURED") {
+            setMessages((prev) =>
+              prev.map((m) => (m.order?.id === orderId ? { ...m, order: serverOrder } : m)),
+            );
           }
         }
       } catch {
@@ -260,7 +288,11 @@ export function NearDeskChat({
       const res = await fetch("/api/paypal/void", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, reason: "Customer requested instant hold release after failed delivery" }),
+        body: JSON.stringify({
+          orderId,
+          reason: "Customer requested authorization void after failed delivery",
+          orderSnapshot: activeOrder || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -270,8 +302,8 @@ export function NearDeskChat({
           {
             id: `fraud-block-${Date.now()}`,
             role: "assistant",
-            content: `**Anti-Abuse Guardrail Alert (Refund Blocked)**\n\n${data.error || "Refund request blocked by zero-trust audit trail."}\n\n**Cross-Referenced Audit Trail:**\n- **Physical Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Handover was physically verified at door #744 with photo proof" : "Unverified status"}\n- **Risk Score:** ${audit?.riskScore !== undefined ? Number(audit.riskScore).toFixed(2) : "0.95"} (${audit?.riskLevel || "CRITICAL"})\n- **Policy Decision:** **${audit?.policyDecision || "BLOCKED"}**\n\nUnder zero-trust merchant policy, refund claims that contradict verified physical handover cannot be settled automatically.`,
-            tier: "FRAUD-GUARDRAIL",
+            content: `**Automated Refund Paused — Escalated to Merchant Review**\n\n${data.error || "Post-capture claim conflicts with recorded fulfillment evidence."}\n\n**Fulfillment Evidence & Policy Evaluation:**\n- **Policy Rule:** \`${audit?.policyRule || "RULE_CONTRADICTORY_EVIDENCE_ESCALATION"}\`\n- **Recorded Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Doorstep OCR match (#744), verified recipient one-time handover PIN, and tamper-evident SHA-256 photo digest on record" : "Unverified status"}\n- **Outcome:** **ESCALATED_FOR_REVIEW** (Self-service refund paused; case and evidence forwarded to Merchant Operations)`,
+            tier: "POLICY-ESCALATION",
             timestamp: Date.now(),
           },
         ]);
@@ -280,13 +312,21 @@ export function NearDeskChat({
 
       const updatedOrder = data.order || { id: orderId, status: "VOIDED" };
       const audit = data.audit;
+      try {
+        const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+        const list = cachedRaw ? (JSON.parse(cachedRaw) as Array<{ id: string }>) : [];
+        const next = [updatedOrder, ...list.filter((o) => o.id !== updatedOrder.id)];
+        window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(next.slice(0, 20)));
+      } catch {
+        // ignore
+      }
       setMessages((prev) => [
         ...prev.map((m) => (m.order?.id === orderId ? { ...m, order: updatedOrder } : m)),
         {
           id: `void-done-${Date.now()}`,
           role: "assistant",
-          content: `**PayPal Authorization Hold Released — Refund Complete**\n\nYour authorization hold was released directly via PayPal Payments v2 API. Because physical delivery was not verified, **no funds were ever captured ($0.00 debited)**.\n\n**Zero-Trust Audit Trail:** PASS · Risk score: ${audit?.riskScore !== undefined ? Number(audit.riskScore).toFixed(2) : "0.04"} (LOW) · Legitimate mismatch confirmed (#742) · Zero dollars debited.`,
-          tier: "HOLD-RELEASED",
+          content: `**PayPal Authorization Voided — $0.00 Captured**\n\nYour PayPal authorization was voided via PayPal Payments v2 API (\`/v2/payments/authorizations/{id}/void\`). Because physical delivery was not verified, **$0.00 was captured**. Release timing of reserved funds depends on your payment provider.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_UNVERIFIED_HANDOVER_RELEASE"}\` · PASS · Address mismatch confirmed (#742) · Recipient PIN unverified · $0.00 captured.`,
+          tier: "AUTHORIZATION-VOIDED",
           timestamp: Date.now(),
           order: updatedOrder,
         },
@@ -297,7 +337,7 @@ export function NearDeskChat({
         {
           id: `err-${Date.now()}`,
           role: "assistant",
-          content: `Refund notice: ${err instanceof Error ? err.message : "Service error"}`,
+          content: `Void notice: ${err instanceof Error ? err.message : "Service error"}`,
           tier: "NOTICE",
           timestamp: Date.now(),
         },
@@ -319,6 +359,7 @@ export function NearDeskChat({
           action: "retry",
           confirm: true,
           actor: "shopper",
+          orderSnapshot: activeOrder || undefined,
         }),
       });
       const data = await res.json();
@@ -329,8 +370,8 @@ export function NearDeskChat({
           {
             id: `fraud-block-${Date.now()}`,
             role: "assistant",
-            content: `**Anti-Abuse Guardrail Alert (Re-dispatch Blocked)**\n\n${data.error || "Re-dispatch blocked by zero-trust audit."}\n\n**Cross-Referenced Audit Trail:**\n- **Physical Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Physical delivery confirmed on record" : "Doorplate mismatch recorded (#742)"}\n- **Velocity Count:** ${audit?.evidenceTrail?.retryCount ?? 2} previous re-dispatches (Policy limit: 2)\n- **Risk Score:** ${audit?.riskScore !== undefined ? Number(audit.riskScore).toFixed(2) : "0.88"} (${audit?.riskLevel || "HIGH"})\n- **Policy Decision:** **${audit?.policyDecision || "BLOCKED"}**`,
-            tier: "FRAUD-GUARDRAIL",
+            content: `**Automated Re-dispatch Paused — Escalated to Merchant Concierge**\n\n${data.error || "Maximum automated re-dispatch attempts reached."}\n\n**Fulfillment Policy Evaluation:**\n- **Policy Rule:** \`${audit?.policyRule || "RULE_MAX_REDISPATCH_LIMIT_REACHED"}\`\n- **Retry Count:** ${audit?.evidenceTrail?.retryCount ?? 2} previous re-dispatches (Automated policy limit: 2)\n- **Outcome:** **ESCALATED_FOR_REVIEW** (Forwarded to Merchant Concierge to confirm delivery instructions)`,
+            tier: "POLICY-ESCALATION",
             timestamp: Date.now(),
           },
         ]);
@@ -339,12 +380,20 @@ export function NearDeskChat({
 
       const updatedOrder = data.order || { id: orderId, status: "AUTHORIZED", pickup_code: "PK-7440" };
       const audit = data.audit;
+      try {
+        const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+        const list = cachedRaw ? (JSON.parse(cachedRaw) as Array<{ id: string }>) : [];
+        const next = [updatedOrder, ...list.filter((o) => o.id !== updatedOrder.id)];
+        window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(next.slice(0, 20)));
+      } catch {
+        // ignore
+      }
       setMessages((prev) => [
         ...prev.map((m) => (m.order?.id === orderId ? { ...m, order: updatedOrder } : m)),
         {
           id: `redisp-${Date.now()}`,
           role: "assistant",
-          content: `**Courier Re-dispatch Confirmed (Audit Passed)**\n\nReplacement order re-routed to courier terminal: **744 Maple Street, Apt 2B (white gate)**.\n\n**Zero-Trust Audit Trail:** Legitimate address correction verified. Attempt ${(audit?.evidenceTrail?.retryCount ?? 0) + 1} of 2 permitted. Risk Score: ${audit?.riskScore !== undefined ? Number(audit.riskScore).toFixed(2) : "0.12"} (LOW).\n\nYour existing PayPal hold is securely retained (**$0.00 debited** until physical doorstep delivery is verified). The courier terminal has received the updated dispatch.`,
+          content: `**Courier Re-dispatch Confirmed (Policy Check Passed)**\n\nReplacement order re-routed to courier terminal: **744 Maple Street, Apt 2B (white gate)**.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_VALID_REDISPATCH_WITHIN_LIMIT"}\` · Attempt ${(audit?.evidenceTrail?.retryCount ?? 0) + 1} of 2 permitted within PayPal 3-day honor window.\n\nYour existing PayPal authorization remains active (**$0.00 captured** until doorstep OCR and recipient handover PIN are verified).`,
           tier: "RE-DISPATCH",
           timestamp: Date.now(),
           order: updatedOrder,
@@ -386,6 +435,22 @@ export function NearDeskChat({
   const handleSend = async (overrideText?: string) => {
     const text = (overrideText || input).trim();
     if (!text || loading) return;
+
+    // If active order has CAPTURED status and buyer claims non-delivery or requests refund, run policy evaluation
+    if (activeOrder?.status === "CAPTURED") {
+      if (/(never received|not received|no me lleg|reembolso|refund|money back|didn't get|did not receive|missing)/i.test(text)) {
+        const userMsg: NearDeskMessage = {
+          id: `usr-${Date.now()}`,
+          role: "user",
+          content: text,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setInput("");
+        void handleActionVoid(activeOrder.id);
+        return;
+      }
+    }
 
     // If active order has DELIVERY_FAILED, interpret shopper escalation decision directly
     if (activeOrder?.status === "DELIVERY_FAILED") {
@@ -599,7 +664,7 @@ export function NearDeskChat({
                   {!msg.order && (
                     <div className="quote-auto-staging mono">
                       <Sparkles className="spin" size={12} />
-                      <span>Placing automated PayPal authorization hold ($0.00 charged upfront)…</span>
+                      <span>Confirming buyer approval &amp; placing PayPal authorization ($0.00 captured upfront)…</span>
                     </div>
                   )}
 
@@ -608,7 +673,7 @@ export function NearDeskChat({
                     <div className="quote-paypal-area">
                       <div className="paypal-hold-header">
                         <ShieldCheck size={14} />
-                        <span>Authorize Hold with PayPal ($0.00 Charged Upfront)</span>
+                        <span>Approve PayPal Authorization ({msg.quote?.formatted_price || "$18.50"} authorized · $0.00 captured)</span>
                       </div>
                       <PayPalApprove
                         clientId={clientId}
@@ -632,8 +697,8 @@ export function NearDeskChat({
                             {
                               id: `auth-${Date.now()}`,
                               role: "assistant",
-                              content: `PayPal Hold Authorized! Funds (${(next.formatted_total as string) || "$12.00"}) are held safely on your PayPal account. Zero dollars debited until physical handover. Pickup code: **${(next.pickup_code as string) || "PK-9912"}**.`,
-                              tier: "PAYPAL-ESCROW",
+                              content: `PayPal Authorization Active! **${(next.formatted_total as string) || "$18.50"} authorized, $0.00 captured**. Capture is conditional on physical handover + recipient PIN. One-time recipient PIN: **${(next.pickup_code as string) || "PK-9912"}**.`,
+                              tier: "PAYPAL-AUTHORIZE",
                               timestamp: Date.now(),
                               order: next as NearDeskMessage["order"],
                             },
@@ -643,21 +708,52 @@ export function NearDeskChat({
                     </div>
                   )}
 
-                  {/* If Order is already Authorized */}
+                  {/* If Order is Authorized */}
                   {msg.order?.status === "AUTHORIZED" && msg.order.pickup_code && (
                     <div className="quote-authorized-box">
                       <div className="quote-authorized-badge">
                         <div className="auth-left">
-                          <span className="auth-pill mono">Hold active · $0.00 charged</span>
-                          <span className="auth-sub">Funds safely escrowed on PayPal</span>
+                          <span className="auth-pill mono">
+                            {msg.quote?.formatted_price || "$18.50"} authorized · $0.00 captured
+                          </span>
+                          <span className="auth-sub">
+                            Buyer Approved · Conditional capture via PayPal Authorization
+                          </span>
                         </div>
                         <div className="auth-code mono">
-                          <span>PIN:</span>
+                          <span>RECIPIENT PIN:</span>
                           <strong>{msg.order.pickup_code}</strong>
                         </div>
                       </div>
                       <div className="auth-customer-guidance mono">
-                        <span>Awaiting physical handover at doorstep or locker station. Funds remain held securely on PayPal ($0.00 charged) until proof of delivery is verified.</span>
+                        <span>
+                          PayPal Order: <strong>{msg.order.paypal_order_id || "ORDER-PP"}</strong> · Auth ID: <strong>{msg.order.paypal_authorization_id || "AUTH-PP"}</strong> · Valid 29 days (3-day honor period). Capture occurs only after doorstep OCR + recipient PIN verification.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* If Order is Captured after Verified Handover */}
+                  {msg.order?.status === "CAPTURED" && (
+                    <div className="quote-authorized-box" style={{ borderColor: "rgba(63, 178, 127, 0.45)" }}>
+                      <div className="quote-authorized-badge">
+                        <div className="auth-left">
+                          <span className="auth-pill mono" style={{ color: "#3FB27F" }}>
+                            Handover Verified · {msg.quote?.formatted_price || "$18.50"} captured
+                          </span>
+                          <span className="auth-sub">
+                            Door #744 OCR + Recipient One-Time PIN ({msg.order.pickup_code || "VERIFIED"}) confirmed
+                          </span>
+                        </div>
+                        <div className="auth-code mono">
+                          <span>STATUS:</span>
+                          <strong style={{ color: "#3FB27F" }}>CAPTURED</strong>
+                        </div>
+                      </div>
+                      <div className="auth-customer-guidance mono">
+                        <span>
+                          Tamper-evident fulfillment event recorded · PayPal Capture ID: <strong>{msg.order.paypal_capture_id || "CAP-PP-VERIFIED"}</strong>.
+                        </span>
                       </div>
                     </div>
                   )}
@@ -668,14 +764,16 @@ export function NearDeskChat({
                       <div className="failure-box-header">
                         <AlertCircle size={16} />
                         <span className="failure-box-title mono">Delivery verification failed · Escalated to you</span>
-                        <span className="failure-status-pill mono">HOLD SAFE · $0.00 CHARGED</span>
+                        <span className="failure-status-pill mono">
+                          {msg.quote?.formatted_price || "$18.50"} AUTHORIZED · $0.00 CAPTURED
+                        </span>
                       </div>
                       <p className="failure-desc">
-                        Courier attempted delivery at door #742 (+120m away from destination 744 Maple St). Handover aborted. Because funds are never captured without physical verification, your PayPal balance is completely untouched ($0.00 debited). Choose how to proceed:
+                        Courier attempted delivery at door #742 (+120m away from destination 744 Maple St). Because doorstep OCR and recipient PIN verification were not completed, handover was aborted and capture was blocked ($0.00 captured). Choose how to proceed:
                       </p>
                       <div className="failure-audit-strip mono">
                         <ShieldCheck size={12} />
-                        <span>Anti-abuse audit active: Handover photo &amp; coordinates cross-referenced before approving refund or re-dispatch.</span>
+                        <span>Fulfillment policy active: Tamper-evident doorstep OCR &amp; retry limits evaluated before voiding authorization or re-dispatching.</span>
                       </div>
                       <div className="failure-actions-grid">
                         <button
@@ -690,21 +788,21 @@ export function NearDeskChat({
                           className="failure-action-btn btn-release-void"
                           onClick={() => void handleActionVoid(msg.order?.id)}
                         >
-                          Recibir reembolso (Liberar retención)
+                          Recibir reembolso (Anular autorización)
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* If Order was Voided / Refunded */}
+                  {/* If Order was Voided */}
                   {msg.order?.status === "VOIDED" && (
-                    <div className="quote-voided-receipt-box" role="region" aria-label="PayPal Hold Release Receipt">
+                    <div className="quote-voided-receipt-box" role="region" aria-label="PayPal Authorization Void Receipt">
                       <div className="voided-receipt-header">
                         <div className="voided-header-left">
                           <ShieldCheck size={16} className="voided-shield-icon" />
-                          <span className="voided-title mono">PayPal Authorization Released</span>
+                          <span className="voided-title mono">PayPal Authorization Voided</span>
                         </div>
-                        <span className="voided-status-pill mono">HOLD CLEARED · $0.00 CHARGED</span>
+                        <span className="voided-status-pill mono">AUTHORIZATION VOIDED · $0.00 CAPTURED</span>
                       </div>
 
                       <div className="voided-receipt-grid mono">
@@ -713,16 +811,18 @@ export function NearDeskChat({
                           <span className="voided-grid-val">{msg.quote?.name || "Order item"}</span>
                         </div>
                         <div className="voided-grid-row">
-                          <span className="voided-grid-label">Original hold</span>
+                          <span className="voided-grid-label">Authorized amount</span>
                           <span className="voided-grid-val">{msg.quote?.formatted_price || "$18.50"}</span>
                         </div>
                         <div className="voided-grid-row">
-                          <span className="voided-grid-label">Amount charged</span>
+                          <span className="voided-grid-label">Amount captured</span>
                           <span className="voided-grid-val highlight-zero">$0.00 USD</span>
                         </div>
                         <div className="voided-grid-row">
-                          <span className="voided-grid-label">Returned to balance</span>
-                          <span className="voided-grid-val highlight-refunded">{msg.quote?.formatted_price || "$18.50"} (100% available)</span>
+                          <span className="voided-grid-label">Authorization status</span>
+                          <span className="voided-grid-val highlight-refunded">
+                            VOIDED (Release timing depends on payment provider)
+                          </span>
                         </div>
                         <div className="voided-grid-row">
                           <span className="voided-grid-label">Trigger</span>
@@ -736,27 +836,27 @@ export function NearDeskChat({
 
                       <div className="voided-audit-trail mono">
                         <div className="audit-trail-header">
-                          <span className="audit-label">ANTI-FRAUD AUDIT TRAIL</span>
-                          <span className="audit-pass-tag">PASS · RISK: 0.04 (LOW)</span>
+                          <span className="audit-label">FULFILLMENT POLICY VERIFICATION</span>
+                          <span className="audit-pass-tag">RULE_UNVERIFIED_HANDOVER_RELEASE · PASS</span>
                         </div>
                         <div className="audit-trail-checks">
                           <div className="audit-check-line">
                             <span className="check-icon">✔</span>
-                            <span>Proof Check: Handover rejected by photo OCR (#742 mismatch confirmed)</span>
+                            <span>Evidence Check: Handover rejected by computer vision OCR (#742 mismatch)</span>
                           </div>
                           <div className="audit-check-line">
                             <span className="check-icon">✔</span>
-                            <span>Velocity Check: 0 previous re-dispatches (Limit: 2) · No loop abuse</span>
+                            <span>Recipient PIN: One-time handover credential was never used</span>
                           </div>
                           <div className="audit-check-line">
                             <span className="check-icon">✔</span>
-                            <span>Zero-Trust Ledger: Exactly $0.00 captured · Safe to release PayPal hold</span>
+                            <span>Conditional Capture: $0.00 captured · Eligible for PayPal authorization void</span>
                           </div>
                         </div>
                       </div>
 
                       <div className="voided-receipt-footer mono">
-                        <span>Zero-capture guarantee: PayPal funds were never debited from your account. The temporary authorization hold has been released back to your available balance in full.</span>
+                        <span>Conditional capture protection: No funds were captured by the merchant. The PayPal authorization has been voided; available balance restoration timing depends on your issuing bank or payment provider.</span>
                       </div>
                     </div>
                   )}

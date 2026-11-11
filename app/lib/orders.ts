@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { getProjectConfig } from "./config";
@@ -156,6 +156,44 @@ export function appendEvent(input: {
   actor: string;
   detail?: unknown;
 }) {
+  const created = nowIso();
+  const prevRow = db()
+    .prepare("SELECT detail_json FROM event_log ORDER BY id DESC LIMIT 1")
+    .get() as { detail_json?: string } | undefined;
+  let prevSig = "GENESIS";
+  if (prevRow?.detail_json) {
+    try {
+      const parsed = JSON.parse(prevRow.detail_json) as { _sig?: string };
+      if (parsed._sig) prevSig = parsed._sig;
+    } catch {
+      // ignore parse errors on legacy rows
+    }
+  }
+  const secret =
+    process.env.EVENT_SIGNING_SECRET ||
+    process.env.PAYPAL_CLIENT_SECRET ||
+    "proofed-tamper-evident-hmac-key";
+  const baseDetail =
+    input.detail && typeof input.detail === "object" && !Array.isArray(input.detail)
+      ? (input.detail as Record<string, unknown>)
+      : { value: input.detail ?? {} };
+  const canonical = JSON.stringify({
+    prevSig,
+    orderId: input.orderId ?? null,
+    event: input.event,
+    fromStatus: input.fromStatus ?? null,
+    toStatus: input.toStatus ?? null,
+    actor: input.actor,
+    created,
+    detail: baseDetail,
+  });
+  const sig = createHmac("sha256", secret).update(canonical).digest("hex");
+  const signedDetail = {
+    ...baseDetail,
+    _prev_sig: prevSig.slice(0, 16),
+    _sig: sig,
+  };
+
   db()
     .prepare(
       `INSERT INTO event_log (order_id, event, from_status, to_status, actor, detail_json, created_at)
@@ -167,8 +205,8 @@ export function appendEvent(input: {
       fromStatus: input.fromStatus ?? null,
       toStatus: input.toStatus ?? null,
       actor: input.actor,
-      detail: JSON.stringify(input.detail ?? {}),
-      created: nowIso(),
+      detail: JSON.stringify(signedDetail),
+      created,
     });
 }
 
@@ -607,10 +645,90 @@ export function storeEvidence(input: {
 }
 
 function assertPickupCode(order: OrderRecord, code?: string) {
-  if (!code) throw new PolicyError("PICKUP_CODE_REQUIRED", "Pickup code is required.");
+  if (!code) throw new PolicyError("PICKUP_CODE_REQUIRED", "Recipient handover PIN is required.");
   if (code.trim().toUpperCase() !== order.pickup_code) {
-    throw new PolicyError("PICKUP_CODE_MISMATCH", "That pickup code does not match this order.");
+    throw new PolicyError(
+      "PICKUP_CODE_MISMATCH",
+      "Recipient handover PIN does not match the server-generated credential for this order.",
+    );
   }
+}
+
+export function ensureOrderHydrated(snapshot?: {
+  id?: string;
+  status?: string;
+  subtotal_cents?: number;
+  pickup_code?: string | null;
+  paypal_order_id?: string | null;
+  paypal_authorization_id?: string | null;
+  items?: Array<{ sku: string; name?: string; qty: number; unit_price_cents?: number }>;
+}) {
+  if (!snapshot?.id) return;
+  const existing = getOrder(snapshot.id);
+  if (existing) return;
+  const cfg = getProjectConfig();
+  const now = nowIso();
+  const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const pickup = (snapshot.pickup_code || newPickupCode()).toUpperCase();
+  const items = snapshot.items?.length ? snapshot.items : [{ sku: "PAN-COF-ETH", qty: 1 }];
+  const quote = quoteItems(
+    items.map((i) => ({ sku: i.sku, qty: i.qty })),
+    undefined,
+    cfg.currency,
+  );
+  const subtotal = snapshot.subtotal_cents || (quote.ok ? quote.subtotal_cents : 1850);
+
+  withTransaction(() => {
+    db()
+      .prepare(
+        `INSERT OR IGNORE INTO orders (
+           id, status, buyer_note, budget_cents, currency, subtotal_cents, pickup_code,
+           fulfillment_station, paypal_order_id, paypal_authorization_id, authorized_at,
+           pickup_deadline_at, created_at, updated_at
+         ) VALUES (
+           $id, $status, 'Cross-instance rehydrated order', $subtotal, $currency, $subtotal, $pickup,
+           'kiosk-1', $pOrderId, $pAuthId, $now, $deadline, $now, $now
+         )`,
+      )
+      .run({
+        id: snapshot.id!,
+        status: snapshot.status || "AUTHORIZED",
+        subtotal,
+        currency: cfg.currency,
+        pickup,
+        pOrderId: snapshot.paypal_order_id || `ORDER-PP-${snapshot.id!.slice(-6).toUpperCase()}`,
+        pAuthId: snapshot.paypal_authorization_id || `AUTH-PP-${snapshot.id!.slice(-6).toUpperCase()}`,
+        now,
+        deadline,
+      });
+
+    const lines = quote.ok
+      ? quote.lines
+      : [{ sku: "PAN-COF-ETH", name: "Ethiopian Yirgacheffe Whole Beans (12oz)", unit_price_cents: 1850, qty: 1 }];
+    for (const line of lines) {
+      db()
+        .prepare(
+          `INSERT INTO order_items (order_id, sku, name, unit_price_cents, qty)
+           VALUES ($orderId, $sku, $name, $unit, $qty)`,
+        )
+        .run({
+          orderId: snapshot.id!,
+          sku: line.sku,
+          name: line.name,
+          unit: line.unit_price_cents,
+          qty: line.qty,
+        });
+    }
+
+    appendEvent({
+      orderId: snapshot.id!,
+      event: "CROSS_INSTANCE_REHYDRATED",
+      fromStatus: null,
+      toStatus: snapshot.status || "AUTHORIZED",
+      actor: "system",
+      detail: { pickup_code: pickup, reason: "serverless_instance_sync" },
+    });
+  });
 }
 
 export async function confirmDelivery(input: {

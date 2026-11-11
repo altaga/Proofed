@@ -38,6 +38,7 @@ export function MerchantDesk() {
   const [orders, setOrders] = useState<PublicOrder[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [selected, setSelected] = useState<PublicOrder | null>(null);
+  const [opView, setOpView] = useState<"ALL" | "REJECTED_ACTIVE_AUTH" | "ACTIVE_AUTH" | "ESCALATED" | "CAPTURED">("ALL");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ path: string; extra: Record<string, unknown>; label: string; danger?: boolean } | null>(null);
@@ -54,7 +55,23 @@ export function MerchantDesk() {
     const orderPayload = await orderRes.json();
     const eventPayload = await eventRes.json();
     if (!orderRes.ok) throw new Error(orderPayload.error || "Could not load orders");
-    setOrders(orderPayload.orders || []);
+    let mergedOrders: PublicOrder[] = orderPayload.orders || [];
+    try {
+      const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+      if (cachedRaw) {
+        const cachedList = JSON.parse(cachedRaw) as PublicOrder[];
+        if (Array.isArray(cachedList)) {
+          for (const c of cachedList) {
+            if (!mergedOrders.some((o) => o.id === c.id)) {
+              mergedOrders = [c, ...mergedOrders];
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setOrders(mergedOrders);
     setEvents(eventPayload.events || []);
     if (configRes.ok) {
       const configPayload = await configRes.json();
@@ -62,7 +79,7 @@ export function MerchantDesk() {
     }
     setSelected((current) => {
       if (!current) return current;
-      return (orderPayload.orders || []).find((item: PublicOrder) => item.id === current.id) ?? current;
+      return mergedOrders.find((item: PublicOrder) => item.id === current.id) ?? current;
     });
   }, []);
 
@@ -101,18 +118,95 @@ export function MerchantDesk() {
   }
 
   const selectedEvents = events.filter((item) => !selected || item.order_id === selected.id);
+  const escalatedOrderIds = new Set(
+    events
+      .filter((e) => e.event === "DISPUTE_ESCALATED_FOR_REVIEW" || e.event === "RETRY_LIMIT_ESCALATED")
+      .map((e) => e.order_id),
+  );
+
+  const filteredOrders = orders.filter((o) => {
+    if (opView === "REJECTED_ACTIVE_AUTH") return o.status === "DELIVERY_FAILED";
+    if (opView === "ACTIVE_AUTH") return o.status === "AUTHORIZED";
+    if (opView === "ESCALATED") return escalatedOrderIds.has(o.id) || o.status === "DELIVERY_FAILED";
+    if (opView === "CAPTURED") return o.status === "CAPTURED";
+    return true;
+  });
 
   return (
     <div>
-      {orders.length === 0 ? (
+      {/* Operational Intelligence Views */}
+      <div
+        className="merchant-op-views"
+        role="tablist"
+        aria-label="Operational Order Views"
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "8px",
+          marginBottom: "16px",
+          padding: "10px 12px",
+          background: "#161512",
+          border: "1px solid #2A2722",
+          borderRadius: "4px",
+          alignItems: "center",
+        }}
+      >
+        <span className="mono" style={{ fontSize: "11px", color: "#9C968B", marginRight: "6px" }}>
+          OPERATIONAL VIEW:
+        </span>
+        {[
+          { id: "ALL", label: `All Orders (${orders.length})` },
+          {
+            id: "REJECTED_ACTIVE_AUTH",
+            label: `Rejected Fulfillment · Active Auth (${orders.filter((o) => o.status === "DELIVERY_FAILED").length})`,
+          },
+          {
+            id: "ACTIVE_AUTH",
+            label: `Active Authorizations (${orders.filter((o) => o.status === "AUTHORIZED").length})`,
+          },
+          {
+            id: "ESCALATED",
+            label: `Escalated / Review Required (${orders.filter((o) => escalatedOrderIds.has(o.id) || o.status === "DELIVERY_FAILED").length})`,
+          },
+          {
+            id: "CAPTURED",
+            label: `Verified Handover · Captured (${orders.filter((o) => o.status === "CAPTURED").length})`,
+          },
+        ].map((tab) => {
+          const active = opView === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setOpView(tab.id as typeof opView)}
+              className="mono"
+              style={{
+                padding: "5px 10px",
+                fontSize: "11px",
+                borderRadius: "3px",
+                border: active ? "1px solid #D97706" : "1px solid #2E2B24",
+                background: active ? "rgba(217, 119, 6, 0.14)" : "#1C1B18",
+                color: active ? "#F4F1EA" : "#A6A095",
+                cursor: "pointer",
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {filteredOrders.length === 0 ? (
         <EmptyOrderState
-          title="No orders yet"
-          body="Orders appear here as soon as a customer places a PayPal hold in Shop. Chat with the assistant to initiate a purchase."
+          title="No matching orders in this operational view"
+          body="Orders appear here as soon as a customer approves a PayPal authorization in Shop or when fulfillment exceptions occur."
           actionLabel="Open Shop Chat"
         />
       ) : (
         <div className="order-list">
-          {orders.map((order) => (
+          {filteredOrders.map((order) => (
             <button key={order.id} type="button" className="order-row" onClick={() => setSelected(order)}>
               <span className="amount">{order.formatted_total}</span>
               <span className="word">{statusWord(order.status)}</span>

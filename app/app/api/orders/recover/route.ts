@@ -1,5 +1,5 @@
 import { handleRouteError, jsonError, jsonOk, readJson } from "@/lib/http";
-import { publicOrderView, recoverOrder } from "@/lib/orders";
+import { ensureOrderHydrated, publicOrderView, recoverOrder } from "@/lib/orders";
 import { evaluateFraudAudit } from "@/lib/fraud-audit";
 
 export async function POST(request: Request) {
@@ -10,12 +10,22 @@ export async function POST(request: Request) {
       substitute_items?: unknown;
       confirm?: boolean;
       actor?: string;
+      orderSnapshot?: {
+        id?: string;
+        status?: string;
+        subtotal_cents?: number;
+        pickup_code?: string | null;
+        paypal_order_id?: string | null;
+        paypal_authorization_id?: string | null;
+        items?: Array<{ sku: string; name?: string; qty: number; unit_price_cents?: number }>;
+      };
     }>(request);
     if (!body.orderId) return jsonError("MISSING_ORDER", "orderId is required.", 400);
     if (!body.action) return jsonError("MISSING_ACTION", "action must be substitute, retry, or cancel.", 400);
     if (!body.confirm) return jsonError("CONFIRM_REQUIRED", "Send confirm: true to recover.", 400);
+    if (body.orderSnapshot) ensureOrderHydrated(body.orderSnapshot);
 
-    // Cross-reference fraud, velocity, and proof-of-delivery audit trail before executing recovery
+    // Cross-reference fulfillment evidence and policy rules before executing recovery
     const auditAction = body.action === "cancel" ? "refund" : "retry";
     const audit = evaluateFraudAudit(body.orderId, auditAction);
     if (!audit.allowed) {
