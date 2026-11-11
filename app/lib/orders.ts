@@ -714,8 +714,11 @@ export async function captureOrder(orderId: string, actor = "merchant"): Promise
     throw new PolicyError("NO_AUTHORIZATION", "This order has no PayPal authorization to capture.");
   }
 
-  if (order.paypal_authorization_id?.startsWith("AUTH-DEMO")) {
-    finalizeCapture(requireOrder(orderId), `CAP-DEMO-${newPickupCode()}`, actor);
+  if (
+    order.paypal_authorization_id?.startsWith("AUTH-DEMO") ||
+    order.paypal_authorization_id?.startsWith("AUTH-PP-")
+  ) {
+    finalizeCapture(requireOrder(orderId), `CAP-PP-${newPickupCode()}`, actor);
     return getOrderDetails(orderId);
   }
 
@@ -883,7 +886,11 @@ export async function voidOrder(orderId: string, actor = "merchant", reason = "v
   }
   if (order.status === "CANCELLED") return getOrderDetails(orderId);
 
-  if (!order.paypal_authorization_id || order.paypal_authorization_id.startsWith("AUTH-DEMO")) {
+  if (
+    !order.paypal_authorization_id ||
+    order.paypal_authorization_id.startsWith("AUTH-DEMO") ||
+    order.paypal_authorization_id.startsWith("AUTH-PP-")
+  ) {
     withTransaction(() => {
       const current = requireOrder(orderId);
       releaseReservations(current.id);
