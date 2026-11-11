@@ -1,5 +1,5 @@
 import { handleRouteError, jsonOk } from "@/lib/http";
-import { getDb } from "@/lib/db";
+import { getDb, resetCloudDb } from "@/lib/db";
 import { seedCatalog } from "@/lib/catalog-seed";
 
 export async function POST() {
@@ -17,6 +17,7 @@ export async function POST() {
       DELETE FROM agent_sessions;
     `);
     seedCatalog(true);
+    await resetCloudDb();
     return jsonOk({ ok: true, message: "Demo catalog and order states successfully reset to pristine state." });
   } catch (error) {
     return handleRouteError(error);

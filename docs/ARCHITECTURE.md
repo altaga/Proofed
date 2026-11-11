@@ -141,7 +141,7 @@ In physical retail (stadiums, micro-kiosks, unattended lockers), holding funds p
 1. **Pickup Code**: A cryptographically random, human-friendly code generated upon authorization.
 2. **Photo Hash (Optional)**: SHA-256 hash of locker sensor capture or operator snapshot.
 3. **Station Identifier & Note**: Metadata identifying the physical terminal executing the transaction.
-4. **Append-Only Event Store**: Every handover attempt, failure trace, and capture timestamp is written to the SQLite `order_events` table with immutable timestamps.
+4. **Append-Only Event Store**: Every handover attempt, failure trace, and capture timestamp is written to the `event_log` table with server-signed HMAC-SHA256 chained signatures (`_sig`, `_prev_sig`).
 
 ---
 

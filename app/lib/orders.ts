@@ -2,7 +2,15 @@ import { createHash, createHmac, randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { getProjectConfig } from "./config";
-import { getDb, nowIso, rowToObject, withTransaction } from "./db";
+import {
+  getDb,
+  isCloudDbEnabled,
+  nowIso,
+  rowToObject,
+  syncOrderFromCloud,
+  syncOrderToCloud,
+  withTransaction,
+} from "./db";
 import { newId, newPickupCode, newRequestId } from "./ids";
 import { formatMoney } from "./money";
 import {
@@ -551,6 +559,7 @@ export async function authorizeOrder(orderId: string, actor = "shopper"): Promis
   const cached = loadIdempotentResponse<PaypalOrder>("authorize", orderId);
   if (cached) {
     syncFromPaypalOrder(order, cached, actor);
+    await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   }
 
@@ -559,6 +568,7 @@ export async function authorizeOrder(orderId: string, actor = "shopper"): Promis
     const paypalOrder = await authorizePaypalOrder(order.paypal_order_id, requestId);
     saveIdempotentResponse("authorize", orderId, paypalOrder);
     syncFromPaypalOrder(requireOrder(orderId), paypalOrder, actor);
+    await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   } catch (error) {
     if (error instanceof PaypalHttpError) {
@@ -819,6 +829,7 @@ export function failDelivery(input: {
     actor: input.actor ?? "device",
     detail: { reason, evidence_id: evidence.id },
   });
+  syncOrderToCloud(order.id).catch(() => {});
   return getOrderDetails(order.id);
 }
 
@@ -837,12 +848,14 @@ export async function captureOrder(orderId: string, actor = "merchant"): Promise
     order.paypal_authorization_id?.startsWith("AUTH-PP-")
   ) {
     finalizeCapture(requireOrder(orderId), `CAP-PP-${newPickupCode()}`, actor);
+    await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   }
 
   const cached = loadIdempotentResponse<{ id: string; status?: string }>("capture", orderId);
   if (cached?.id) {
     finalizeCapture(requireOrder(orderId), cached.id, actor);
+    await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   }
 
@@ -856,6 +869,7 @@ export async function captureOrder(orderId: string, actor = "merchant"): Promise
     );
     saveIdempotentResponse("capture", orderId, capture);
     finalizeCapture(requireOrder(orderId), capture.id, actor);
+    await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   } catch (error) {
     if (error instanceof PaypalHttpError) {
@@ -914,7 +928,8 @@ async function recoverCaptureError(order: OrderRecord, error: PaypalHttpError, a
     error.hasIssue("AUTHORIZATION_VOIDED")
   ) {
     await syncAuthorization(order, actor);
-    return getOrderDetails(order.id);
+    syncOrderToCloud(order.id).catch(() => {});
+  return getOrderDetails(order.id);
   }
   if (
     issue === "AUTHORIZATION_ALREADY_CAPTURED" ||
@@ -927,7 +942,8 @@ async function recoverCaptureError(order: OrderRecord, error: PaypalHttpError, a
       const capture = paypalOrder.purchase_units?.[0]?.payments?.captures?.[0];
       if (capture?.id) {
         finalizeCapture(requireOrder(order.id), capture.id, "reconcile");
-        return getOrderDetails(order.id);
+        syncOrderToCloud(order.id).catch(() => {});
+  return getOrderDetails(order.id);
       }
     }
   }
@@ -936,7 +952,8 @@ async function recoverCaptureError(order: OrderRecord, error: PaypalHttpError, a
       const auth = await getPaypalAuthorization(order.paypal_authorization_id);
       if (auth.status === "VOIDED" || auth.status === "EXPIRED") {
         markVoided(requireOrder(order.id), actor, auth.status || "VOIDED");
-        return getOrderDetails(order.id);
+        syncOrderToCloud(order.id).catch(() => {});
+  return getOrderDetails(order.id);
       }
       if (auth.status === "CAPTURED") {
         if (order.paypal_order_id) {
@@ -944,7 +961,8 @@ async function recoverCaptureError(order: OrderRecord, error: PaypalHttpError, a
           const capture = paypalOrder.purchase_units?.[0]?.payments?.captures?.[0];
           if (capture?.id) finalizeCapture(requireOrder(order.id), capture.id, "reconcile");
         }
-        return getOrderDetails(order.id);
+        syncOrderToCloud(order.id).catch(() => {});
+  return getOrderDetails(order.id);
       }
     } catch {
       // fall through
@@ -962,7 +980,8 @@ async function recoverCaptureError(order: OrderRecord, error: PaypalHttpError, a
       actor,
       detail: { issues: error.issues, debugId: error.debugId },
     });
-    return getOrderDetails(order.id);
+    syncOrderToCloud(order.id).catch(() => {});
+  return getOrderDetails(order.id);
   }
   return null;
 }
@@ -1025,6 +1044,7 @@ export async function voidOrder(orderId: string, actor = "merchant", reason = "v
         detail: { reason },
       });
     });
+    await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   }
 
@@ -1033,6 +1053,7 @@ export async function voidOrder(orderId: string, actor = "merchant", reason = "v
     const result = await voidPaypalAuthorization(order.paypal_authorization_id, requestId);
     saveIdempotentResponse("void", orderId, result);
     markVoided(requireOrder(orderId), actor, reason);
+    await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   } catch (error) {
     if (error instanceof PaypalHttpError) {
@@ -1040,7 +1061,8 @@ export async function voidOrder(orderId: string, actor = "merchant", reason = "v
         const auth = await getPaypalAuthorization(order.paypal_authorization_id);
         if (auth.status === "VOIDED" || auth.status === "EXPIRED") {
           markVoided(requireOrder(orderId), "reconcile", auth.status || "VOIDED");
-          return getOrderDetails(orderId);
+          await syncOrderToCloud(orderId);
+    return getOrderDetails(orderId);
         }
         if (auth.status === "CAPTURED") {
           throw new PolicyError(
@@ -1075,6 +1097,7 @@ export async function refundOrder(orderId: string, actor = "merchant"): Promise<
   const cached = loadIdempotentResponse<{ id: string }>("refund", orderId);
   if (cached?.id) {
     finalizeRefund(requireOrder(orderId), cached.id, actor);
+    await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   }
 
@@ -1088,6 +1111,7 @@ export async function refundOrder(orderId: string, actor = "merchant"): Promise<
     );
     saveIdempotentResponse("refund", orderId, refund);
     finalizeRefund(requireOrder(orderId), refund.id, actor);
+    await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   } catch (error) {
     if (error instanceof PaypalHttpError) {
@@ -1096,7 +1120,8 @@ export async function refundOrder(orderId: string, actor = "merchant"): Promise<
         const current = requireOrder(orderId);
         if (current.status === "CAPTURED") {
           finalizeRefund(current, current.paypal_refund_id || `unknown_${randomBytes(3).toString("hex")}`, "reconcile");
-          return getOrderDetails(orderId);
+          await syncOrderToCloud(orderId);
+    return getOrderDetails(orderId);
         }
       }
     }

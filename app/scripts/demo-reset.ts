@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { seedCatalog } from "../lib/catalog-seed";
-import { closeDb, getDb } from "../lib/db";
+import { closeDb, getDb, resetCloudDb } from "../lib/db";
 
 function loadLocalEnv() {
   const path = ".env";
@@ -35,6 +35,11 @@ db.exec(`
 `);
 seedCatalog(true);
 
+async function performReset() {
+  await resetCloudDb();
+  await maybeSeedLiveHolds();
+}
+
 async function maybeSeedLiveHolds() {
   if (!process.argv.includes("--live-holds")) return;
   if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
@@ -53,7 +58,7 @@ async function maybeSeedLiveHolds() {
   }
 }
 
-maybeSeedLiveHolds()
+performReset()
   .then(() => {
     closeDb();
     console.log("Demo reset complete: catalog restored to seed stock, orders and chats cleared.");

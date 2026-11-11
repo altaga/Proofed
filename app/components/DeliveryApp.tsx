@@ -435,8 +435,8 @@ export function DeliveryApp() {
           )}
         </section>
 
-        {/* Step 2: Proof of Delivery Photo & Verification */}
-        <section className="delivery-step" aria-label="Step 2: Proof of Delivery Photo">
+        {/* Step 2: Tamper-Evident Delivery Evidence & Photo */}
+        <section className="delivery-step" aria-label="Step 2: Tamper-Evident Delivery Evidence & Photo">
           <div className="step-label-row">
             <span className="step-num mono">02</span>
             <span className="step-title">Doorstep photo</span>

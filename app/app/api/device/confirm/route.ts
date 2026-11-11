@@ -1,4 +1,5 @@
 import { handleRouteError, jsonError, jsonOk, readJson } from "@/lib/http";
+import { syncOrderFromCloud } from "@/lib/db";
 import { confirmDelivery, ensureOrderHydrated, publicOrderView } from "@/lib/orders";
 
 export async function POST(request: Request) {
@@ -20,6 +21,10 @@ export async function POST(request: Request) {
       };
     }>(request);
     if (!body.pickupCode) return jsonError("PICKUP_CODE_REQUIRED", "Recipient handover PIN (pickupCode) is required.", 400);
+    const lookupId = body.orderId || body.orderSnapshot?.id;
+    if (lookupId) {
+      await syncOrderFromCloud(lookupId);
+    }
     if (body.orderSnapshot) ensureOrderHydrated(body.orderSnapshot);
     const order = await confirmDelivery({
       orderId: body.orderId,

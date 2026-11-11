@@ -405,10 +405,10 @@ export function AgentCrisisHub({
               <strong>Locker Jam / Damage:</strong> Customer stands at kiosk with empty hands and empty wallet.
             </li>
             <li>
-              <strong>Resolution Path:</strong> 14 business days waiting for support ticket & bank chargeback.
+              <strong>Resolution Path:</strong> 14 to 180 days dispute cycle, manual support tickets, and bank chargebacks.
             </li>
             <li>
-              <strong>Merchant Cost:</strong> $15 bank chargeback penalty fee, negative review, lost customer.
+              <strong>Merchant Cost:</strong> Dispute processing fees, administrative overhead, lost customer trust.
             </li>
           </ul>
         </div>
@@ -416,20 +416,20 @@ export function AgentCrisisHub({
         <div className="impact-col proofed-col">
           <div className="impact-col-header">
             <span className="col-tag tag-proofed">PROOFED AGENTIC COMMERCE (AUTHORIZE FIRST)</span>
-            <h5>Zero Charge. Autonomous Recovery.</h5>
+            <h5>Zero Capture. Autonomous Recovery.</h5>
           </div>
           <ul className="impact-list">
             <li>
-              <strong>Zero-Debit Hold:</strong> Funds held via <code>intent=AUTHORIZE</code>; $0 settled.
+              <strong>Conditional Hold:</strong> Funds held via <code>intent=AUTHORIZE</code> ($0.00 captured).
             </li>
             <li>
               <strong>Locker Jam / Damage:</strong> Telemetry triggers instant agentic safety lockout of <code>/capture</code>.
             </li>
             <li>
-              <strong>Resolution Path:</strong> 1.2-second autonomous 1-click <code>/void</code> or smart substitution.
+              <strong>Resolution Path:</strong> Autonomous 1-click <code>/void</code> release or smart substitution.
             </li>
             <li>
-              <strong>Merchant Cost:</strong> $0 dispute fees, 0 bank chargebacks, 100% retained customer trust.
+              <strong>Merchant Cost:</strong> $0 dispute fees, eliminates preventable INR chargebacks, preserves customer trust.
             </li>
           </ul>
         </div>

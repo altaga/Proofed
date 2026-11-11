@@ -39,9 +39,10 @@ flowchart LR
 - **Natural Dialogue with Hard Budget Bounds**: Shoppers speak naturally (e.g. *"I have a $20 budget. Do you have a keychain?"*). Budgets are parsed into integer cents and strictly enforced server-side.
 - **Zero-Trust AI Pricing**: The LLM never touches monetary figures. Prices and stock come strictly from the server's SQLite catalog.
 - **PayPal JS SDK Smart Buttons**: Seamless hold approval with official PayPal sandbox authentication.
-- **Physical Handover Verification (`/device`)**: Stand-in terminal for a smart locker or venue kiosk requiring a pickup code, station signature, and optional photo hash.
-- **Graceful Failure & Item Substitution**: If a locker jams or an item is damaged, the hold is maintained while the agent proposes a catalog-backed replacement, or auto-voids the authorization.
-- **Auditable Merchant Desk (`/merchant`)**: Full order ledger powered by AG Grid Community, complete with raw event logs, PayPal transaction IDs, and manual override capabilities.
+- **Two-Factor Physical Handover Verification**: Doorstep computer vision OCR `#744` + one-time server-verified recipient PIN (`pickup_code`) before conditional capture.
+- **Graceful Failure & Item Substitution**: If delivery fails or an item is damaged, uncaptured authorizations are voided (`$0.00 captured`) or substituted within budget.
+- **Auditable Merchant Desk (`/merchant`)**: Full order ledger powered by AG Grid Community, operational filter views for disputed holds, and HMAC-SHA256 signed event chains.
+- **Hybrid Cloud Persistence (Turso LibSQL)**: Runs local `node:sqlite` for offline tests, and syncs across serverless lambdas via Turso LibSQL in production.
 
 ---
 
@@ -151,6 +152,7 @@ npm run test:e2e
 
 ## Documentation & References
 
+- [Proofed Master Strategic Brief](docs/PROOFED_MASTER_BRIEF.md)
 - [System Architecture & State Machine](docs/ARCHITECTURE.md)
 - [PayPal Hackathon Technical Research](docs/RESEARCH.md)
 - [3-Minute Demo Recording Script](docs/DEMO_SCRIPT.md)

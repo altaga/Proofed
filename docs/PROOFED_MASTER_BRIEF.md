@@ -154,3 +154,15 @@ Result: Self-service refund paused & ESCALATED TO MERCHANT OPERATIONS with tampe
 Policy Rule: RULE_MAX_REDISPATCH_LIMIT_REACHED
 Result: Automated retry paused & ESCALATED TO MERCHANT CONCIERGE.
 ```
+
+---
+
+## 7. Distributed Persistence Architecture (Turso LibSQL for Serverless)
+
+To address the ephemeral storage limitations of serverless platforms (Vercel Lambda), Proofed implements a **hybrid dual-persistence architecture**:
+
+- **Local Development & Fast CI**: Uses Node.js native `node:sqlite` in-memory or file mode (`data/app.sqlite`), ensuring all unit and integration tests run offline in $<3$ seconds without external dependencies.
+- **Hosted Multi-Instance Serverless (Production)**: When `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set, the database adapter (`app/lib/db.ts`) synchronizes orders, items, and HMAC-signed event records across all serverless lambda instances globally via **Turso (LibSQL Serverless SQLite)**.
+- **Zero-Friction Dialect Compatibility**: Because Turso executes the SQLite/LibSQL wire protocol, 100% of the integer-cent schema, index structures, and transactions remain identical without requiring Postgres dialect translations.
+- **Cross-Instance Hydration & Fallback**: If an order was initialized on one serverless instance, any subsequent request to another instance automatically rehydrates and verifies the state from the distributed cloud store.
+

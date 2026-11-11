@@ -286,7 +286,7 @@ export function UIGallery() {
             <div className="wallet-widget-header">
               <div className="wallet-badge-group">
                 <span className="wallet-icon">P</span>
-                <span className="wallet-title">BUYER PAYPAL WALLET · REAL-TIME ESCROW SIMULATION</span>
+                <span className="wallet-title">BUYER PAYPAL WALLET · REAL-TIME CONDITIONAL CAPTURE SIMULATION</span>
               </div>
               <span className="wallet-account mono">buyer-sandbox@proofed.dev</span>
             </div>
@@ -377,7 +377,7 @@ export function UIGallery() {
                   <span className="swatch-box" style={{ background: "#2563EB" }} />
                   <div className="swatch-info mono">
                     <strong>#2563EB</strong>
-                    <span>Cobalt Escrow Hold Accent</span>
+                    <span>Cobalt Authorization Hold Accent</span>
                   </div>
                 </div>
                 <div className="swatch-row">

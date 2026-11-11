@@ -23,6 +23,7 @@
     "screenshots": "playwright test tests/e2e/screenshots.spec.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "@paypal/react-paypal-js": "^10.6.1",
     "ag-grid-community": "^36.3.0",
     "ag-grid-react": "^36.3.0",
