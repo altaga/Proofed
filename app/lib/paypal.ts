@@ -280,11 +280,11 @@ export async function createPaypalOrder(input: {
       full_name: input.shippingAddress?.fullName || "Doorstep Delivery Recipient",
     },
     address: {
-      address_line_1: input.shippingAddress?.addressLine1 || "744 North Capitol Ave",
-      admin_area_2: input.shippingAddress?.adminArea2 || "San Jose",
-      admin_area_1: input.shippingAddress?.adminArea1 || "CA",
-      postal_code: input.shippingAddress?.postalCode || "95133",
-      country_code: input.shippingAddress?.countryCode || "US",
+      address_line_1: input.shippingAddress?.addressLine1 || "ul. Filarecka 2B / 15",
+      admin_area_2: input.shippingAddress?.adminArea2 || "Kraków",
+      admin_area_1: input.shippingAddress?.adminArea1 || "Małopolskie",
+      postal_code: input.shippingAddress?.postalCode || "30-110",
+      country_code: input.shippingAddress?.countryCode || "PL",
     },
   };
 

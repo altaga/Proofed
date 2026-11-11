@@ -224,7 +224,7 @@ export function DeviceKiosk({
       <div className="terminal-header-bar">
         <div className="terminal-status-indicator">
           <span>
-            {deliveryMode === "home" ? "Doorstep · 744 Maple St" : "Locker · Bay 04"}
+            {deliveryMode === "home" ? "Doorstep · Filarecka 2B / 15, Kraków" : "Locker · Bay 04"}
           </span>
         </div>
         <div className="terminal-sensor-pill">
@@ -310,11 +310,11 @@ export function DeviceKiosk({
               <div className="porch-feed-screen">
                 <div className="porch-cam-header">
                   <span className="cam-live-indicator">Front porch</span>
-                  <span className="cam-coords mono">744 Maple St</span>
+                  <span className="cam-coords mono">Filarecka 2B / 15, Kraków</span>
                 </div>
                 <div className="porch-visual-area">
                   <div className="porch-door-graphic">
-                    <span className="porch-house-num">744</span>
+                    <span className="porch-house-num">15</span>
                     <div className="porch-door-panel" />
                   </div>
                   <div className="porch-mat-area">

@@ -152,7 +152,7 @@ export function TransactionPanel({
             <div className="tx-hub-meta">
               <div>
                 <span className="tx-hub-name">{hubName}</span>
-                <span className="tx-hub-station"> · Silicon Valley Station #744</span>
+                <span className="tx-hub-station"> · Kraków Station #15</span>
               </div>
               {order ? <span className={`status ${order.status}`}>{order.status}</span> : null}
             </div>
@@ -238,7 +238,7 @@ export function TransactionPanel({
 
           <div className="tx-ids">
             <div>
-              <strong>Delivery Destination:</strong> 744 North Capitol Ave (Doorstep Courier)
+              <strong>Delivery Destination:</strong> ul. Filarecka 2B / 15, 30-110 Kraków, Poland (Doorstep Courier)
             </div>
             {order?.pickup_code ? (
               <div>

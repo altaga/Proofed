@@ -125,7 +125,7 @@ export function ShopperChat({
   const currentPrompts = (() => {
     if (activeOrder?.status === "DELIVERY_FAILED") {
       return [
-        "Pedir otro (Re-enviar a 744 Maple St)",
+        "Pedir otro (Re-enviar a Filarecka 2B / 15)",
         "Recibir reembolso (Liberar retención PayPal)",
         "¿Por qué falló la entrega?",
         "Ver estado de retención en PayPal",
@@ -261,7 +261,7 @@ export function ShopperChat({
               {
                 id: `fail-alert-${Date.now()}`,
                 role: "assistant",
-                content: `**Delivery Notice: Handover Not Verified**\n\nThe courier attempted delivery at **door #742** instead of your destination address (**#744 Maple Street**). Because physical delivery and recipient handover PIN were not completed, handover was aborted and the parcel returned to the hub.\n\n**Payment Status:** **${lastOrderMsg.quote?.formatted_price || "$18.50"} authorized · $0.00 captured**.\n\nThis incident has been escalated for your decision: would you like to **re-dispatch a replacement** to your verified address, or **void the PayPal authorization**?`,
+                content: `**Delivery Notice: Handover Not Verified**\n\nThe courier attempted delivery at **door #13** instead of your destination address (**ul. Filarecka 2B / 15**). Because physical delivery and recipient handover PIN were not completed, handover was aborted and the parcel returned to the hub.\n\n**Payment Status:** **${lastOrderMsg.quote?.formatted_price || "$18.50"} authorized · $0.00 captured**.\n\nThis incident has been escalated for your decision: would you like to **re-dispatch a replacement** to your verified address, or **void the PayPal authorization**?`,
                 tier: "ESCALATION",
                 timestamp: Date.now(),
                 order: serverOrder,
@@ -303,7 +303,7 @@ export function ShopperChat({
           {
             id: `fraud-block-${Date.now()}`,
             role: "assistant",
-            content: `**Automated Refund Paused — Escalated to Merchant Review**\n\n${data.error || "Post-capture claim conflicts with recorded fulfillment evidence."}\n\n**Fulfillment Evidence & Policy Evaluation:**\n- **Policy Rule:** \`${audit?.policyRule || "RULE_CONTRADICTORY_EVIDENCE_ESCALATION"}\`\n- **Recorded Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Doorstep OCR match (#744), verified recipient one-time handover PIN, and tamper-evident SHA-256 photo digest on record" : "Unverified status"}\n- **Outcome:** **ESCALATED_FOR_REVIEW** (Self-service refund paused; case and evidence forwarded to Merchant Operations)`,
+            content: `**Automated Refund Paused — Escalated to Merchant Review**\n\n${data.error || "Post-capture claim conflicts with recorded fulfillment evidence."}\n\n**Fulfillment Evidence & Policy Evaluation:**\n- **Policy Rule:** \`${audit?.policyRule || "RULE_CONTRADICTORY_EVIDENCE_ESCALATION"}\`\n- **Recorded Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Doorstep OCR match (#15), verified recipient one-time handover PIN, and tamper-evident SHA-256 photo digest on record" : "Unverified status"}\n- **Outcome:** **ESCALATED_FOR_REVIEW** (Self-service refund paused; case and evidence forwarded to Merchant Operations)`,
             tier: "POLICY-ESCALATION",
             timestamp: Date.now(),
           },
@@ -326,7 +326,7 @@ export function ShopperChat({
         {
           id: `void-done-${Date.now()}`,
           role: "assistant",
-          content: `**PayPal Authorization Voided — $0.00 Captured**\n\nYour PayPal authorization was voided via PayPal Payments v2 API (\`/v2/payments/authorizations/{id}/void\`). Because physical delivery was not verified, **$0.00 was captured**. Release timing of reserved funds depends on your payment provider.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_UNVERIFIED_HANDOVER_RELEASE"}\` · PASS · Address mismatch confirmed (#742) · Recipient PIN unverified · $0.00 captured.`,
+          content: `**PayPal Authorization Voided — $0.00 Captured**\n\nYour PayPal authorization was voided via PayPal Payments v2 API (\`/v2/payments/authorizations/{id}/void\`). Because physical delivery was not verified, **$0.00 was captured**. Release timing of reserved funds depends on your payment provider.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_UNVERIFIED_HANDOVER_RELEASE"}\` · PASS · Address mismatch confirmed (#13) · Recipient PIN unverified · $0.00 captured.`,
           tier: "AUTHORIZATION-VOIDED",
           timestamp: Date.now(),
           order: updatedOrder,
@@ -394,7 +394,7 @@ export function ShopperChat({
         {
           id: `redisp-${Date.now()}`,
           role: "assistant",
-          content: `**Courier Re-dispatch Confirmed (Policy Check Passed)**\n\nReplacement order re-routed to courier terminal: **744 Maple Street, Apt 2B (white gate)**.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_VALID_REDISPATCH_WITHIN_LIMIT"}\` · Attempt ${(audit?.evidenceTrail?.retryCount ?? 0) + 1} of 2 permitted within PayPal 3-day honor window.\n\nYour existing PayPal authorization remains active (**$0.00 captured** until doorstep OCR and recipient handover PIN are verified).`,
+          content: `**Courier Re-dispatch Confirmed (Policy Check Passed)**\n\nReplacement order re-routed to courier terminal: **ul. Filarecka 2B / 15, 30-110 Kraków**.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_VALID_REDISPATCH_WITHIN_LIMIT"}\` · Attempt ${(audit?.evidenceTrail?.retryCount ?? 0) + 1} of 2 permitted within PayPal 3-day honor window.\n\nYour existing PayPal authorization remains active (**$0.00 captured** until doorstep OCR and recipient handover PIN are verified).`,
           tier: "RE-DISPATCH",
           timestamp: Date.now(),
           order: updatedOrder,
@@ -764,7 +764,7 @@ export function ShopperChat({
                             Handover Verified · {msg.quote?.formatted_price || "$18.50"} captured
                           </span>
                           <span className="auth-sub">
-                            Door #744 OCR + Recipient One-Time PIN ({msg.order.pickup_code || "VERIFIED"}) confirmed
+                            Door #15 OCR + Recipient One-Time PIN ({msg.order.pickup_code || "VERIFIED"}) confirmed
                           </span>
                         </div>
                         <div className="auth-code mono">
@@ -791,7 +791,7 @@ export function ShopperChat({
                         </span>
                       </div>
                       <p className="failure-desc">
-                        Courier attempted delivery at door #742 (+120m away from destination 744 Maple St). Because doorstep OCR and recipient PIN verification were not completed, handover was aborted and capture was blocked ($0.00 captured). Choose how to proceed:
+                        Courier attempted delivery at door #13 (+80m away from destination Filarecka 2B / 15). Because doorstep OCR and recipient PIN verification were not completed, handover was aborted and capture was blocked ($0.00 captured). Choose how to proceed:
                       </p>
                       <div className="failure-audit-strip mono">
                         <ShieldCheck size={12} />
@@ -803,7 +803,7 @@ export function ShopperChat({
                           className="failure-action-btn btn-redispatch"
                           onClick={() => void handleActionRedispatch(msg.order?.id)}
                         >
-                          Pedir otro (Re-enviar a 744 Maple St)
+                          Pedir otro (Re-enviar a Filarecka 2B / 15)
                         </button>
                         <button
                           type="button"
@@ -848,7 +848,7 @@ export function ShopperChat({
                         </div>
                         <div className="voided-grid-row">
                           <span className="voided-grid-label">Trigger</span>
-                          <span className="voided-grid-val">Handover verification rejected (Door #742)</span>
+                          <span className="voided-grid-val">Handover verification rejected (Door #13)</span>
                         </div>
                         <div className="voided-grid-row">
                           <span className="voided-grid-label">PayPal Auth ID</span>
@@ -864,7 +864,7 @@ export function ShopperChat({
                         <div className="audit-trail-checks">
                           <div className="audit-check-line">
                             <span className="check-icon">✔</span>
-                            <span>Evidence Check: Handover rejected by computer vision OCR (#742 mismatch)</span>
+                            <span>Evidence Check: Handover rejected by computer vision OCR (#13 mismatch)</span>
                           </div>
                           <div className="audit-check-line">
                             <span className="check-icon">✔</span>

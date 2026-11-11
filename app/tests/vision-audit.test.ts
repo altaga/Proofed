@@ -1,8 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { analyzeFulfillmentImage } from "../lib/vision-audit";
 import { executeAgentTool } from "../lib/agent-tools";
 import { confirmDelivery, createCheckout } from "../lib/orders";
 import { seedCatalog } from "../lib/catalog-seed";
+import { closeDb } from "../lib/db";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+vi.mock("../lib/paypal", () => ({
+  createPaypalOrder: vi.fn().mockResolvedValue({ id: "MOCK-PP-ORDER", status: "CREATED" }),
+  authorizePaypalOrder: vi.fn().mockResolvedValue({ id: "MOCK-AUTH-ID", status: "COMPLETED" }),
+  voidPaypalAuthorization: vi.fn().mockResolvedValue(true),
+  capturePaypalAuthorization: vi.fn().mockResolvedValue({ id: "MOCK-CAP-ID", status: "COMPLETED" }),
+}));
+
+beforeEach(() => {
+  process.env.PAYPAL_CLIENT_ID = "mock-client-id";
+  process.env.PAYPAL_CLIENT_SECRET = "mock-client-secret";
+  process.env.SQLITE_PATH = join(mkdtempSync(join(tmpdir(), "proofed-vision-")), "test.sqlite");
+  closeDb();
+  seedCatalog();
+});
+
+afterEach(() => {
+  closeDb();
+});
 
 describe("Quantitative Multimodal Vision Audit & Agent Tool", () => {
   it("computes passing quantitative scores (>= 80/100) for valid handover", async () => {

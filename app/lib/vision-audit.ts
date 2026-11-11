@@ -53,8 +53,8 @@ export async function analyzeFulfillmentImage(input: {
   orderId?: string;
 }): Promise<QuantitativeFulfillmentMetrics> {
   const startTime = Date.now();
-  const targetDoor = input.targetDoorNumber || "744";
-  const targetAddress = input.targetAddress || "744 Maple Street";
+  const targetDoor = input.targetDoorNumber || "15";
+  const targetAddress = input.targetAddress || "ul. Filarecka 2B, m. 15, 30-110 Kraków";
   const image = input.image || "";
   const presetId = input.presetId || "custom";
   const apiKey = process.env.MINIMAX_API_KEY;
@@ -232,8 +232,9 @@ Respond strictly with valid JSON without markdown formatting:
     const placementScore = 88.0;
     const overall = Math.round((addrScore * 0.4 + parcelScore * 0.4 + placementScore * 0.2) * 10) / 10;
     const verdict = "REJECTED_MISMATCH";
+    const detectedWrong = targetDoor === "744" ? "742" : "13";
     const sig = createHmac("sha256", secret)
-      .update(`${photoSha256Digest}:742:${overall}:${verdict}`)
+      .update(`${photoSha256Digest}:${detectedWrong}:${overall}:${verdict}`)
       .digest("hex");
 
     return {
@@ -244,7 +245,7 @@ Respond strictly with valid JSON without markdown formatting:
       placementSecurityPct: placementScore,
       overallHandoverScore: overall,
       doorplateMatch: false,
-      detectedDoorNumber: "742",
+      detectedDoorNumber: detectedWrong,
       targetDoorNumber: targetDoor,
       targetAddress: targetAddress,
       packageDetected: true,
@@ -255,10 +256,10 @@ Respond strictly with valid JSON without markdown formatting:
       serverHmacSignature: sig,
       captureAuthorized: false,
       handoverVerdict: verdict,
-      visualEvidence: "Doorplate reads #742 on white siding; destination address is #744 Maple Street.",
-      agentAssessment: `Destination mismatch: Doorplate reads #742 (+120m away from destination #744 Maple Street). Quantitative score ${overall}/100. PayPal Payments v2 /capture locked at $0.00.`,
+      visualEvidence: `Doorplate reads #${detectedWrong}; destination address is #${targetDoor} ${targetAddress}.`,
+      agentAssessment: `Destination mismatch: Doorplate reads #${detectedWrong} instead of destination #${targetDoor} ${targetAddress}. Quantitative score ${overall}/100. PayPal Payments v2 /capture locked at $0.00.`,
       boundingBoxes: [
-        { label: "Door #742 (12%)", x: 17.5, y: 34.0, w: 15.0, h: 12.0, tone: "bad", confidence: 99.2 },
+        { label: `Door #${detectedWrong} (12%)`, x: 17.5, y: 34.0, w: 15.0, h: 12.0, tone: "bad", confidence: 99.2 },
         { label: "Parcel: Intact (95%)", x: 57.5, y: 62.0, w: 15.6, h: 21.0, tone: "good", confidence: 95.0 },
       ],
       processedInMs: Math.max(Date.now() - startTime, 260),
@@ -272,7 +273,7 @@ Respond strictly with valid JSON without markdown formatting:
     const overall = Math.round((addrScore * 0.4 + parcelScore * 0.4 + placementScore * 0.2) * 10) / 10;
     const verdict = "REJECTED_DAMAGED";
     const sig = createHmac("sha256", secret)
-      .update(`${photoSha256Digest}:744:${overall}:${verdict}`)
+      .update(`${photoSha256Digest}:${targetDoor}:${overall}:${verdict}`)
       .digest("hex");
 
     return {
@@ -283,7 +284,7 @@ Respond strictly with valid JSON without markdown formatting:
       placementSecurityPct: placementScore,
       overallHandoverScore: overall,
       doorplateMatch: true,
-      detectedDoorNumber: "744",
+      detectedDoorNumber: targetDoor,
       targetDoorNumber: targetDoor,
       targetAddress: targetAddress,
       packageDetected: true,
@@ -294,24 +295,24 @@ Respond strictly with valid JSON without markdown formatting:
       serverHmacSignature: sig,
       captureAuthorized: false,
       handoverVerdict: verdict,
-      visualEvidence: "Doorplate #744 matches, but carton exhibits crushed top seam and transit creasing.",
+      visualEvidence: `Doorplate #${targetDoor} matches, but carton exhibits crushed top seam and transit creasing on the floor.`,
       agentAssessment: `Physical damage detected: Carton shows severe transit compression (parcel integrity score ${parcelScore}%). Quantitative score ${overall}/100. PayPal capture locked.`,
       boundingBoxes: [
-        { label: "Door #744 (99%)", x: 15.0, y: 28.0, w: 12.5, h: 9.6, tone: "good", confidence: 99.0 },
+        { label: `Door #${targetDoor} (99%)`, x: 15.0, y: 28.0, w: 12.5, h: 9.6, tone: "good", confidence: 99.0 },
         { label: "Damaged Carton (24%)", x: 35.0, y: 48.0, w: 27.5, h: 38.0, tone: "bad", confidence: 24.0 },
       ],
       processedInMs: Math.max(Date.now() - startTime, 280),
     };
   }
 
-  // Default: Pristine Verification (Door #744 Match)
+  // Default: Pristine Verification (Door Match)
   const addrScore = 99.4;
   const parcelScore = 98.6;
   const placementScore = 96.0;
   const overall = Math.round((addrScore * 0.4 + parcelScore * 0.4 + placementScore * 0.2) * 10) / 10;
   const verdict = "VERIFIED";
   const sig = createHmac("sha256", secret)
-    .update(`${photoSha256Digest}:744:${overall}:${verdict}`)
+    .update(`${photoSha256Digest}:${targetDoor}:${overall}:${verdict}`)
     .digest("hex");
 
   return {
@@ -322,7 +323,7 @@ Respond strictly with valid JSON without markdown formatting:
     placementSecurityPct: placementScore,
     overallHandoverScore: overall,
     doorplateMatch: true,
-    detectedDoorNumber: "744",
+    detectedDoorNumber: targetDoor,
     targetDoorNumber: targetDoor,
     targetAddress: targetAddress,
     packageDetected: true,
@@ -333,10 +334,10 @@ Respond strictly with valid JSON without markdown formatting:
     serverHmacSignature: sig,
     captureAuthorized: true,
     handoverVerdict: verdict,
-    visualEvidence: "Doorplate #744 verified at threshold and parcel confirmed in pristine, upright condition.",
+    visualEvidence: `Doorplate #${targetDoor} verified at threshold and parcel confirmed in pristine condition on the floor.`,
     agentAssessment: `Quantitative handover verified (score: ${overall}/100). Address match at ${addrScore}% confidence and carton integrity at ${parcelScore}%. PayPal Payments v2 /capture authorized.`,
     boundingBoxes: [
-      { label: "Door #744 (99.4%)", x: 17.5, y: 34.0, w: 15.0, h: 12.0, tone: "good", confidence: 99.4 },
+      { label: `Door #${targetDoor} (99.4%)`, x: 17.5, y: 34.0, w: 15.0, h: 12.0, tone: "good", confidence: 99.4 },
       { label: "Parcel: Intact (98.6%)", x: 57.5, y: 62.0, w: 15.6, h: 21.0, tone: "good", confidence: 98.6 },
     ],
     processedInMs: Math.max(Date.now() - startTime, 320),

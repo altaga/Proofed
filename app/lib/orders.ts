@@ -463,11 +463,11 @@ export async function createCheckout(input: {
         items: paypalItems,
         shippingAddress: {
           fullName: "Doorstep Delivery Recipient",
-          addressLine1: "744 North Capitol Ave",
-          adminArea2: "San Jose",
-          adminArea1: "CA",
-          postalCode: "95133",
-          countryCode: "US",
+          addressLine1: "ul. Filarecka 2B / 15",
+          adminArea2: "Kraków",
+          adminArea1: "Małopolskie",
+          postalCode: "30-110",
+          countryCode: "PL",
         },
       }));
     saveIdempotentResponse("create_order", orderId, paypalOrder);

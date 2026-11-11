@@ -310,7 +310,7 @@ export function BackendMonitor() {
                 </div>
                 <div className="metric-row">
                   <span className="metric-key">Destination</span>
-                  <span className="metric-val mono">744 Maple St, Apt 2B</span>
+                  <span className="metric-val mono">ul. Filarecka 2B / 15, 30-110 Kraków</span>
                 </div>
               </div>
 

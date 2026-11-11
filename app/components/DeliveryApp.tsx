@@ -86,25 +86,25 @@ type VisionVerifyResponse = {
 const PHOTO_PRESETS: PhotoPreset[] = [
   {
     id: "correct",
-    shortLabel: "Door #744",
+    shortLabel: "Door #15",
     tag: "Match",
-    doorNumber: "744",
-    imagePath: "/delivery/door-744.svg",
+    doorNumber: "15",
+    imagePath: "/delivery/door-15.svg",
     expectedStatus: "verified",
   },
   {
     id: "wrong_door",
-    shortLabel: "Door #742",
+    shortLabel: "Door #13",
     tag: "Mismatch",
-    doorNumber: "742",
-    imagePath: "/delivery/door-742.svg",
+    doorNumber: "13",
+    imagePath: "/delivery/door-13.svg",
     expectedStatus: "mismatch",
   },
   {
     id: "damaged",
     shortLabel: "Damaged box",
     tag: "Damaged",
-    doorNumber: "744",
+    doorNumber: "15",
     imagePath: "/delivery/crushed-box.svg",
     expectedStatus: "damaged",
   },
@@ -183,8 +183,8 @@ export function DeliveryApp() {
           body: JSON.stringify({
             image: params.image,
             presetId: params.presetId,
-            targetDoorNumber: "744",
-            targetAddress: "744 Maple Street",
+            targetDoorNumber: "15",
+            targetAddress: "ul. Filarecka 2B, m. 15, 30-110 Kraków",
           }),
         });
         const data: VisionVerifyResponse = await res.json();
@@ -286,7 +286,7 @@ export function DeliveryApp() {
         setFeedback({
           tone: "success",
           title: "Handover verified · Custody transferred",
-          message: `Package delivered to #744 Maple Street. Doorplate OCR, parcel condition (${((visionResult?.confidence ?? visionResult?.overallHandoverScore) ?? 98.5).toFixed(1)}%), and recipient handover PIN (${code}) verified.`,
+          message: `Package delivered to #15 Filarecka 2B, Kraków. Doorplate OCR, parcel condition (${((visionResult?.confidence ?? visionResult?.overallHandoverScore) ?? 98.5).toFixed(1)}%), and recipient handover PIN (${code}) verified.`,
           paypalDetail: `Signed tamper-evident handover event recorded for Order ${payload.order.id}.`,
         });
       } else {
@@ -354,7 +354,7 @@ export function DeliveryApp() {
           </div>
           <div className="delivery-gps mono">
             <MapPin size={12} />
-            <span>744 Maple St</span>
+            <span>ul. Filarecka 2B, Kraków</span>
           </div>
         </div>
 
@@ -417,7 +417,7 @@ export function DeliveryApp() {
               <div className="manifest-row">
                 <span className="manifest-label">Address</span>
                 <span className="manifest-value mono" style={{ color: "#F4F1EA", fontWeight: 600 }}>
-                  744 Maple St, Apt 2B
+                  ul. Filarecka 2B, m. 15, 30-110 Kraków
                 </span>
               </div>
               <div className="manifest-row">
@@ -587,7 +587,7 @@ export function DeliveryApp() {
             <div className="telemetry-grid">
               <div className="telemetry-cell">
                 <span className="telemetry-label">Destination</span>
-                <span className="telemetry-val">#744 Maple St</span>
+                <span className="telemetry-val">#15 ul. Filarecka 2B</span>
               </div>
 
               <div className="telemetry-cell">
@@ -667,9 +667,9 @@ export function DeliveryApp() {
                 </span>
                 <span className="verdict-banner-sub">
                   {isVerified
-                    ? "Door #744 matches the order address and the parcel is intact."
+                    ? "Door #15 matches the order address and the parcel is intact on the floor."
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "Photo shows #742 instead of destination #744 Maple St. Handover rejected."
+                    ? "Photo shows door #13 instead of destination #15 Filarecka 2B. Handover rejected."
                     : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
                     ? "No parcel detected on the doorstep. Handover rejected."
                     : "Visible transit damage on the carton. Handover rejected."}
@@ -691,7 +691,7 @@ export function DeliveryApp() {
               <div className="manifest-row" style={{ marginBottom: "6px" }}>
                 <span className="manifest-label">1. Computer Vision</span>
                 <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
-                  ✔ Door #744 OCR &amp; Parcel Intact
+                  ✔ Door #15 OCR &amp; Parcel Intact on Floor
                 </span>
               </div>
               <div className="manifest-row" style={{ marginBottom: "6px" }}>
