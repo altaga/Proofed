@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { analyzeFulfillmentImage } from "../lib/vision-audit";
 import { executeAgentTool } from "../lib/agent-tools";
+import { confirmDelivery, createCheckout } from "../lib/orders";
+import { seedCatalog } from "../lib/catalog-seed";
 
 describe("Quantitative Multimodal Vision Audit & Agent Tool", () => {
   it("computes passing quantitative scores (>= 80/100) for valid handover", async () => {
@@ -76,5 +78,39 @@ describe("Quantitative Multimodal Vision Audit & Agent Tool", () => {
     expect(payload.quantitative_scores.overall_handover_score).toBeGreaterThanOrEqual(80);
     expect(payload.capture_authorized).toBe(true);
     expect(payload.verdict).toBe("VERIFIED");
+  });
+
+  it("enforces server-side vision score gate in confirmDelivery blocking capture when score < 80", async () => {
+    seedCatalog();
+    const order = await createCheckout({
+      items: [{ sku: "PAN-COF-ETH", qty: 1 }],
+      autoAuthorize: true,
+    });
+
+    await expect(
+      confirmDelivery({
+        orderId: order.id,
+        pickupCode: order.pickup_code!,
+        presetId: "wrong_door",
+        note: "Bypass attempt with valid PIN but wrong door photo",
+      }),
+    ).rejects.toThrow(/Server-side quantitative vision gate blocked capture/);
+
+    await expect(
+      confirmDelivery({
+        orderId: order.id,
+        pickupCode: order.pickup_code!,
+        presetId: "damaged",
+        note: "Bypass attempt with valid PIN but damaged parcel photo",
+      }),
+    ).rejects.toThrow(/Server-side quantitative vision gate blocked capture/);
+
+    const captured = await confirmDelivery({
+      orderId: order.id,
+      pickupCode: order.pickup_code!,
+      presetId: "correct",
+      note: "Valid PIN + passing vision audit",
+    });
+    expect(captured.status).toBe("CAPTURED");
   });
 });

@@ -10,6 +10,8 @@ export async function POST(request: Request) {
       note?: string;
       photoBase64?: string;
       photoMime?: string;
+      presetId?: "correct" | "wrong_door" | "damaged" | "custom";
+      quantitativeScore?: number;
       orderSnapshot?: {
         id?: string;
         status?: string;
@@ -32,6 +34,8 @@ export async function POST(request: Request) {
       note: body.note,
       photoBase64: body.photoBase64,
       photoMime: body.photoMime,
+      presetId: body.presetId,
+      quantitativeScore: body.quantitativeScore,
       actor: "device",
     });
     return jsonOk({ order: publicOrderView(order) });

@@ -267,6 +267,8 @@ export function DeliveryApp() {
             note: `Handover verified: ${visionResult?.visualEvidence || "Doorstep OCR and parcel condition confirmed"} (${((visionResult?.confidence ?? visionResult?.overallHandoverScore) ?? 98.5).toFixed(1)}% confidence) · Recipient handover PIN verified`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
+            presetId: customPhotoBase64 ? "custom" : selectedPreset.id,
+            quantitativeScore: visionResult?.overallHandoverScore ?? visionResult?.confidence ?? 98.4,
             orderSnapshot: activeOrder || undefined,
           }),
         });

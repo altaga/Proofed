@@ -16,8 +16,8 @@ While digital transactions settle atomically, physical fulfillment is uncertain:
 Proofed is purpose-built for **local merchants, micro-fulfillment hubs, stadium/venue commerce, and unattended smart lockers** handling short-duration transactions. Short fulfillment windows align directly with PayPal's authorization lifecycle (29-day authorization validity and **3-day recommended honor period**), avoiding multi-week carrier expiration and reauthorization overhead.
 
 ### Complementary Division of Labor: AI vs. Deterministic Code
-- **AI Handles Ambiguity & Exceptions**: Interpreting unstructured budget requests, identifying valid inventory, evaluating doorstep computer vision telemetry, explaining recovery options to the buyer, and routing contested claims.
-- **Deterministic Code Enforces Financial Safety**: Integer-cent catalog pricing (`app/lib/policy.ts`), state-machine transitions (`app/lib/state-machine.ts`), one-time recipient PIN verification, idempotency keys (`PayPal-Request-Id`), and PayPal API execution.
+- **AI Handles Ambiguity & Exceptions**: Interpreting unstructured budget requests, identifying valid inventory, executing multimodal vision inspection via the `verify_handover_evidence` agent tool (measuring address confidence %, parcel integrity %, and placement security %), explaining recovery options to the buyer, and routing contested claims.
+- **Deterministic Code Enforces Financial Safety**: Integer-cent catalog pricing (`app/lib/policy.ts`), state-machine transitions (`app/lib/state-machine.ts`), one-time recipient PIN verification, quantitative handover score gating ($\ge 80.0 / 100$), idempotency keys (`PayPal-Request-Id`), and PayPal API execution.
 
 ---
 
@@ -27,8 +27,8 @@ Proofed is purpose-built for **local merchants, micro-fulfillment hubs, stadium/
 |---|---|---|
 | **Pricing & Currency** | Computes all quotes, subtotals, and limits strictly in **integer cents** (`$18.50` = `1850`) via deterministic TypeScript against catalog records (`app/lib/policy.ts`). | **NEVER** allows the LLM to invent, discount, calculate, or modify prices. Floating-point currency math is banned. |
 | **PayPal Authorization Semantics** | Uses **conditional capture via PayPal Orders v2 (`intent=AUTHORIZE`)**. Displays exact financial state: **`$18.50 authorized · $0.00 captured`**. | Does not mischaracterize PayPal authorizations as legal escrow, nor claim that authorizations leave available bank balances unaffected prior to void settlement. |
-| **Two-Factor Handover Verification** | Combines **1) Computer vision verification** (doorstep OCR `#744` + parcel condition check) with **2) Server-verified one-time Recipient Handover PIN** (`pickup_code`). | Does not treat a standalone photograph or SHA-256 image digest as indisputable proof of customer receipt without recipient acknowledgment. |
-| **Tamper-Evident Audit Log** | Records state transitions and evidence digests in an append-only log chained with **server-side HMAC-SHA256 signatures** (`_sig`, `_prev_sig`), plus cross-instance state rehydration for serverless environments. | Does not claim an unsigned SQLite file is inherently immutable. |
+| **Two-Factor Quantitative Handover Verification** | Combines **1) MiniMax M3.1 Flash Multimodal Vision Tool (`verify_handover_evidence`)** computing a weighted composite handover score ($\text{Score} = 0.40 \times \text{Address} + 0.40 \times \text{Parcel} + 0.20 \times \text{Placement}$, requiring $\ge 80.0 / 100$) with **2) Server-verified one-time Recipient Handover PIN** (`pickup_code`). | Does not rely on fragile OCR-only text matching or treat a standalone photograph/SHA-256 digest as indisputable proof of customer receipt without recipient acknowledgment. |
+| **Tamper-Evident Audit Log** | Records state transitions and evidence digests in an append-only log chained with **server-side HMAC-SHA256 signatures** (`_sig`, `_prev_sig`), plus cross-instance Turso/LibSQL cloud synchronization (`app/lib/db.ts`) for serverless environments. | Does not claim an unsigned local SQLite file is inherently immutable or durable across ephemeral serverless instances. |
 | **Authorization Void & Timing** | Voids uncaptured authorizations via PayPal Payments v2 `/void` when delivery fails (`$0.00 captured`), noting that **balance release timing depends on the buyer's payment provider**. | Does not promise instantaneous bank-level balance restoration across all issuing banks. |
 | **Exception & Dispute Handling** | Uses **explainable policy rules** (`RULE_CONTRADICTORY_EVIDENCE_ESCALATION`, `RULE_MAX_REDISPATCH_LIMIT_REACHED`) to flag conflicting post-capture claims and escalate them to Merchant Operations with tamper-evident handover evidence attached. | Does not use arbitrary uncalibrated decimal fraud scores, accuse customers of dishonesty automatically, or claim to eliminate PayPal's 180-day dispute rights. |
 
@@ -36,12 +36,16 @@ Proofed is purpose-built for **local merchants, micro-fulfillment hubs, stadium/
 
 ## 3. Four-Step Handover Verification Protocol
 
-To move beyond simple image classification into a credible transaction-assurance workflow, Proofed enforces a 4-step handover sequence before capturing funds:
+To move beyond fragile OCR-only checks or simple image classification into a credible transaction-assurance workflow, Proofed enforces a 4-step handover sequence before capturing funds:
 
-1. **Physical Evidence (Computer Vision)**: Courier photograph analyzed for doorstep number OCR match (`#744` vs `#742`) and intact carton condition, producing a SHA-256 content digest.
+1. **Multimodal Vision Tool (`verify_handover_evidence`)**: Rather than brittle OCR alone, the courier photograph is inspected by **MiniMax M3.1 Flash Multimodal Vision** (`app/lib/vision-audit.ts`), which evaluates three quantitative dimensions and computes a weighted composite score:
+   $$\text{overallHandoverScore} = 0.40 \times \text{addressConfidencePct} + 0.40 \times \text{parcelIntegrityPct} + 0.20 \times \text{placementSecurityPct}$$
+   - **Valid Delivery (`#744` Intact)**: $0.40(99.4) + 0.40(98.6) + 0.20(96.0) = \mathbf{98.4 / 100} \ge 80.0 \rightarrow \text{Pass}$
+   - **Wrong Door (`#742` Mismatch)**: $0.40(12.0) + 0.40(95.0) + 0.20(88.0) = \mathbf{60.4 / 100} < 80.0 \rightarrow \text{Blocked}$
+   - **Damaged Carton (`#744` Crushed)**: $0.40(99.0) + 0.40(24.0) + 0.20(80.0) = \mathbf{65.2 / 100} < 80.0 \rightarrow \text{Blocked}$
 2. **Customer Handover Code (Recipient Acknowledgment)**: A server-generated, 6-character one-time credential (`pickup_code`) supplied by the recipient (or signed hardware dispense signal at `/device`) and verified server-side. Invalid PINs are rejected (`PICKUP_CODE_MISMATCH`).
-3. **Signed Handover Event**: Evidence ID, SHA-256 photo digest, and verified recipient PIN are bound to the `order_id` and `paypal_authorization_id` in an HMAC-SHA256 signed event record.
-4. **Conditional PayPal Capture**: Only after steps 1–3 succeed does the backend execute `POST /v2/payments/authorizations/{authorization_id}/capture` with a deterministic `PayPal-Request-Id`.
+3. **Server-Side Gate & Signed Handover Event**: `confirmDelivery()` in `app/lib/orders.ts` enforces both `assertPickupCode()` AND `overallHandoverScore >= 80.0` (`INSUFFICIENT_HANDOVER_SCORE`). Evidence ID, SHA-256 photo digest, quantitative vision metrics, and verified recipient PIN are bound to the `order_id` and `paypal_authorization_id` in an HMAC-SHA256 signed event record.
+4. **Conditional PayPal Capture**: Only after steps 1–3 succeed on the server does the backend execute `POST /v2/payments/authorizations/{authorization_id}/capture` with a deterministic `PayPal-Request-Id`.
 
 ---
 

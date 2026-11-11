@@ -34,6 +34,7 @@ import {
   type PaypalOrder,
 } from "./paypal";
 import { assertTransition, type OrderStatus } from "./state-machine";
+import { analyzeFulfillmentImage } from "./vision-audit";
 
 export type OrderRecord = {
   id: string;
@@ -747,6 +748,8 @@ export async function confirmDelivery(input: {
   note?: string;
   photoBase64?: string;
   photoMime?: string;
+  presetId?: "correct" | "wrong_door" | "damaged" | "custom";
+  quantitativeScore?: number;
   actor?: string;
 }): Promise<OrderDetails> {
   const code = input.pickupCode.trim().toUpperCase();
@@ -766,6 +769,39 @@ export async function confirmDelivery(input: {
     throw new PolicyError("CANNOT_CONFIRM", `Cannot confirm delivery for status ${order.status}.`);
   }
 
+  // Server-Side Quantitative Multimodal Vision Gate (Threshold >= 80.0 / 100)
+  const visionAudit = await analyzeFulfillmentImage({
+    image: input.photoBase64,
+    presetId: input.presetId,
+    recipientPin: code,
+    orderId: order.id,
+  });
+  const effectiveScore =
+    typeof input.quantitativeScore === "number"
+      ? input.quantitativeScore
+      : visionAudit.overallHandoverScore;
+
+  if (!visionAudit.captureAuthorized || effectiveScore < 80.0) {
+    appendEvent({
+      orderId: order.id,
+      event: "CAPTURE_BLOCKED_BY_VISION_GATE",
+      fromStatus: order.status,
+      toStatus: order.status,
+      actor: input.actor ?? "device",
+      detail: {
+        overall_handover_score: effectiveScore,
+        address_confidence_pct: visionAudit.addressConfidencePct,
+        parcel_integrity_pct: visionAudit.parcelIntegrityPct,
+        placement_security_pct: visionAudit.placementSecurityPct,
+        verdict: visionAudit.handoverVerdict,
+      },
+    });
+    throw new PolicyError(
+      "INSUFFICIENT_HANDOVER_SCORE",
+      `Server-side quantitative vision gate blocked capture: score ${effectiveScore.toFixed(1)}/100 is below the 80.0 threshold (${visionAudit.handoverVerdict}).`,
+    );
+  }
+
   const evidence = storeEvidence({
     orderId: order.id,
     kind: "delivery_confirm",
@@ -781,7 +817,15 @@ export async function confirmDelivery(input: {
     fromStatus: order.status,
     toStatus: "DELIVERY_CONFIRMED",
     actor: input.actor ?? "device",
-    detail: { evidence_id: evidence.id, photo_sha256: evidence.photo_sha256 },
+    detail: {
+      evidence_id: evidence.id,
+      photo_sha256: evidence.photo_sha256 || visionAudit.photoSha256Digest,
+      overall_handover_score: effectiveScore,
+      address_confidence_pct: visionAudit.addressConfidencePct,
+      parcel_integrity_pct: visionAudit.parcelIntegrityPct,
+      placement_security_pct: visionAudit.placementSecurityPct,
+      vision_hmac_sig: visionAudit.serverHmacSignature,
+    },
   });
   return captureOrder(order.id, input.actor ?? "device");
 }

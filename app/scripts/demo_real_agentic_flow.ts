@@ -21,6 +21,7 @@ try {
 import { createCheckout, confirmDelivery, failDelivery, listEvents, voidOrder } from "../lib/orders";
 import { evaluateFraudAudit } from "../lib/fraud-audit";
 import { runAgentTurn } from "../lib/agent";
+import { executeAgentTool } from "../lib/agent-tools";
 
 async function runDemoProof() {
   console.log("================================================================================");
@@ -58,14 +59,34 @@ async function runDemoProof() {
   // --------------------------------------------------------------------------
   // SCENARIO 2: Real Physical Delivery Failure & Conditional Authorization Void
   // --------------------------------------------------------------------------
-  console.log(">>> [SCENARIO 2] REAL DELIVERY FAILURE AT DOOR #742 & ESCALATION");
-  console.log("Courier arrives at wrong door #742 (+120m away). Computer vision OCR detects mismatch.");
+  console.log(">>> [SCENARIO 2] REAL DELIVERY FAILURE AT DOOR #742 & QUANTITATIVE VISION AUDIT");
+  console.log("Courier arrives at wrong door #742 (+120m away). Running agent tool `verify_handover_evidence`...");
+
+  const visionMismatchTool = await executeAgentTool("verify_handover_evidence", {
+    order_id: order1.id,
+    target_door_number: "744",
+    target_address: "744 Maple Street",
+    preset_id: "wrong_door",
+    recipient_pin: order1.pickup_code,
+  });
+  console.log("Agent Tool `verify_handover_evidence` Result:", JSON.stringify(visionMismatchTool.result));
+
+  try {
+    await confirmDelivery({
+      orderId: order1.id,
+      pickupCode: order1.pickup_code!,
+      presetId: "wrong_door",
+      note: "Attempted capture on wrong door #742",
+    });
+  } catch (err) {
+    console.log(`Server-Side Quantitative Vision Gate Blocked Capture -> ${(err as Error).message}`);
+  }
 
   const failedOrder = failDelivery({
     orderId: order1.id,
     pickupCode: order1.pickup_code!,
     reason: "wrong_address",
-    note: "Computer vision OCR detected door #742 instead of destination #744 Maple St (+120m distance)",
+    note: "Multimodal vision audit detected door #742 (score 60.4/100 < 80.0 threshold) instead of destination #744 Maple St",
     photoBase64: "dGVzdC1kb29yLTc0Mi1taXNtYXRjaA==",
   });
   console.log(`Delivery Status: ${failedOrder.status} (Reason: ${failedOrder.failure_reason})`);
