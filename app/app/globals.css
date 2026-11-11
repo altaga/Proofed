@@ -3516,6 +3516,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   letter-spacing: 0.02em;
 }
 
+.telemetry-model-badge {
+  font-size: 11px;
+  background: rgba(255, 122, 61, 0.12);
+  border: 1px solid rgba(255, 122, 61, 0.3);
+  padding: 2px 7px;
+  border-radius: 4px;
+  color: #FF7A3D;
+  letter-spacing: 0.03em;
+}
+
 .telemetry-latency {
   color: #ABA598;
   display: flex;

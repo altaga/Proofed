@@ -17,6 +17,7 @@ import {
   recoverOrder,
 } from "./orders";
 import { evaluateFraudAudit } from "./fraud-audit";
+import { analyzeFulfillmentImage } from "./vision-audit";
 
 const itemList = z
   .array(
@@ -176,6 +177,26 @@ export const agentToolDefinitions = [
           action: { type: "string", enum: ["refund", "retry"], description: "Action being evaluated" },
         },
         required: ["order_id", "action"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "verify_handover_evidence",
+      description:
+        "Execute quantitative multimodal vision analysis on a doorstep delivery photo using MiniMax Multimodal AI. Measures address OCR match percentage, parcel integrity/damage score, placement security score, and cross-references recipient handover PIN to determine whether PayPal capture is mathematically authorized.",
+      parameters: {
+        type: "object",
+        properties: {
+          order_id: { type: "string", description: "Target order ID" },
+          photo_base64: { type: "string", description: "Base64 encoded JPEG or PNG image of the delivery scene" },
+          target_door_number: { type: "string", description: "Expected doorplate number, e.g. '744'" },
+          target_address: { type: "string", description: "Expected street address, e.g. '744 Maple Street'" },
+          recipient_pin: { type: "string", description: "6-character one-time recipient handover PIN" },
+          preset_id: { type: "string", enum: ["correct", "wrong_door", "damaged", "custom"] },
+        },
+        required: ["target_door_number"],
       },
     },
   },
@@ -360,6 +381,44 @@ export async function executeAgentTool(name: string, rawArgs: unknown): Promise<
             order: publicOrderView(recovered.order),
             replacement: recovered.replacement ? publicOrderView(recovered.replacement) : undefined,
             audit,
+          },
+        };
+      }
+      case "verify_handover_evidence": {
+        const args = (rawArgs ?? {}) as {
+          order_id?: string;
+          photo_base64?: string;
+          target_door_number?: string;
+          target_address?: string;
+          recipient_pin?: string;
+          preset_id?: "correct" | "wrong_door" | "damaged" | "custom";
+        };
+        const metrics = await analyzeFulfillmentImage({
+          image: args.photo_base64,
+          targetDoorNumber: args.target_door_number,
+          targetAddress: args.target_address,
+          presetId: args.preset_id,
+          recipientPin: args.recipient_pin,
+          orderId: args.order_id,
+        });
+        return {
+          name,
+          ok: metrics.ok,
+          result: {
+            source: metrics.source,
+            quantitative_scores: {
+              address_confidence_pct: metrics.addressConfidencePct,
+              parcel_integrity_pct: metrics.parcelIntegrityPct,
+              placement_security_pct: metrics.placementSecurityPct,
+              overall_handover_score: metrics.overallHandoverScore,
+            },
+            verdict: metrics.handoverVerdict,
+            capture_authorized: metrics.captureAuthorized,
+            recipient_pin_verified: metrics.recipientPinVerified,
+            photo_sha256_digest: metrics.photoSha256Digest,
+            server_hmac_signature: metrics.serverHmacSignature,
+            agent_assessment: metrics.agentAssessment,
+            visual_evidence: metrics.visualEvidence,
           },
         };
       }
