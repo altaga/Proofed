@@ -78,7 +78,7 @@ export function ShopperChat({
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [techLogsOpen, setTechLogsOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [clientId, setClientId] = useState<string>("AURENVKKp9qvzggvkyehWs8DfYcIeqTGExPizTmcNFprVliVw2NNGRaXCuAch08Ks1Fh1mkiziPyA02O");
+  const [clientId, setClientId] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hydrated, setHydrated] = useState(false);
 
