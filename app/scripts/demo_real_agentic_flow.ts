@@ -127,12 +127,13 @@ async function runDemoProof() {
     );
   }
 
-  // Confirm with valid one-time recipient PIN + doorstep photo
+  // Confirm with valid one-time recipient PIN + doorstep photo preset
   const verifiedOrder = await confirmDelivery({
     orderId: order2.id,
     pickupCode: order2.pickup_code!,
-    note: "Doorplate OCR confirmed #744 Maple St + Recipient one-time PIN verified.",
-    photoBase64: "dGVzdC1kb29yLTc0NC12ZXJpZmllZC1waG90bw==",
+    presetId: "correct",
+    note: "Doorplate #15 ul. Filarecka 2B + Recipient one-time PIN verified.",
+    photoBase64: "dGVzdC1kb29yLTE1LXZlcmlmaWVkLXBob3Rv",
   });
   const latestEvents = listEvents(order2.id, 3);
   console.log(`Handover Status: ${verifiedOrder.status} (PayPal Capture ID: ${verifiedOrder.paypal_capture_id})`);

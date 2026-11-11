@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { analyzeFulfillmentImage } from "../lib/vision-audit";
 import { executeAgentTool } from "../lib/agent-tools";
-import { confirmDelivery, createCheckout } from "../lib/orders";
+import { captureOrder, confirmDelivery, courierOrderView, createCheckout } from "../lib/orders";
 import { seedCatalog } from "../lib/catalog-seed";
 import { closeDb } from "../lib/db";
 import { mkdtempSync } from "node:fs";
@@ -173,5 +173,49 @@ describe("Quantitative Multimodal Vision Audit & Agent Tool", () => {
     });
 
     expect(captured.status).toBe("CAPTURED");
+  });
+
+  it("security P0: blocks captureOrder() on AUTHORIZED orders that have not completed physical handover verification", async () => {
+    seedCatalog();
+    const order = await createCheckout({
+      items: [{ sku: "PAN-COF-ETH", qty: 1 }],
+      autoAuthorize: true,
+    });
+    expect(order.status).toBe("AUTHORIZED");
+
+    await expect(captureOrder(order.id, "merchant")).rejects.toThrow(
+      /Physical handover evidence and recipient PIN must be verified first/,
+    );
+  });
+
+  it("security P0: fails closed when non-preset vision verification lacks an image or GPS coordinates", async () => {
+    const missingPhoto = await analyzeFulfillmentImage({
+      presetId: "custom",
+      gpsCoordinates: { lat: 50.0556092, lng: 19.9203676 },
+    });
+    expect(missingPhoto.captureAuthorized).toBe(false);
+    expect(missingPhoto.overallHandoverScore).toBe(0);
+    expect(missingPhoto.source).toBe("fail-closed-missing-evidence");
+
+    const missingGps = await analyzeFulfillmentImage({
+      presetId: "custom",
+      imageBase64: "data:image/jpeg;base64,dGVzdA==",
+    });
+    expect(missingGps.gpsZoneVerified).toBe(false);
+    expect(missingGps.captureAuthorized).toBe(false);
+  });
+
+  it("security P0: redacts pickup_code in courierOrderView()", async () => {
+    seedCatalog();
+    const order = await createCheckout({
+      items: [{ sku: "PAN-COF-ETH", qty: 1 }],
+      autoAuthorize: true,
+    });
+    expect(order.pickup_code).toBeTruthy();
+
+    const courierView = courierOrderView(order);
+    expect(courierView.pickup_code).toBeNull();
+    expect(courierView.pickup_code_masked).toBe("••••••");
+    expect(courierView.pin_required).toBe(true);
   });
 });

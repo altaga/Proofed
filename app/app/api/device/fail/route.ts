@@ -1,6 +1,6 @@
 import { handleRouteError, jsonError, jsonOk, readJson } from "@/lib/http";
 import { syncOrderFromCloud } from "@/lib/db";
-import { ensureOrderHydrated, failDelivery, publicOrderView } from "@/lib/orders";
+import { courierOrderView, ensureOrderHydrated, failDelivery } from "@/lib/orders";
 
 export async function POST(request: Request) {
   try {
@@ -21,7 +21,9 @@ export async function POST(request: Request) {
         items?: Array<{ sku: string; name?: string; qty: number; unit_price_cents?: number }>;
       };
     }>(request);
-    if (!body.pickupCode) return jsonError("PICKUP_CODE_REQUIRED", "pickupCode is required.", 400);
+    if (!body.orderId && !body.pickupCode) {
+      return jsonError("ORDER_ID_REQUIRED", "Either orderId or pickupCode is required to report delivery failure.", 400);
+    }
     const lookupId = body.orderId || body.orderSnapshot?.id;
     if (lookupId) {
       await syncOrderFromCloud(lookupId);
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
       photoMime: body.photoMime,
       actor: "courier",
     });
-    return jsonOk({ order: publicOrderView(order) });
+    return jsonOk({ order: courierOrderView(order) });
   } catch (error) {
     return handleRouteError(error);
   }

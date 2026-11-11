@@ -1,6 +1,6 @@
 import { handleRouteError, jsonError, jsonOk, readJson } from "@/lib/http";
 import { syncOrderByPickupCodeFromCloud, syncOrderFromCloud } from "@/lib/db";
-import { confirmDelivery, ensureOrderHydrated, publicOrderView } from "@/lib/orders";
+import { confirmDelivery, courierOrderView, ensureOrderHydrated } from "@/lib/orders";
 
 export async function POST(request: Request) {
   try {
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       gpsCoordinates: body.gpsCoordinates,
       actor: "courier",
     });
-    return jsonOk({ order: publicOrderView(order) });
+    return jsonOk({ order: courierOrderView(order) });
   } catch (error) {
     return handleRouteError(error);
   }

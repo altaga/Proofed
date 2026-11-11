@@ -322,20 +322,26 @@ export function DeliveryApp() {
 
   async function fetchLatestOrder() {
     try {
-      const res = await fetch("/api/orders");
+      const res = await fetch("/api/orders?view=courier");
       const data = await res.json();
       const serverOrders: DeliveryOrder[] = data.orders || [];
       let cachedOrders: DeliveryOrder[] = [];
       try {
         const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
         if (cachedRaw) {
-          cachedOrders = JSON.parse(cachedRaw) as DeliveryOrder[];
+          cachedOrders = (JSON.parse(cachedRaw) as DeliveryOrder[]).map((o) => ({
+            ...o,
+            pickup_code: null,
+          }));
         }
       } catch {
         // ignore
       }
 
-      const combined: DeliveryOrder[] = mergeOrders(serverOrders, cachedOrders);
+      const combined: DeliveryOrder[] = mergeOrders(serverOrders, cachedOrders).map((o) => ({
+        ...o,
+        pickup_code: null,
+      }));
 
       const held =
         combined.find((o) => o.status === "AUTHORIZED") ||
@@ -345,9 +351,6 @@ export function DeliveryApp() {
 
       if (held) {
         setActiveOrder(held);
-        if (held.pickup_code && !recipientPin) {
-          setRecipientPin(held.pickup_code);
-        }
       }
     } catch {
       // Quiet fail
@@ -358,20 +361,26 @@ export function DeliveryApp() {
     setIsSubmitting(true);
     setFeedback(null);
     try {
-      const res = await fetch("/api/orders");
+      const res = await fetch("/api/orders?view=courier");
       const data = await res.json();
       const serverOrders: DeliveryOrder[] = data.orders || [];
       let cachedOrders: DeliveryOrder[] = [];
       try {
         const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
         if (cachedRaw) {
-          cachedOrders = JSON.parse(cachedRaw) as DeliveryOrder[];
+          cachedOrders = (JSON.parse(cachedRaw) as DeliveryOrder[]).map((o) => ({
+            ...o,
+            pickup_code: null,
+          }));
         }
       } catch {
         // ignore
       }
 
-      const combined: DeliveryOrder[] = mergeOrders(serverOrders, cachedOrders);
+      const combined: DeliveryOrder[] = mergeOrders(serverOrders, cachedOrders).map((o) => ({
+        ...o,
+        pickup_code: null,
+      }));
 
       // Look strictly for another order that is AUTHORIZED (waiting for delivery)
       const nextPending =
@@ -381,7 +390,7 @@ export function DeliveryApp() {
       if (nextPending) {
         setActiveOrder(nextPending);
         setCurrentStep(1);
-        setRecipientPin(nextPending.pickup_code || "");
+        setRecipientPin("");
         setSelectedPreset(PHOTO_PRESETS[0]);
         setPreviewUrl(PHOTO_PRESETS[0].imagePath);
         void runVisionVerification({ presetId: "correct" });
@@ -484,7 +493,7 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
     setFeedback(null);
 
     const isVerified = visionResult?.handoverVerdict === "VERIFIED";
-    const pinToVerify = (recipientPin || activeOrder.pickup_code || "").trim().toUpperCase();
+    const pinToVerify = recipientPin.trim().toUpperCase();
 
     if (isVerified && (!pinToVerify || pinToVerify.length < 6)) {
       setFeedback({
@@ -515,7 +524,7 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
         });
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.error || "Confirmation failed");
-        setActiveOrder(payload.order);
+        setActiveOrder({ ...payload.order, pickup_code: null });
         try {
           const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
           const list = cachedRaw ? (JSON.parse(cachedRaw) as DeliveryOrder[]) : [];
@@ -534,14 +543,12 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
             ? "missing_product"
             : "item_damaged";
 
-        const failCode = (pinToVerify || activeOrder.pickup_code || "FAIL01").trim().toUpperCase();
-
         const res = await fetch("/api/device/fail", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             orderId: activeOrder.id,
-            pickupCode: failCode,
+            pickupCode: pinToVerify || undefined,
             reason,
             note: `Delivery verification failed: ${visionResult?.visualEvidence || "Conditions not met"}`,
             photoBase64: customPhotoBase64 || undefined,
@@ -551,7 +558,7 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
         });
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.error || "Delivery failure report failed");
-        setActiveOrder(payload.order);
+        setActiveOrder({ ...payload.order, pickup_code: null });
         try {
           const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
           const list = cachedRaw ? (JSON.parse(cachedRaw) as DeliveryOrder[]) : [];
@@ -1025,15 +1032,9 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
                 <label htmlFor="customer-pin-field" className="pin-box-label">
                   Customer Delivery PIN
                 </label>
-                {activeOrder?.pickup_code && (
-                  <button
-                    type="button"
-                    className="pin-autofill-btn mono"
-                    onClick={() => setRecipientPin(activeOrder.pickup_code || "")}
-                  >
-                    Auto-fill demo ({activeOrder.pickup_code})
-                  </button>
-                )}
+                <span className="mono" style={{ fontSize: "11px", color: "var(--ink-3)" }}>
+                  Required from customer checkout screen
+                </span>
               </div>
 
               <input

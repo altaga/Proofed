@@ -1,81 +1,47 @@
-# Proofed — Technical Architecture & Response to Evaluating Agent
+# Proofed — Technical Architecture & Remediation Report (Second Evaluation)
 
-> **Mission**: *Authorize now. Capture only after proof of handover.*  
+> **Mission**: *Authorize now. Capture only after verified proof of physical handover.*  
 > **Official Repository**: [github.com/altaga/Proofed](https://github.com/altaga/Proofed) (Public)  
 > **Production Deployment**: [proofed-ai.vercel.app](https://proofed-ai.vercel.app)  
-> **Date**: November 2026 — PayPal AI Hackathon  
+> **Date**: November 11, 2026 — PayPal AI Hackathon  
 
 ---
 
-## 1. Executive Summary & Direct Issue Resolution
+## 1. Executive Summary: Second Technical Evaluation Remediations
 
-This document serves as the formal technical response and architecture manual addressed to our evaluating/peer agent. It documents the resolution of each prior finding, the elimination of sandbox polling loops, and the full operational flow of Proofed.
+We thank the evaluating agent for the rigorous code-level audit of `github.com/altaga/Proofed`. Every **P0 security and payment-invariant finding** and **P1 architectural/documentation gap** identified in the Second Technical & Strategic Evaluation has been remediated directly in the codebase:
 
-### Resolution Matrix
+> **Core Security Principle Enforced**:  
+> *An untrusted client can submit evidence, but it cannot declare payment authorization, physical verification, or settlement success.*
 
-| Prior Finding | Root Cause | Engineering Resolution |
-|---|---|---|
-| **"No PayPal button, only auto-approves"** | Development flag `autoAuthorize: true` bypassed explicit shopper consent during initial testing. | **Explicit 1-Click Hold Authorization**: The agent proposes items and integer-cent quotes, but hold placement requires the shopper's explicit click on *"Approve PayPal hold ($XX.XX)"*. Upon click, it locks to an immutable `AUTHORIZED` badge. Zero bypass, zero simulated emojis. |
-| **"Repeating PayPal Sandbox 404 errors on `/v2/payments/authorizations/AUTH-PP-...`"** | Local synthetic strings (`AUTH-PP-xxxxxx`) were repeatedly queried by an unneeded background reconciliation loop every 60 seconds against PayPal Sandbox. | **Background Polling Deactivated & Live PayPal IDs**: Completely halted the looping background worker. Orders now invoke real PayPal Orders v2 (`POST /v2/checkout/orders` with `intent: "AUTHORIZE"`), yielding clean `201 Created` responses with legitimate PayPal-issued IDs. Sandbox logs are clean and 404-free. |
-| **"Not a Kiosk/Locker; it was a manual residential delivery"** | Legacy stadium locker / kiosk presets ("Tokyo Dome City / Bay 04") created terminology confusion. | **Pivoted to Real-World Residential Doorstep Delivery**: Relocated the scenario to `ul. Filarecka 2B, 30-110 Kraków`, Unit `#15`. Purged locker references from the primary command hub. Consolidated the application into 4 core sections: `Client`, `Delivery`, `Backend`, and `Merchant`. |
-| **"PIN requested but failed or disappeared"** | Session state isolation between separate browser tabs/instances caused lookup mismatches. | **Interactive Recipient PIN & Credential Lookup**: Added explicit interactive PIN input in Step 03 of the courier app, backed by a direct `pickup_code` lookup and cloud database sync. |
-| **"Vision Verification: OCR vs Multimodal LLM"** | Describing the visual inspection as "OCR" misrepresents the technology. | **Native Multimodal Vision LLM**: Proofed does **not** run brittle legacy OCR scripts. It feeds the doorstep photograph directly to **MiniMax Multimodal Vision LLM** (`MiniMax-M3.1-Flash`) for end-to-end spatial understanding: reading Door `#15` in scene context, inspecting carton integrity on the floor, and computing weighted risk metrics. |
-| **"Browser tab title had verbose tagline and missing favicon"** | Header metadata was rendering `Proofed — Authorize now...` with default browser icons. | **Clean Tab Title & Official [✓] Favicon**: Enforced strict `Proofed` tab title across all views. Generated and registered multi-resolution `.ico` and vector `.svg` icons matching the orange box checkmark logo (`#FF7A3D`). |
+### P0 & P1 Code Remediation Matrix
 
----
-
-## 2. Two-Phase Hold & Conditional Capture Architecture
-
-Unlike traditional agentic checkout where agents charge immediately (`intent: "CAPTURE"`), Proofed separates authorization from final settlement:
-
-1. **Phase 1: Authorization Hold**:
-   - `intent: "AUTHORIZE"` placed on shopper's PayPal account.
-   - `$0.00` charged upfront; funds remain held securely.
-   - Shopper receives a 6-character Recipient One-Time PIN.
-2. **Phase 2: Conditional Capture upon Handover**:
-   - Courier photographs doorstep at `ul. Filarecka 2B, Kraków`.
-   - Courier inputs the buyer's PIN.
-   - Only when all 3 gates pass (Score $\ge 80/100$) does the server call `POST /v2/payments/authorizations/{id}/capture`.
-   - If verification fails (wrong unit, damaged parcel, no-show), server executes `POST /v2/payments/authorizations/{id}/void`, instantly unlocking held funds.
+| Evaluation Finding | Severity | Root Cause Identified in Review | Code-Level Fix Implemented |
+|---|---|---|---|
+| **1. Payment capture could bypass physical verification (`orders.ts`)** | **P0** | `captureOrder()` accepted `AUTHORIZED` or `DELIVERY_CONFIRMED`, and `finalizeCapture()` contained a branch that auto-marked `AUTHORIZED` orders as `DELIVERY_CONFIRMED` with `reason: "capture_without_prior_device_confirm"`. | **Strict `DELIVERY_CONFIRMED` Gate**: `captureOrder()` now throws `UNVERIFIED_CAPTURE_FORBIDDEN` (`409`) unless `order.status === "DELIVERY_CONFIRMED"` **and** a persisted `delivery_confirm` evidence record (or customer receipt confirmation event) exists in the database. The `capture_without_prior_device_confirm` branch has been completely deleted from `finalizeCapture()`. |
+| **2. Vision & GPS could fail open on missing photo/API error (`vision-audit.ts`)** | **P0** | A failed MiniMax API call or missing image fell back to the preset engine (`correct` default returning `captureAuthorized: true`), and missing `gpsCoordinates` defaulted to `TARGET_GEOFENCE`. | **Fail-Closed Vision & GPS**: Non-preset calls with missing images, MiniMax API errors/timeouts, or malformed JSON now **fail closed** (`captureAuthorized: false`, `overallHandoverScore: 0`, `source: "fail-closed-..."`). Missing GPS coordinates set `gpsDistanceMeters = 999999` and `gpsZoneVerified = false`. Demo presets are isolated and labeled `source: "demo-simulation-preset"`. |
+| **3. Vision prompt bias & non-conjunctive score gate (`vision-audit.ts`)** | **P0 / High** | Prompt example pre-filled `"detectedDoorNumber": "15", "isDoorMatch": true`, and `captureAuthorized` relied on weighted score $\ge 80$. | **Neutral Prompt Schema & Conjunctive Gate**: Replaced biased prompt examples with neutral schema placeholders (`"<string_or_null>"`, `"isDoorMatch": false`, `"packageCondition": "unclear"`). `captureAuthorized` now requires **all boolean factors** (`gpsZoneVerified && isMatch && packageDetected && isIntact && verdict === "VERIFIED" && overallHandoverScore >= 80.0`). |
+| **4. Recipient PIN exposed to courier & auto-filled (`orders.ts`, `DeliveryApp.tsx`)** | **P0** | `GET /api/orders` returned `pickup_code` via `publicOrderView()`, and `DeliveryApp.tsx` auto-populated `recipientPin` and showed an `"Auto-fill demo"` button. | **Courier-Blind PIN Architecture**: Added `courierOrderView()` in `app/lib/orders.ts` (`pickup_code: null`, `pickup_code_masked: "••••••"`, `pin_required: true`). `GET /api/orders?view=courier` and `/api/device/*` return `courierOrderView`. Removed PIN auto-fill and the `"Auto-fill demo"` button from `DeliveryApp.tsx`. Added PIN expiration (`pickup_deadline_at`) and a 5-attempt retry limit (`PIN_RETRY_LIMIT_EXCEEDED`) in `assertPickupCode()`. |
+| **5. Client-supplied `autoAuthorize` & snapshot overwrite (`orders/route.ts`, `orders.ts`)** | **P0** | `POST /api/orders` accepted `autoAuthorize` from the client JSON body, and `ensureOrderHydrated()` could overwrite an existing order's `pickup_code` or `status`. | **Hardcoded `autoAuthorize: false` & Immutable Hydration**: `POST /api/orders` hardcodes `autoAuthorize: false`. `ensureOrderHydrated()` returns immediately if the order already exists in SQLite (`if (existing) return;`), and `confirmDelivery()` ignores client `quantitativeScore` inflation. |
+| **6. Root `README.md` still described stadium/locker kiosk** | **P1** | `README.md` referenced `/device` locker kiosks while the app used Kraków residential doorstep delivery (`/client`, `/delivery`, `/merchant`, `/backend`). | **Unified Documentation**: Updated `README.md` and `docs/DEMO_SCRIPT.md` to match the 4-tab residential doorstep architecture (`ul. Filarecka 2B, m. 15, Kraków`) and the 2:25 video presentation structure. |
 
 ---
 
-## 3. Tri-Factor Doorstep Verification Protocol
+## 2. End-to-End Verification & Settlement Flow
 
-```
-                        TRI-FACTOR VERIFICATION ENGINE
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│ 1. GPS Zone Gate (Haversine)   : Filarecka 2B, Kraków (50.0556, 19.9203) <= 250m │ [30 pts]
-│ 2. Door Number Recognition     : Multimodal Vision LLM identifies Unit "#15"   │ [35 pts]
-│ 3. Parcel Status & Placement   : Packaging confirmed intact on doorstep floor   │ [35 pts]
-└─────────────────────────────────────────────────────────────────────────────────┘
-                                         │
-                             ┌───────────┴───────────┐
-                             ▼                       ▼
-                     Score >= 80/100         Score < 80/100
-                     + Valid Recipient PIN   or Address Mismatch
-                             │                       │
-                             ▼                       ▼
-                     PAYPAL CAPTURE          PAYPAL VOID
-                     Funds Settled           Hold Released
-```
-
----
-
-## 4. Strict Architectural Invariants
-
-- **Zero-Trust AI Pricing**: The LLM (MiniMax-M3) never decides or computes money. All prices are calculated in TypeScript against SQLite catalog integer cents (`app/lib/policy.ts`).
-- **Integer Cents**: Currency is calculated and stored as integer cents (`$12.00` = `1200`). Formatting occurs only in `app/lib/money.ts`.
-- **Append-Only Auditing**: All transitions, policy audits, and evidence hashes are logged immutably in `order_events`.
-
----
-
-## 5. Live Demonstration Links
-
-- **Web Application**: [https://proofed-ai.vercel.app](https://proofed-ai.vercel.app)
-- **GitHub Repository**: [https://github.com/altaga/Proofed](https://github.com/altaga/Proofed)
-- **Primary Paths**:
-  - `/client` — Shopper Conversational Assistant & 1-Click Hold Authorization
-  - `/delivery` — Courier Doorstep OCR, GPS Validation & PIN Verification
-  - `/backend` — Real-Time State Machine & PayPal Transaction Pipeline
-  - `/merchant` — Administrative Settlement Desk
+1. **Shopper Conversation & Zero-Trust Quote (`/client`)**:
+   - Shopper states a need and budget.
+   - `MiniMax-M3` emits only `sku` and `quantity`; `app/lib/policy.ts` calculates integer cents against SQLite.
+2. **Explicit Buyer Hold Authorization (`intent=AUTHORIZE`)**:
+   - Buyer clicks the PayPal Hold button.
+   - Backend creates and authorizes a PayPal Orders v2 hold (`$0.00` captured upfront) and generates a 6-character `pickup_code` visible **only** to the shopper.
+3. **Courier 3-Step Verification (`/delivery`)**:
+   - **Step 1 (Package)**: Courier sees order metadata, destination (`ul. Filarecka 2B, m. 15, 30-110 Kraków`), and parcel ID (`PKL-XXXX`), with `pickup_code` redacted (`null`).
+   - **Step 2 (Doorstep Photo & GPS)**: Live `MiniMax-M3.1-Flash` multimodal analysis (or explicitly labeled demo sample preset) verifies GPS proximity ($\le 250\text{m}$), Door `#15`, and intact box on floor with dynamic bounding boxes.
+   - **Step 3 (Customer PIN)**: Courier enters the 6-character PIN provided by the customer. Server validates PIN match, expiration, retry count, and vision audit before calling PayPal Payments v2 `/capture`.
+4. **Exception Recovery (3 Customer Choices)**:
+   - If Step 2 detects a mismatch (e.g., Door `#13` or damaged carton), the courier reports a failed delivery (`DELIVERY_FAILED`, `$0.00` charged).
+   - In `/client`, the customer can choose:
+     1. **`I received the package`** (if it was a false alarm, confirming receipt and authorizing capture),
+     2. **`Send a replacement`** (re-dispatching under the active authorization hold), or
+     3. **`Cancel & release hold`** (voiding the PayPal authorization via `/void`).

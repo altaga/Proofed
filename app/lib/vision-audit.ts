@@ -92,16 +92,34 @@ export async function analyzeFulfillmentImage(input: {
   const presetId = input.presetId || "custom";
   const apiKey = process.env.MINIMAX_API_KEY;
   const isBase64 = image.startsWith("data:image/");
+  const isExplicitDemoPreset =
+    !isBase64 &&
+    (input.presetId === "correct" || input.presetId === "wrong_door" || input.presetId === "damaged");
 
-  // Evaluate GPS Geofence (Tri-Factor Requirement 1)
-  const gpsCoords = input.gpsCoordinates || { lat: TARGET_GEOFENCE.lat, lng: TARGET_GEOFENCE.lng };
-  const gpsDistanceMeters = calculateDistanceMeters(
-    gpsCoords.lat,
-    gpsCoords.lng,
-    TARGET_GEOFENCE.lat,
-    TARGET_GEOFENCE.lng,
+  // Evaluate GPS Geofence (Tri-Factor Requirement 1) — Fail closed if missing on non-preset verification
+  const hasValidGps = Boolean(
+    input.gpsCoordinates &&
+      typeof input.gpsCoordinates.lat === "number" &&
+      Number.isFinite(input.gpsCoordinates.lat) &&
+      typeof input.gpsCoordinates.lng === "number" &&
+      Number.isFinite(input.gpsCoordinates.lng),
   );
-  const gpsZoneVerified = gpsDistanceMeters <= TARGET_GEOFENCE.maxRadiusMeters;
+  const gpsCoords = hasValidGps
+    ? input.gpsCoordinates!
+    : isExplicitDemoPreset
+    ? { lat: TARGET_GEOFENCE.lat, lng: TARGET_GEOFENCE.lng }
+    : { lat: 0, lng: 0 };
+  const gpsDistanceMeters =
+    hasValidGps || isExplicitDemoPreset
+      ? calculateDistanceMeters(
+          gpsCoords.lat,
+          gpsCoords.lng,
+          TARGET_GEOFENCE.lat,
+          TARGET_GEOFENCE.lng,
+        )
+      : 999999;
+  const gpsZoneVerified =
+    (hasValidGps || isExplicitDemoPreset) && gpsDistanceMeters <= TARGET_GEOFENCE.maxRadiusMeters;
 
   // Calculate cryptographic SHA-256 digest of image bytes
   const photoSha256Digest = isBase64
@@ -121,45 +139,82 @@ export async function analyzeFulfillmentImage(input: {
     recipientPinVerified = input.recipientPin.trim().length === 6;
   }
 
-  // 1. LIVE MINIMAX MULTIMODAL VISION INSPECTION
-  if (isBase64 && apiKey) {
+  // 1. LIVE MINIMAX MULTIMODAL VISION INSPECTION (Fail-Closed in Production)
+  if (!isExplicitDemoPreset) {
+    if (!isBase64 || !apiKey) {
+      const verdict = !gpsZoneVerified ? "REJECTED_GEOFENCE" : "REJECTED_NO_PACKAGE";
+      const sig = createHmac("sha256", secret)
+        .update(`${photoSha256Digest}:null:0:${verdict}:${gpsZoneVerified}`)
+        .digest("hex");
+      return {
+        ok: true,
+        source: "fail-closed-missing-evidence",
+        addressConfidencePct: 0,
+        parcelIntegrityPct: 0,
+        placementSecurityPct: 0,
+        overallHandoverScore: 0,
+        gpsZoneVerified,
+        gpsDistanceMeters,
+        gpsCoordinates: gpsCoords,
+        targetCoordinates: TARGET_GEOFENCE,
+        doorplateMatch: false,
+        detectedDoorNumber: null,
+        targetDoorNumber: targetDoor,
+        targetAddress,
+        packageDetected: false,
+        packageCondition: "unclear",
+        placementType: "unknown",
+        recipientPinVerified,
+        photoSha256Digest,
+        serverHmacSignature: sig,
+        captureAuthorized: false,
+        handoverVerdict: verdict,
+        visualEvidence: !isBase64
+          ? "Fail-closed: No doorstep photograph provided for visual verification."
+          : "Fail-closed: Multimodal vision service credential unavailable.",
+        agentAssessment: "Capture locked ($0.00): Genuine photograph analysis is mandatory and failed closed.",
+        boundingBoxes: [],
+        processedInMs: Math.max(Date.now() - startTime, 1),
+      };
+    }
+
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 25000);
 
       const prompt = `You are the Proofed Autonomous Multimodal Fulfillment Auditor.
-The courier is delivering to Unit #${targetDoor} at ${targetAddress}.
+The courier is attempting delivery to Unit #${targetDoor} at ${targetAddress}.
 
-Inspect this doorstep delivery photo. Detect the key objects and estimate their bounding box coordinates (as percentages 0 to 100 for x, y, width, height from the top-left of the image):
+Inspect this doorstep delivery photo objectively. Do not assume the photo is valid; report only what is genuinely visible:
 1. Door/Unit Number Check:
-   - Locate the number on the front door, door frame, or wall plaque (e.g. "${targetDoor}").
-   - detectedDoorNumber: string or null (e.g. "${targetDoor}").
-   - doorNumberBox: object { "x": number, "y": number, "w": number, "h": number } or null.
-   - isDoorMatch: boolean (strictly true if detectedDoorNumber contains or matches "${targetDoor}").
+   - Locate any number visible on the door, door frame, or wall plaque.
+   - detectedDoorNumber: string of the exact number read, or null if no number is visible.
+   - doorNumberBox: object { "x": number, "y": number, "w": number, "h": number } (percentages 0-100 from top-left) or null.
+   - isDoorMatch: boolean (true ONLY if a visible door number clearly matches "${targetDoor}", otherwise false).
 2. Package Presence & Integrity:
-   - packageDetected: boolean (true if a parcel, box, cardboard package, or delivery bag is visible resting on the floor or doorstep).
-   - packageBox: object { "x": number, "y": number, "w": number, "h": number } or null.
-   - packageCondition: "intact" | "damaged" | "unclear" (check if box is intact and not crushed).
+   - packageDetected: boolean (true ONLY if a parcel, box, or delivery bag is visible at the doorstep).
+   - packageBox: object { "x": number, "y": number, "w": number, "h": number } (percentages 0-100 from top-left) or null.
+   - packageCondition: "intact" | "damaged" | "unclear".
    - placementType: "safe_doorstep" | "unprotected_street" | "weather_risk" | "unknown".
 3. Quantitative Scores (0.0 to 100.0):
-   - addressConfidencePct: confidence in unit #${targetDoor} verification.
-   - parcelIntegrityPct: confidence that box is undamaged (100.0 = intact, 20.0 = crushed).
-   - placementSecurityPct: confidence that box is resting safely on the floor at the threshold.
-4. visualEvidence: 1 concise factual sentence describing the door number location and package condition.
+   - addressConfidencePct: confidence in the door number reading.
+   - parcelIntegrityPct: confidence that the parcel is intact and undamaged.
+   - placementSecurityPct: confidence that the parcel is safely placed at the threshold.
+4. visualEvidence: 1 concise factual sentence describing what is visible in the image.
 
-Respond strictly with valid JSON without markdown formatting:
+Respond strictly with valid JSON without markdown formatting matching this schema:
 {
-  "detectedDoorNumber": "${targetDoor}",
-  "doorNumberBox": { "x": 48.0, "y": 25.0, "w": 6.0, "h": 6.0 },
-  "isDoorMatch": true,
-  "packageDetected": true,
-  "packageBox": { "x": 35.0, "y": 70.0, "w": 12.0, "h": 18.0 },
-  "packageCondition": "intact",
-  "addressConfidencePct": 98.5,
-  "parcelIntegrityPct": 96.0,
-  "placementSecurityPct": 95.0,
-  "placementType": "safe_doorstep",
-  "visualEvidence": "Door #${targetDoor} verified with parcel intact on the floor."
+  "detectedDoorNumber": "<string_or_null>",
+  "doorNumberBox": { "x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0 },
+  "isDoorMatch": false,
+  "packageDetected": false,
+  "packageBox": { "x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0 },
+  "packageCondition": "unclear",
+  "addressConfidencePct": 0.0,
+  "parcelIntegrityPct": 0.0,
+  "placementSecurityPct": 0.0,
+  "placementType": "unknown",
+  "visualEvidence": "<factual_observation>"
 }`;
 
       const aiRes = await fetch("https://api.minimax.io/v1/chat/completions", {
@@ -186,129 +241,171 @@ Respond strictly with valid JSON without markdown formatting:
 
       clearTimeout(timeout);
 
-      if (aiRes.ok) {
-        const aiData = await aiRes.json();
-        const rawContent = aiData?.choices?.[0]?.message?.content || "";
-        let cleaned = rawContent
-          .replace(/<think>[\s\S]*?<\/think>/gi, "")
-          .replace(/```json/gi, "")
-          .replace(/```/gi, "")
-          .trim();
-        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-        if (jsonMatch) cleaned = jsonMatch[0];
-        const parsed = JSON.parse(cleaned);
-
-        const isMatch = Boolean(parsed.isDoorMatch);
-        const isDamaged = parsed.packageCondition === "damaged";
-        const detected = parsed.detectedDoorNumber || null;
-        const addrScore = Math.min(100, Math.max(0, Number(parsed.addressConfidencePct) || (isMatch ? 98.5 : 15.0)));
-        const parcelScore = Math.min(100, Math.max(0, Number(parsed.parcelIntegrityPct) || (isDamaged ? 25.0 : 96.0)));
-        const placementScore = Math.min(100, Math.max(0, Number(parsed.placementSecurityPct) || 92.0));
-
-        // Weighted quantitative composite: 40% address + 40% parcel condition + 20% placement security
-        let overallHandoverScore = Math.round((addrScore * 0.4 + parcelScore * 0.4 + placementScore * 0.2) * 10) / 10;
-        if (!gpsZoneVerified) {
-          overallHandoverScore = Math.min(overallHandoverScore, 35.0);
-        }
-
-        let verdict: QuantitativeFulfillmentMetrics["handoverVerdict"] = "VERIFIED";
-        if (!gpsZoneVerified) {
-          verdict = "REJECTED_GEOFENCE";
-        } else if (!parsed.packageDetected) {
-          verdict = "REJECTED_NO_PACKAGE";
-        } else if (!isMatch) {
-          verdict = "REJECTED_MISMATCH";
-        } else if (isDamaged) {
-          verdict = "REJECTED_DAMAGED";
-        }
-
-        const boxes: BoundingBox[] = [];
-        if (detected || parsed.doorNumberBox) {
-          const rawBox = parsed.doorNumberBox && typeof parsed.doorNumberBox === "object" ? parsed.doorNumberBox : null;
-          const w = Math.max(6, Math.min(45, Number(rawBox?.w) || 8));
-          const h = Math.max(5, Math.min(35, Number(rawBox?.h) || 7));
-          const rawX = Number(rawBox?.x);
-          const rawY = Number(rawBox?.y);
-          const x = Number.isFinite(rawX) ? Math.max(0, Math.min(100 - w, rawX - Math.max(0, (w - (Number(rawBox?.w) || 8)) / 2))) : 48;
-          const y = Number.isFinite(rawY) ? Math.max(0, Math.min(100 - h, rawY - Math.max(0, (h - (Number(rawBox?.h) || 7)) / 2))) : 25;
-
-          boxes.push({
-            label: `Unit #${detected || targetDoor} (${addrScore.toFixed(0)}%)`,
-            x: Math.round(x * 10) / 10,
-            y: Math.round(y * 10) / 10,
-            w: Math.round(w * 10) / 10,
-            h: Math.round(h * 10) / 10,
-            tone: isMatch ? "good" : "bad",
-            confidence: addrScore,
-          });
-        }
-        if (parsed.packageDetected || parsed.packageBox) {
-          const rawBox = parsed.packageBox && typeof parsed.packageBox === "object" ? parsed.packageBox : null;
-          const w = Math.max(8, Math.min(60, Number(rawBox?.w) || 16));
-          const h = Math.max(8, Math.min(60, Number(rawBox?.h) || 18));
-          const rawX = Number(rawBox?.x);
-          const rawY = Number(rawBox?.y);
-          const x = Number.isFinite(rawX) ? Math.max(0, Math.min(100 - w, rawX - Math.max(0, (w - (Number(rawBox?.w) || 16)) / 2))) : 35;
-          const y = Number.isFinite(rawY) ? Math.max(0, Math.min(100 - h, rawY - Math.max(0, (h - (Number(rawBox?.h) || 18)) / 2))) : 68;
-
-          boxes.push({
-            label: isDamaged ? `Parcel: Damaged (${parcelScore.toFixed(0)}%)` : `Parcel: Intact on Floor (${parcelScore.toFixed(0)}%)`,
-            x: Math.round(x * 10) / 10,
-            y: Math.round(y * 10) / 10,
-            w: Math.round(w * 10) / 10,
-            h: Math.round(h * 10) / 10,
-            tone: isDamaged ? "bad" : "good",
-            confidence: parcelScore,
-          });
-        }
-
-        const serverHmacSignature = createHmac("sha256", secret)
-          .update(`${photoSha256Digest}:${detected}:${overallHandoverScore}:${verdict}:${gpsZoneVerified}`)
-          .digest("hex");
-
-        const captureAuthorized = verdict === "VERIFIED" && overallHandoverScore >= 80.0 && gpsZoneVerified;
-
-        const agentAssessment = captureAuthorized
-          ? `Tri-factor handover verified: GPS zone (${gpsDistanceMeters}m from Filarecka 2B), Door #${detected} match, and intact parcel resting on floor confirmed. Score: ${overallHandoverScore}/100. PayPal capture authorized.`
-          : !gpsZoneVerified
-          ? `GPS geofence violation: Courier device is ${gpsDistanceMeters}m away from delivery zone (ul. Filarecka 2B). Capture locked.`
-          : !isMatch
-          ? `Doorplate reads #${detected} (mismatch vs #${targetDoor} ${targetAddress}). Quantitative score ${overallHandoverScore}/100 below 80 threshold. Capture locked.`
-          : isDamaged
-          ? `Carton shows physical impact/crushing (integrity score ${parcelScore}%). Quantitative score ${overallHandoverScore}/100. Capture locked.`
-          : `Handover conditions failed visual audit (verdict: ${verdict}). Capture locked at $0.00.`;
-
-        return {
-          ok: true,
-          source: "minimax-m3.1-flash",
-          addressConfidencePct: addrScore,
-          parcelIntegrityPct: parcelScore,
-          placementSecurityPct: placementScore,
-          overallHandoverScore,
-          gpsZoneVerified,
-          gpsDistanceMeters,
-          gpsCoordinates: gpsCoords,
-          targetCoordinates: TARGET_GEOFENCE,
-          doorplateMatch: isMatch,
-          detectedDoorNumber: detected,
-          targetDoorNumber: targetDoor,
-          targetAddress: targetAddress,
-          packageDetected: Boolean(parsed.packageDetected),
-          packageCondition: parsed.packageCondition || "intact",
-          placementType: parsed.placementType || "safe_doorstep",
-          recipientPinVerified,
-          photoSha256Digest,
-          serverHmacSignature,
-          captureAuthorized,
-          handoverVerdict: verdict,
-          visualEvidence: parsed.visualEvidence || `Door #${targetDoor} verified at threshold with parcel intact on the floor.`,
-          agentAssessment,
-          boundingBoxes: boxes,
-          processedInMs: Date.now() - startTime,
-        };
+      if (!aiRes.ok) {
+        throw new Error(`MiniMax Vision HTTP ${aiRes.status}`);
       }
+
+      const aiData = await aiRes.json();
+      const rawContent = aiData?.choices?.[0]?.message?.content || "";
+      let cleaned = rawContent
+        .replace(/<think>[\s\S]*?<\/think>/gi, "")
+        .replace(/```json/gi, "")
+        .replace(/```/gi, "")
+        .trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (jsonMatch) cleaned = jsonMatch[0];
+      const parsed = JSON.parse(cleaned);
+
+      const detected = parsed.detectedDoorNumber ? String(parsed.detectedDoorNumber).trim() : null;
+      const isMatch = Boolean(parsed.isDoorMatch) && detected !== null && detected.includes(targetDoor);
+      const packageDetected = Boolean(parsed.packageDetected);
+      const isDamaged = parsed.packageCondition === "damaged";
+      const isIntact = parsed.packageCondition === "intact";
+      const addrScore = Math.min(100, Math.max(0, Number(parsed.addressConfidencePct) || 0));
+      const parcelScore = Math.min(100, Math.max(0, Number(parsed.parcelIntegrityPct) || 0));
+      const placementScore = Math.min(100, Math.max(0, Number(parsed.placementSecurityPct) || 0));
+
+      let overallHandoverScore = Math.round((addrScore * 0.4 + parcelScore * 0.4 + placementScore * 0.2) * 10) / 10;
+      if (!gpsZoneVerified) {
+        overallHandoverScore = Math.min(overallHandoverScore, 35.0);
+      }
+
+      let verdict: QuantitativeFulfillmentMetrics["handoverVerdict"] = "VERIFIED";
+      if (!gpsZoneVerified) {
+        verdict = "REJECTED_GEOFENCE";
+      } else if (!packageDetected) {
+        verdict = "REJECTED_NO_PACKAGE";
+      } else if (!isMatch) {
+        verdict = "REJECTED_MISMATCH";
+      } else if (isDamaged || !isIntact) {
+        verdict = "REJECTED_DAMAGED";
+      }
+
+      const boxes: BoundingBox[] = [];
+      if (detected || parsed.doorNumberBox) {
+        const rawBox = parsed.doorNumberBox && typeof parsed.doorNumberBox === "object" ? parsed.doorNumberBox : null;
+        const w = Math.max(6, Math.min(45, Number(rawBox?.w) || 8));
+        const h = Math.max(5, Math.min(35, Number(rawBox?.h) || 7));
+        const rawX = Number(rawBox?.x);
+        const rawY = Number(rawBox?.y);
+        const x = Number.isFinite(rawX) ? Math.max(0, Math.min(100 - w, rawX - Math.max(0, (w - (Number(rawBox?.w) || 8)) / 2))) : 48;
+        const y = Number.isFinite(rawY) ? Math.max(0, Math.min(100 - h, rawY - Math.max(0, (h - (Number(rawBox?.h) || 7)) / 2))) : 25;
+
+        boxes.push({
+          label: `Unit #${detected || "?"} (${addrScore.toFixed(0)}%)`,
+          x: Math.round(x * 10) / 10,
+          y: Math.round(y * 10) / 10,
+          w: Math.round(w * 10) / 10,
+          h: Math.round(h * 10) / 10,
+          tone: isMatch ? "good" : "bad",
+          confidence: addrScore,
+        });
+      }
+      if (packageDetected || parsed.packageBox) {
+        const rawBox = parsed.packageBox && typeof parsed.packageBox === "object" ? parsed.packageBox : null;
+        const w = Math.max(8, Math.min(60, Number(rawBox?.w) || 16));
+        const h = Math.max(8, Math.min(60, Number(rawBox?.h) || 18));
+        const rawX = Number(rawBox?.x);
+        const rawY = Number(rawBox?.y);
+        const x = Number.isFinite(rawX) ? Math.max(0, Math.min(100 - w, rawX - Math.max(0, (w - (Number(rawBox?.w) || 16)) / 2))) : 35;
+        const y = Number.isFinite(rawY) ? Math.max(0, Math.min(100 - h, rawY - Math.max(0, (h - (Number(rawBox?.h) || 18)) / 2))) : 68;
+
+        boxes.push({
+          label: isDamaged ? `Parcel: Damaged (${parcelScore.toFixed(0)}%)` : `Parcel: Intact on Floor (${parcelScore.toFixed(0)}%)`,
+          x: Math.round(x * 10) / 10,
+          y: Math.round(y * 10) / 10,
+          w: Math.round(w * 10) / 10,
+          h: Math.round(h * 10) / 10,
+          tone: isDamaged || !isIntact ? "bad" : "good",
+          confidence: parcelScore,
+        });
+      }
+
+      const serverHmacSignature = createHmac("sha256", secret)
+        .update(`${photoSha256Digest}:${detected}:${overallHandoverScore}:${verdict}:${gpsZoneVerified}`)
+        .digest("hex");
+
+      // Mandatory conjunctive policy gate: ALL required conditions must be true
+      const captureAuthorized =
+        gpsZoneVerified &&
+        isMatch &&
+        packageDetected &&
+        isIntact &&
+        verdict === "VERIFIED" &&
+        overallHandoverScore >= 80.0;
+
+      const agentAssessment = captureAuthorized
+        ? `Tri-factor handover verified: GPS zone (${gpsDistanceMeters}m from Filarecka 2B), Door #${detected} match, and intact parcel resting on floor confirmed. PayPal capture authorized.`
+        : !gpsZoneVerified
+        ? `GPS geofence violation: Courier device is ${gpsDistanceMeters}m away from delivery zone (ul. Filarecka 2B). Capture locked.`
+        : !isMatch
+        ? `Doorplate reads #${detected || "none"} (mismatch vs #${targetDoor} ${targetAddress}). Capture locked.`
+        : !packageDetected || !isIntact
+        ? `Parcel presence or integrity check failed (${parsed.packageCondition || "unclear"}). Capture locked.`
+        : `Handover conditions failed visual audit (verdict: ${verdict}). Capture locked at $0.00.`;
+
+      return {
+        ok: true,
+        source: "minimax-m3.1-flash",
+        addressConfidencePct: addrScore,
+        parcelIntegrityPct: parcelScore,
+        placementSecurityPct: placementScore,
+        overallHandoverScore,
+        gpsZoneVerified,
+        gpsDistanceMeters,
+        gpsCoordinates: gpsCoords,
+        targetCoordinates: TARGET_GEOFENCE,
+        doorplateMatch: isMatch,
+        detectedDoorNumber: detected,
+        targetDoorNumber: targetDoor,
+        targetAddress: targetAddress,
+        packageDetected,
+        packageCondition: parsed.packageCondition || "unclear",
+        placementType: parsed.placementType || "unknown",
+        recipientPinVerified,
+        photoSha256Digest,
+        serverHmacSignature,
+        captureAuthorized,
+        handoverVerdict: verdict,
+        visualEvidence: parsed.visualEvidence || "Visual inspection completed.",
+        agentAssessment,
+        boundingBoxes: boxes,
+        processedInMs: Date.now() - startTime,
+      };
     } catch (err) {
-      console.warn("MiniMax vision live call fallback to deterministic preset engine:", err);
+      console.warn("MiniMax vision live call failed closed:", err);
+      const verdict = "REJECTED_NO_PACKAGE";
+      const sig = createHmac("sha256", secret)
+        .update(`${photoSha256Digest}:error:0:${verdict}:${gpsZoneVerified}`)
+        .digest("hex");
+      return {
+        ok: true,
+        source: "fail-closed-vision-error",
+        addressConfidencePct: 0,
+        parcelIntegrityPct: 0,
+        placementSecurityPct: 0,
+        overallHandoverScore: 0,
+        gpsZoneVerified,
+        gpsDistanceMeters,
+        gpsCoordinates: gpsCoords,
+        targetCoordinates: TARGET_GEOFENCE,
+        doorplateMatch: false,
+        detectedDoorNumber: null,
+        targetDoorNumber: targetDoor,
+        targetAddress,
+        packageDetected: false,
+        packageCondition: "unclear",
+        placementType: "unknown",
+        recipientPinVerified,
+        photoSha256Digest,
+        serverHmacSignature: sig,
+        captureAuthorized: false,
+        handoverVerdict: verdict,
+        visualEvidence: `Fail-closed: Vision model call failed or timed out (${err instanceof Error ? err.message : "unknown_error"}).`,
+        agentAssessment: "Capture locked ($0.00): Live vision verification failed closed.",
+        boundingBoxes: [],
+        processedInMs: Math.max(Date.now() - startTime, 1),
+      };
     }
   }
 
@@ -442,7 +539,7 @@ Respond strictly with valid JSON without markdown formatting:
     };
   }
 
-  // Default: Pristine Verification (Door Match + Box Intact on Floor)
+  // Explicit Demo Preset: "correct" (Door Match + Box Intact on Floor)
   const addrScore = 99.4;
   const parcelScore = 98.6;
   const placementScore = 96.0;
@@ -454,7 +551,7 @@ Respond strictly with valid JSON without markdown formatting:
 
   return {
     ok: true,
-    source: isBase64 ? "minimax-m3.1-flash" : "proofed-vision-engine",
+    source: "demo-simulation-preset",
     addressConfidencePct: addrScore,
     parcelIntegrityPct: parcelScore,
     placementSecurityPct: placementScore,

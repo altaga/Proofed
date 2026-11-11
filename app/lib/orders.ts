@@ -710,10 +710,28 @@ export function storeEvidence(input: {
 
 function assertPickupCode(order: OrderRecord, code?: string) {
   if (!code) throw new PolicyError("PICKUP_CODE_REQUIRED", "Recipient handover PIN is required.");
+  if (order.pickup_deadline_at && new Date(order.pickup_deadline_at).getTime() < Date.now()) {
+    throw new PolicyError("PICKUP_CODE_EXPIRED", "Recipient handover PIN has expired for this authorization.");
+  }
+  const failedAttempts = listEvents(order.id, 50).filter((e) => e.event === "PIN_VERIFICATION_FAILED").length;
+  if (failedAttempts >= 5) {
+    throw new PolicyError(
+      "PIN_RETRY_LIMIT_EXCEEDED",
+      "Maximum recipient PIN verification attempts (5) exceeded for this order. Delivery locked.",
+    );
+  }
   if (code.trim().toUpperCase() !== order.pickup_code) {
+    appendEvent({
+      orderId: order.id,
+      event: "PIN_VERIFICATION_FAILED",
+      fromStatus: order.status,
+      toStatus: order.status,
+      actor: "courier",
+      detail: { attempt: failedAttempts + 1, max_attempts: 5 },
+    });
     throw new PolicyError(
       "PICKUP_CODE_MISMATCH",
-      "Recipient handover PIN does not match the server-generated credential for this order.",
+      `Recipient handover PIN does not match the server-generated credential for this order (Attempt ${failedAttempts + 1}/5).`,
     );
   }
 }
@@ -730,32 +748,7 @@ export function ensureOrderHydrated(snapshot?: {
   if (!snapshot?.id) return;
   const existing = getOrder(snapshot.id);
   if (existing) {
-    if (snapshot.pickup_code && existing.pickup_code !== snapshot.pickup_code.trim().toUpperCase()) {
-      db()
-        .prepare("UPDATE orders SET pickup_code = $pickup WHERE id = $id")
-        .run({ pickup: snapshot.pickup_code.trim().toUpperCase(), id: snapshot.id });
-    }
-    const STATUS_RANK: Record<string, number> = {
-      CREATED: 1,
-      APPROVED: 2,
-      AUTHORIZED: 3,
-      DELIVERY_CONFIRMED: 4,
-      DELIVERY_FAILED: 5,
-      CAPTURED: 6,
-      VOIDED: 6,
-      REFUNDED: 7,
-      CANCELLED: 7,
-      EXPIRED: 7,
-    };
-    const incomingRank = snapshot.status ? (STATUS_RANK[snapshot.status.toUpperCase()] ?? 0) : 0;
-    const currentRank = STATUS_RANK[existing.status.toUpperCase()] ?? 0;
-    if (incomingRank > currentRank && snapshot.status) {
-      db()
-        .prepare(
-          "UPDATE orders SET status = $status, updated_at = $now WHERE id = $id",
-        )
-        .run({ status: snapshot.status, now: nowIso(), id: snapshot.id });
-    }
+    // Never allow an untrusted client snapshot to overwrite pickup_code or status of an existing order
     return;
   }
   const cfg = getProjectConfig();
@@ -857,17 +850,24 @@ export async function confirmDelivery(input: {
     );
   }
 
-  // Server-Side Quantitative Multimodal Vision Gate (Threshold >= 80.0 / 100)
+  const normalizedImage = input.photoBase64
+    ? input.photoBase64.startsWith("data:image/")
+      ? input.photoBase64
+      : `data:${input.photoMime || "image/jpeg"};base64,${input.photoBase64}`
+    : undefined;
+
+  // Server-Side Mandatory Multimodal Vision + Geofence + PIN Gate
   const visionAudit = await analyzeFulfillmentImage({
-    image: input.photoBase64,
+    image: normalizedImage,
     presetId: input.presetId,
     recipientPin: code,
     orderId: order.id,
     gpsCoordinates: input.gpsCoordinates,
   });
+  // Never allow client-supplied quantitativeScore to inflate or bypass server vision audit
   const effectiveScore =
     typeof input.quantitativeScore === "number"
-      ? input.quantitativeScore
+      ? Math.min(visionAudit.overallHandoverScore, input.quantitativeScore)
       : visionAudit.overallHandoverScore;
 
   if (!visionAudit.captureAuthorized || effectiveScore < 80.0) {
@@ -925,28 +925,30 @@ export async function confirmDelivery(input: {
 
 export function failDelivery(input: {
   orderId?: string;
-  pickupCode: string;
+  pickupCode?: string;
   reason: string;
   note?: string;
   photoBase64?: string;
   photoMime?: string;
   actor?: string;
 }): OrderDetails {
-  const code = input.pickupCode.trim().toUpperCase();
-
-  const rowByCode = db()
-    .prepare("SELECT * FROM orders WHERE pickup_code = $code ORDER BY created_at DESC LIMIT 1")
-    .get({ code });
+  const code = (input.pickupCode || "").trim().toUpperCase();
 
   let order: OrderRecord;
-  if (rowByCode) {
-    order = rowToObject<OrderRecord>(rowByCode);
-  } else if (input.orderId) {
+  if (input.orderId) {
     order = requireOrder(input.orderId);
+  } else if (code) {
+    const rowByCode = db()
+      .prepare("SELECT * FROM orders WHERE pickup_code = $code ORDER BY created_at DESC LIMIT 1")
+      .get({ code });
+    if (!rowByCode) {
+      throw new PolicyError("ORDER_NOT_FOUND", `No order matches recipient PIN '${code}'.`);
+    }
+    order = rowToObject<OrderRecord>(rowByCode);
   } else {
-    throw new PolicyError("ORDER_NOT_FOUND", `No order matches recipient PIN '${code}'.`);
+    throw new PolicyError("ORDER_NOT_FOUND", "orderId is required to report delivery failure.");
   }
-  assertPickupCode(order, code);
+
   if (order.status !== "AUTHORIZED") {
     throw new PolicyError(
       "DELIVERY_ALREADY_FINALIZED",
@@ -957,7 +959,7 @@ export function failDelivery(input: {
   const evidence = storeEvidence({
     orderId: order.id,
     kind: "delivery_fail",
-    pickupCode: code,
+    pickupCode: code || "UNVERIFIED",
     note: `${reason}${input.note ? `: ${input.note}` : ""}`,
     photoBase64: input.photoBase64,
     photoMime: input.photoMime,
@@ -978,8 +980,21 @@ export function failDelivery(input: {
 export async function captureOrder(orderId: string, actor = "merchant"): Promise<OrderDetails> {
   const order = requireOrder(orderId);
   if (order.status === "CAPTURED") return getOrderDetails(orderId);
-  if (order.status !== "AUTHORIZED" && order.status !== "DELIVERY_CONFIRMED") {
-    throw new PolicyError("CANNOT_CAPTURE", `Cannot capture an order in status ${order.status}.`);
+  if (order.status !== "DELIVERY_CONFIRMED") {
+    throw new PolicyError(
+      "HANDOVER_VERIFICATION_REQUIRED",
+      `Cannot capture an order in status ${order.status}. Physical handover evidence and recipient PIN must be verified first (order must be in DELIVERY_CONFIRMED status).`,
+    );
+  }
+  const hasDeliveryEvidence = listEvidence(orderId).some((e) => e.kind === "delivery_confirm");
+  const hasCustomerConfirmation = listEvents(orderId, 50).some(
+    (e) => e.event === "DELIVERY_CONFIRMED_BY_CUSTOMER" || e.event === "DELIVERY_CONFIRMED",
+  );
+  if (!hasDeliveryEvidence && !hasCustomerConfirmation) {
+    throw new PolicyError(
+      "MISSING_HANDOVER_EVIDENCE",
+      "Cannot capture funds: no verified handover evidence or customer receipt confirmation is bound to this order.",
+    );
   }
   if (!order.paypal_authorization_id) {
     throw new PolicyError("NO_AUTHORIZATION", "This order has no PayPal authorization to capture.");
@@ -1030,19 +1045,11 @@ export async function captureOrder(orderId: string, actor = "merchant"): Promise
 
 function finalizeCapture(order: OrderRecord, captureId: string, actor: string) {
   if (order.status === "CAPTURED") return;
-  if (order.status === "AUTHORIZED") {
-    applyStatus(order, "DELIVERY_CONFIRMED", ", delivered_at = COALESCE(delivered_at, $delivered)", {
-      delivered: nowIso(),
-    });
-    appendEvent({
-      orderId: order.id,
-      event: "DELIVERY_CONFIRMED",
-      fromStatus: "AUTHORIZED",
-      toStatus: "DELIVERY_CONFIRMED",
-      actor,
-      detail: { reason: "capture_without_prior_device_confirm" },
-    });
-    order = requireOrder(order.id);
+  if (order.status !== "DELIVERY_CONFIRMED") {
+    throw new PolicyError(
+      "HANDOVER_VERIFICATION_REQUIRED",
+      `finalizeCapture blocked: order ${order.id} is in status ${order.status}, not DELIVERY_CONFIRMED.`,
+    );
   }
   withTransaction(() => {
     const current = requireOrder(order.id);
@@ -1623,6 +1630,15 @@ export function publicOrderView(order: OrderDetails) {
     captured_at: order.captured_at,
     voided_at: order.voided_at,
     refunded_at: order.refunded_at,
+  };
+}
+
+export function courierOrderView(order: OrderDetails) {
+  return {
+    ...publicOrderView(order),
+    pickup_code: null,
+    pickup_code_masked: "••••••",
+    pin_required: true,
   };
 }
 
