@@ -70,11 +70,23 @@ export function CommandHub() {
   const [isResetting, setIsResetting] = useState(false);
 
   const reset = async () => {
-    if (!window.confirm("Reset demo orders to pristine catalog state?")) return;
+    if (!window.confirm("Reset demo orders to pristine catalog state? This clears all active orders, event logs, and local chat history.")) return;
     setIsResetting(true);
     try {
       await fetch("/api/demo/reset", { method: "POST" });
-      setNote("Demo catalog reset to pristine initial state.");
+      if (typeof window !== "undefined") {
+        try {
+          for (let i = window.localStorage.length - 1; i >= 0; i--) {
+            const key = window.localStorage.key(i);
+            if (key && (key.startsWith("proofed") || key.startsWith("shop."))) {
+              window.localStorage.removeItem(key);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+      setNote("Database, orders, and client session reset to pristine state.");
     } catch {
       setNote("Reset failed.");
     } finally {

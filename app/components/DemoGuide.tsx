@@ -49,6 +49,16 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
     try {
       const res = await fetch("/api/demo/reset", { method: "POST" });
       if (res.ok) {
+        if (typeof window !== "undefined") {
+          try {
+            for (let i = window.localStorage.length - 1; i >= 0; i--) {
+              const key = window.localStorage.key(i);
+              if (key && (key.startsWith("proofed") || key.startsWith("shop."))) {
+                window.localStorage.removeItem(key);
+              }
+            }
+          } catch {}
+        }
         setLatest(null);
         setSyncedCode("");
         setToast("Demo catalog & orders reset to pristine state");
