@@ -5134,6 +5134,442 @@ main[data-testid="page-client"] {
   font-size: 12px;
 }
 
+/* ==========================================================================
+   Backend Developer & Hackathon Judge Console Styles
+   ========================================================================== */
+.backend-judge-callout {
+  background: rgba(255, 122, 61, 0.06);
+  border: 1px solid rgba(255, 122, 61, 0.28);
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.judge-callout-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.judge-callout-icon {
+  color: #FF7A3D;
+  flex-shrink: 0;
+}
+
+.judge-callout-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #EDEDEF;
+  letter-spacing: -0.01em;
+}
+
+.judge-callout-body {
+  font-size: 12px;
+  color: #D6D1C4;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.judge-callout-body code {
+  background: rgba(0, 0, 0, 0.35);
+  color: #FF7A3D;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* KPI Metrics */
+.backend-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.backend-kpi-card {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.backend-kpi-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #ABA598;
+  letter-spacing: 0.05em;
+}
+
+.backend-kpi-val {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #EDEDEF;
+}
+
+.backend-kpi-sub {
+  font-size: 11px;
+  color: #7A7468;
+}
+
+.backend-kpi-card.kpi-held .backend-kpi-val {
+  color: #FBBF24;
+}
+
+.backend-kpi-card.kpi-captured .backend-kpi-val {
+  color: #3FB27F;
+}
+
+.backend-kpi-card.kpi-voided .backend-kpi-val {
+  color: #ABA598;
+}
+
+/* Nav Tabs */
+.backend-nav-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #2E2B25;
+  padding-bottom: 2px;
+  overflow-x: auto;
+}
+
+.backend-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #ABA598;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.backend-tab-btn:hover {
+  color: #EDEDEF;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.backend-tab-btn.is-active {
+  background: rgba(255, 122, 61, 0.12);
+  border-color: rgba(255, 122, 61, 0.35);
+  color: #FF7A3D;
+}
+
+/* Copy buttons & IDs */
+.metric-val-with-copy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.copy-btn-mini {
+  background: #24221D;
+  border: 1px solid #38342C;
+  color: #ABA598;
+  border-radius: 3px;
+  padding: 2px 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.copy-btn-mini:hover {
+  color: #EDEDEF;
+  background: #2E2B25;
+}
+
+.copied-pill {
+  font-size: 9px;
+  color: #3FB27F;
+  font-weight: 700;
+}
+
+.paypal-id-cell {
+  font-size: 11px;
+  color: #ABA598;
+}
+
+/* Evidence detail */
+.evidence-summary-item {
+  background: #141310;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.evidence-meta-row {
+  display: flex;
+  justify-content: space-between;
+  color: #FF7A3D;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.ev-hash-row {
+  font-size: 10px;
+  color: #ABA598;
+  word-break: break-all;
+}
+
+.ev-note-text {
+  font-size: 11px;
+  color: #D6D1C4;
+  margin-top: 3px;
+}
+
+/* Raw JSON Inspector */
+.json-toggle-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #1C1A16;
+  border: 1px solid #38342C;
+  color: #D6D1C4;
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.json-toggle-btn:hover {
+  background: #26241F;
+  color: #FFFFFF;
+}
+
+.raw-json-inspector {
+  margin-top: 8px;
+  background: #0E0D0B;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 10px;
+  color: #3FB27F;
+  max-height: 240px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Events stream view */
+.events-stream-panel {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.events-counter {
+  font-size: 12px;
+  color: #ABA598;
+}
+
+.event-actor-cell {
+  color: #FF7A3D;
+  font-size: 11px;
+}
+
+.json-expand-mini {
+  background: rgba(255, 122, 61, 0.1);
+  color: #FF7A3D;
+  border: 1px solid rgba(255, 122, 61, 0.25);
+  border-radius: 3px;
+  font-size: 10px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.json-expand-mini:hover {
+  background: rgba(255, 122, 61, 0.2);
+}
+
+.event-json-block {
+  margin-top: 6px;
+  background: #0E0D0B;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 10px;
+  color: #D6D1C4;
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* PayPal API Catalog */
+.paypal-api-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.api-catalog-intro {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  border-radius: 8px;
+  padding: 16px 18px;
+}
+
+.api-catalog-intro h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #EDEDEF;
+  margin: 0 0 6px;
+}
+
+.api-catalog-intro p {
+  font-size: 12px;
+  color: #ABA598;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.api-endpoints-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.api-card {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.api-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.method-pill {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.method-post {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60A5FA;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.api-card-path {
+  font-size: 12px;
+  font-weight: 700;
+  color: #F4F1EA;
+}
+
+.api-card h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #EDEDEF;
+  margin: 0;
+}
+
+.api-card p {
+  font-size: 11px;
+  color: #ABA598;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.api-code-snippet {
+  background: #0E0D0B;
+  border: 1px solid #2E2B25;
+  border-radius: 4px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  color: #8E887B;
+  word-break: break-all;
+}
+
+.api-code-snippet span {
+  display: block;
+}
+
+/* Diagnostics */
+.diagnostics-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.diag-card {
+  background: #181714;
+  border: 1px solid #2E2B25;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diag-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #FF7A3D;
+  border-bottom: 1px solid #2E2B25;
+  padding-bottom: 8px;
+}
+
+.diag-header h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #EDEDEF;
+  margin: 0;
+}
+
+.diag-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  gap: 8px;
+}
+
+.diag-key {
+  color: #ABA598;
+}
+
+.diag-val {
+  color: #EDEDEF;
+  font-weight: 600;
+  text-align: right;
+}
+
 /* Shopper Chat additions: catalog pill, autonomy toggles, failure cards */
 .shopper-catalog-pill {
   font-size: 10px;
