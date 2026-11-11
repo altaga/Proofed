@@ -73,6 +73,7 @@ export function ShopperChat({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [creatingOrderId, setCreatingOrderId] = useState<string | null>(null);
+  const [authorizingOrderId, setAuthorizingOrderId] = useState<string | null>(null);
   const [autonomyMode] = useState<"interactive" | "autopilot">("autopilot");
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [techLogsOpen, setTechLogsOpen] = useState(false);
@@ -674,17 +675,24 @@ export function ShopperChat({
                       <button
                         type="button"
                         className="approve-paypal-hold-btn"
+                        disabled={authorizingOrderId === msg.order?.id}
                         onClick={async () => {
+                          if (!msg.order?.id || authorizingOrderId === msg.order.id) return;
+                          setAuthorizingOrderId(msg.order.id);
                           try {
                             const res = await fetch("/api/paypal/authorize", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ orderId: msg.order!.id, simulateApproval: true }),
+                              body: JSON.stringify({ orderId: msg.order.id, simulateApproval: true }),
                             });
                             const data = await res.json();
                             if (data.order) {
                               setMessages((prev) => [
-                                ...prev,
+                                ...prev.map((m) =>
+                                  m.order?.id === data.order.id
+                                    ? { ...m, order: data.order }
+                                    : m
+                                ),
                                 {
                                   id: `auth-${Date.now()}`,
                                   role: "assistant",
@@ -694,13 +702,26 @@ export function ShopperChat({
                                   order: data.order,
                                 },
                               ]);
+                              if (onOrderCreated) {
+                                onOrderCreated(data.order);
+                              }
+                              try {
+                                const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+                                const list = cachedRaw ? (JSON.parse(cachedRaw) as Array<{ id: string }>) : [];
+                                const next = [data.order, ...list.filter((o) => o.id !== data.order.id)];
+                                window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(next.slice(0, 20)));
+                              } catch {}
                             }
                           } catch (e) {
                             console.error(e);
+                          } finally {
+                            setAuthorizingOrderId(null);
                           }
                         }}
                       >
-                        <span className="btn-paypal-text">Approve PayPal hold</span>
+                        <span className="btn-paypal-text">
+                          {authorizingOrderId === msg.order?.id ? "Authorizing hold…" : "Approve PayPal hold"}
+                        </span>
                         <span className="btn-paypal-amt mono">{msg.quote?.formatted_price || "$18.50"}</span>
                       </button>
                       <div className="hold-disclaimer mono">

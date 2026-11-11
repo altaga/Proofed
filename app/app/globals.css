@@ -2277,6 +2277,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   transform: translateY(1px);
 }
 
+.approve-paypal-hold-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  background: #E5B232;
+}
+
 .btn-paypal-text {
   letter-spacing: -0.01em;
 }

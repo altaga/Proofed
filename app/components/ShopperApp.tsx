@@ -71,6 +71,7 @@ export function ShopperApp({
   const [catalog, setCatalog] = useState<CatalogProduct[]>([]);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [authorizingHold, setAuthorizingHold] = useState(false);
   const transRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -216,7 +217,10 @@ export function ShopperApp({
                         <button
                           type="button"
                           className="approve-paypal-hold-btn"
+                          disabled={authorizingHold}
                           onClick={async () => {
+                            if (authorizingHold) return;
+                            setAuthorizingHold(true);
                             try {
                               const res = await fetch("/api/paypal/authorize", {
                                 method: "POST",
@@ -231,10 +235,14 @@ export function ShopperApp({
                               }
                             } catch (e) {
                               console.error(e);
+                            } finally {
+                              setAuthorizingHold(false);
                             }
                           }}
                         >
-                          <span className="btn-paypal-text">Approve PayPal hold</span>
+                          <span className="btn-paypal-text">
+                            {authorizingHold ? "Authorizing hold…" : "Approve PayPal hold"}
+                          </span>
                           <span className="btn-paypal-amt mono">${(quoted.unit_price_cents / 100).toFixed(2)}</span>
                         </button>
                         <div className="hold-disclaimer mono">
