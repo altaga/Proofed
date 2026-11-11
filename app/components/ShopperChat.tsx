@@ -550,7 +550,7 @@ export function ShopperChat({
 
     // If active order has DELIVERY_FAILED, interpret shopper escalation decision directly
     if (activeOrder?.status === "DELIVERY_FAILED") {
-      if (/^(recibido|recibí|si llego|sí llegó|llego bien|llegó bien|received|i received|got it|got the package|package arrived)/i.test(text)) {
+      if (/(recib|si llego|sí llegó|llego bien|llegó bien|received|got it|got the package|package arrived|package received|already got|safely arrived|arrived safely)/i.test(text)) {
         const userMsg: ShopperMessage = {
           id: `usr-${Date.now()}`,
           role: "user",
@@ -562,7 +562,7 @@ export function ShopperChat({
         void handleActionConfirmReceived(activeOrder.id);
         return;
       }
-      if (/^(pedir otro|re-enviar|reenviar|reintentar|volver a enviar|re-dispatch|redispatch|retry|redeliver|send another|another|replacement)/i.test(text)) {
+      if (/(replacement|reemplazo|re-dispatch|redispatch|resend|re-send|send a replacement|send replacement|send another|another package|redeliver|retry|reintentar|reenviar|pedir otro|volver a enviar)/i.test(text)) {
         const userMsg: ShopperMessage = {
           id: `usr-${Date.now()}`,
           role: "user",
@@ -574,7 +574,22 @@ export function ShopperChat({
         void handleActionRedispatch(activeOrder.id);
         return;
       }
-      if (/^(reembolso|reembolsar|cancelar|devolver|liberar|refund|cancel|void|release|release hold)/i.test(text)) {
+      if (/(cancel|void|release|release hold|payment hold|refund|cancelar|reembolso|liberar|devolver)/i.test(text)) {
+        const userMsg: ShopperMessage = {
+          id: `usr-${Date.now()}`,
+          role: "user",
+          content: text,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setInput("");
+        void handleActionVoid(activeOrder.id);
+        return;
+      }
+    }
+
+    if (activeOrder?.status === "AUTHORIZED") {
+      if (/(cancel|void|release|release hold|payment hold|refund|cancelar|reembolso|liberar)/i.test(text)) {
         const userMsg: ShopperMessage = {
           id: `usr-${Date.now()}`,
           role: "user",
@@ -619,7 +634,12 @@ export function ShopperChat({
       const res = await fetch("/api/agent/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, message: text }),
+        body: JSON.stringify({
+          sessionId,
+          message: text,
+          orderId: activeOrder?.id,
+          orderStatus: activeOrder?.status,
+        }),
       });
       const payload = await res.json();
       if (!res.ok) throw new Error(payload.error || "Assistant unavailable");
@@ -646,7 +666,12 @@ export function ShopperChat({
         order: payload.order,
       };
 
-      setMessages((prev) => [...prev, assistantMsg]);
+      setMessages((prev) => [
+        ...(payload.order
+          ? prev.map((m) => (m.order?.id === payload.order.id ? { ...m, order: payload.order } : m))
+          : prev),
+        assistantMsg,
+      ]);
       if (payload.order && onOrderCreated) {
         onOrderCreated(payload.order);
       }

@@ -145,12 +145,12 @@ export const agentToolDefinitions = [
     function: {
       name: "propose_recovery",
       description:
-        "Execute a recovery action. retry: send the same authorized order back to the pickup station. cancel: VOID an authorization or REFUND a capture. substitute: release the previous payment and create a new AUTHORIZE order for replacement SKUs.",
+        "Execute a recovery action. retry: send a replacement package or re-dispatch to the verified address. cancel: VOID an authorization hold ($0.00 charged) or REFUND a capture. confirm_received: customer verifies they received the parcel despite any mismatch and authorizes payment capture. substitute: release previous payment and create a new AUTHORIZE order for replacement SKUs.",
       parameters: {
         type: "object",
         properties: {
           order_id: { type: "string" },
-          action: { type: "string", enum: ["substitute", "retry", "cancel"] },
+          action: { type: "string", enum: ["substitute", "retry", "cancel", "confirm_received"] },
           substitute_items: {
             type: "array",
             items: {
@@ -341,7 +341,7 @@ export async function executeAgentTool(name: string, rawArgs: unknown): Promise<
         const args = z
           .object({
             order_id: z.string(),
-            action: z.enum(["substitute", "retry", "cancel"]),
+            action: z.enum(["substitute", "retry", "cancel", "confirm_received"]),
             substitute_items: itemList.optional(),
           })
           .parse(rawArgs);
@@ -354,17 +354,25 @@ export async function executeAgentTool(name: string, rawArgs: unknown): Promise<
         }
 
         // Cross-reference physical evidence and velocity before executing recovery
-        const auditAction = args.action === "cancel" ? "refund" : "retry";
-        const audit = evaluateFraudAudit(args.order_id, auditAction);
-        if (!audit.allowed) {
-          return {
-            name,
-            ok: false,
-            result: {
-              error: `Fraud Policy Blocked: ${audit.auditExplanation}`,
-              audit,
-            },
-          };
+        let audit = {
+          allowed: true,
+          policyRule: "RULE_CUSTOMER_DIRECT_CONFIRMATION",
+          auditExplanation: "Customer confirmed delivery receipt.",
+        };
+        if (args.action === "cancel" || args.action === "retry") {
+          const auditAction = args.action === "cancel" ? "refund" : "retry";
+          const evaluated = evaluateFraudAudit(args.order_id, auditAction);
+          if (!evaluated.allowed) {
+            return {
+              name,
+              ok: false,
+              result: {
+                error: `Fraud Policy Blocked: ${evaluated.auditExplanation}`,
+                audit: evaluated,
+              },
+            };
+          }
+          audit = evaluated;
         }
 
         const recovered = await recoverOrder({

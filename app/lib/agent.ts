@@ -3,7 +3,8 @@ import { getDb, nowIso, rowToObject } from "./db";
 import { newId } from "./ids";
 import { agentToolDefinitions, executeAgentTool } from "./agent-tools";
 import { visibleAssistantText } from "./text";
-import { publicOrderView, publicQuote, type OrderDetails } from "./orders";
+import { publicOrderView, publicQuote, getOrder, listOrders, type OrderDetails } from "./orders";
+import { formatMoney } from "./money";
 import { quoteItems } from "./policy";
 import { correctToolArgs, parseBudgetCents, parseBudgetCentsFromMessages } from "./budget";
 
@@ -65,8 +66,10 @@ function systemPrompt() {
     "A temporary hold (intent=AUTHORIZE) is placed on PayPal. Capture happens ONLY after the pickup station or courier verifies physical handover evidence.",
     "When asked to inspect, audit, or score doorstep delivery evidence, call verify_handover_evidence to obtain the quantitative handover score (0-100) and check if score >= 80.0 authorizes capture.",
     "If delivery fails (e.g. wrong door #742 or damaged parcel), explain that physical handover was not verified and funds were never debited ($0.00 charged). The customer can choose to re-dispatch to their verified address or void the authorization hold.",
-    "Crucial safeguard: Never call get_order_status, investigate_failure, or propose_recovery unless an order was already created in this conversation session.",
-    "If the customer asks to cancel or release a hold but NO order was created yet in this session, do NOT call any order tools. Simply tell the customer that they don't have an active order or hold right now, and zero dollars have been charged ($0.00).",
+    "When an active order is present in the conversation (see CURRENT ACTIVE ORDER), you MUST use that order ID for get_order_status, investigate_failure, or propose_recovery.",
+    "If the customer asks for a replacement or retry after a delivery failure, call propose_recovery with action='retry'.",
+    "If the customer confirms package receipt, call propose_recovery with action='confirm_received'.",
+    "If the customer asks to cancel or release a hold and an order exists, call propose_recovery with action='cancel'. If NO order was ever created in this session and no active order exists, explain that there is no active order right now ($0.00 charged).",
     "If a tool returns an error, explain it honestly and concisely. Never retry calling the same failing tool repeatedly.",
     "Be concise, concrete, and fast. Amounts you mention must come from the latest tool result.",
   ].join(" ");
@@ -430,6 +433,8 @@ function extractArtifacts(
 export async function runAgentTurn(input: {
   sessionId?: string;
   message: string;
+  orderId?: string;
+  orderStatus?: string;
 }): Promise<AgentTurnResult> {
   const text = input.message.trim();
   if (!text) {
@@ -440,6 +445,23 @@ export async function runAgentTurn(input: {
 
   const history = listSessionMessages(sessionId);
   const messages: unknown[] = [{ role: "system", content: systemPrompt() }, ...history];
+
+  let activeOrder = input.orderId ? getOrder(input.orderId) : null;
+  if (!activeOrder) {
+    activeOrder = listOrders().find((o) =>
+      ["AUTHORIZED", "DELIVERY_FAILED", "CREATED", "APPROVED"].includes(o.status),
+    ) ?? null;
+  }
+  if (activeOrder) {
+    messages.push({
+      role: "system",
+      content: `CURRENT ACTIVE ORDER: Order ID is "${activeOrder.id}". Status: "${activeOrder.status}". Items total: ${formatMoney(activeOrder.subtotal_cents, activeOrder.currency)}. Delivery PIN: ${activeOrder.pickup_code}. PayPal Order ID: ${activeOrder.paypal_order_id || "none"}. Failure Reason: ${activeOrder.failure_reason || "none"}.
+- If customer asks to send a replacement, retry delivery, or re-dispatch: call propose_recovery(order_id: "${activeOrder.id}", action: "retry").
+- If customer confirms they received the package safely: call propose_recovery(order_id: "${activeOrder.id}", action: "confirm_received").
+- If customer asks to cancel the order, release payment hold, or void: call propose_recovery(order_id: "${activeOrder.id}", action: "cancel").
+- NEVER claim that there is no order on file or that you don't have an order in this session. Order ${activeOrder.id} is active on file.`,
+    });
+  }
 
   const executions: Array<{ name: string; ok: boolean; result: unknown; args?: unknown }> = [];
   let finalText = "";
