@@ -2,87 +2,176 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ArrowRight, Bot, Camera, Layers, CreditCard, RotateCcw, ShieldCheck, MapPin } from "lucide-react";
 
-const MODULES = [
+interface ModuleDef {
+  no: string;
+  name: string;
+  role: string;
+  href: string;
+  badge: string;
+  desc: string;
+  actionText: string;
+  icon: typeof Bot;
+}
+
+const MODULES: ModuleDef[] = [
   {
     no: "01",
-    name: "Client",
+    name: "Client Marketplace",
+    role: "Autonomous Shopper",
     href: "/client",
-    line: "Ask for anything. The agent quotes it, you place a hold.",
-    meta: "Chat · 65 SKUs · AUTHORIZE",
+    badge: "Chat · 65 SKUs · intent=AUTHORIZE",
+    desc: "Natural language shopping assistant with real catalog integer cents. The buyer approves the hold with a 1-click PayPal button.",
+    actionText: "Launch Shopper Chat",
+    icon: Bot,
   },
   {
     no: "02",
-    name: "Delivery",
+    name: "Doorstep Delivery",
+    role: "Courier Terminal",
     href: "/delivery",
-    line: "Scan the label, photograph the doorstep. Wrong door, no capture.",
-    meta: "Courier · Vision check",
+    badge: "Vision LLM · GPS Zone · PIN Match",
+    desc: "Courier terminal with live GPS tracking, Multimodal Vision AI verification of Door #15 and intact parcel, and recipient PIN input.",
+    actionText: "Open Delivery Terminal",
+    icon: Camera,
   },
   {
     no: "03",
-    name: "Backend",
+    name: "Backend Monitor",
+    role: "Audit Ledger",
     href: "/backend",
-    line: "Every order, every state change, in the order it happened.",
-    meta: "Ledger · Append-only",
+    badge: "Append-Only Event Stream",
+    desc: "Real-time state machine inspector. Audits every tool call, policy guardrail, and transition between CREATED, AUTHORIZED, and CAPTURED.",
+    actionText: "Inspect Audit Ledger",
+    icon: Layers,
   },
   {
     no: "04",
-    name: "Merchant",
+    name: "Merchant Desk",
+    role: "Settlement Operations",
     href: "/merchant",
-    line: "Settlement desk. Capture, void or refund with a reason on file.",
-    meta: "Payments v2",
+    badge: "PayPal Payments v2",
+    desc: "Full order ledger and manual settlement desk. Review evidence hashes, tamper-evident photo digests, and handle voids or refunds.",
+    actionText: "Open Merchant Desk",
+    icon: CreditCard,
   },
+];
+
+const GUARDRAILS = [
+  { label: "PAYPAL INTENT", val: "AUTHORIZE ($0.00 upfront)", status: "verified" },
+  { label: "ZERO-TRUST PRICING", val: "Catalog Integer Cents", status: "verified" },
+  { label: "HANDOVER GATE", val: "Vision LLM + PIN (≥80 pts)", status: "verified" },
+  { label: "TESTBENCH VENUE", val: "Filarecka 2B / 15, Kraków", status: "verified" },
 ];
 
 export function CommandHub() {
   const [note, setNote] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
   const reset = async () => {
-    if (!window.confirm("Reset all orders to the initial catalog?")) return;
+    if (!window.confirm("Reset demo orders to pristine catalog state?")) return;
+    setIsResetting(true);
     try {
       await fetch("/api/demo/reset", { method: "POST" });
-      setNote("Database reset.");
+      setNote("Demo catalog reset to pristine initial state.");
     } catch {
       setNote("Reset failed.");
+    } finally {
+      setIsResetting(false);
     }
   };
 
   return (
-    <div className="ix">
-      <header className="ix-head">
-        <p className="ix-kicker">Proofed — 2026</p>
-        <h1 className="ix-title">
+    <div className="ix-hub-container">
+      {/* Hero Header */}
+      <header className="ix-hub-header">
+        <div className="ix-pill-badge mono">
+          <ShieldCheck size={13} className="ix-pill-icon" />
+          <span>Two-Phase Physical Commerce Protocol · PayPal Authorize &amp; Capture</span>
+        </div>
+
+        <h1 className="ix-hub-title">
           Hold the money.
           <br />
-          Release it on proof.
+          Capture only on proof.
         </h1>
-        <p className="ix-lede">
-          An agent buys. PayPal holds the funds. Nothing is captured until the parcel is
-          confirmed at the right door.
+
+        <p className="ix-hub-lede">
+          An AI agent negotiates and quotes products in verified integer cents. PayPal authorizes and holds the funds.
+          Zero dollars are captured until Multimodal Vision AI and the buyer&apos;s handover PIN confirm physical delivery at the door.
         </p>
       </header>
 
-      <nav className="ix-list" aria-label="Application sections">
-        {MODULES.map((m) => (
-          <Link key={m.no} href={m.href} className="ix-row">
-            <span className="ix-no">{m.no}</span>
-            <span className="ix-name">{m.name}</span>
-            <span className="ix-line">{m.line}</span>
-            <span className="ix-meta">{m.meta}</span>
-            <span className="ix-go" aria-hidden="true">→</span>
-          </Link>
+      {/* Protocol Guardrails Strip */}
+      <div className="ix-guardrails-strip mono" aria-label="Protocol Security Guardrails">
+        {GUARDRAILS.map((g, idx) => (
+          <div key={idx} className="ix-guardrail-cell">
+            <span className="ix-guardrail-label">{g.label}</span>
+            <span className="ix-guardrail-val">
+              <span className="ix-guardrail-dot" />
+              {g.val}
+            </span>
+          </div>
         ))}
-      </nav>
+      </div>
 
-      <footer className="ix-foot">
-        <button type="button" className="ix-link" onClick={reset}>
-          Reset data
-        </button>
-        {note && (
-          <p className="ix-note" role="status">
-            {note}
-          </p>
-        )}
+      {/* 2x2 Interactive Module Cards */}
+      <section className="ix-cards-grid" aria-label="Proofed Functional Modules">
+        {MODULES.map((m) => {
+          const Icon = m.icon;
+          return (
+            <Link key={m.no} href={m.href} className="ix-card-surface">
+              <div className="ix-card-top">
+                <div className="ix-card-badge-row">
+                  <span className="ix-card-no mono">{m.no}</span>
+                  <span className="ix-card-role mono">{m.role}</span>
+                </div>
+                <div className="ix-card-icon-wrap">
+                  <Icon size={18} className="ix-card-icon" />
+                </div>
+              </div>
+
+              <div className="ix-card-body">
+                <h2 className="ix-card-title">{m.name}</h2>
+                <p className="ix-card-desc">{m.desc}</p>
+              </div>
+
+              <div className="ix-card-footer">
+                <span className="ix-card-meta mono">{m.badge}</span>
+                <span className="ix-card-action">
+                  <span>{m.actionText}</span>
+                  <ArrowRight size={14} className="ix-action-arrow" />
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+      </section>
+
+      {/* Footer System Strip */}
+      <footer className="ix-hub-footer">
+        <div className="ix-foot-left mono">
+          <MapPin size={13} />
+          <span>Active Testbed: ul. Filarecka 2B, Kraków (Lat: 50.0556°, Lng: 19.9204°)</span>
+        </div>
+
+        <div className="ix-foot-right">
+          <button
+            type="button"
+            className="ix-reset-btn mono"
+            onClick={reset}
+            disabled={isResetting}
+          >
+            <RotateCcw size={12} className={isResetting ? "spin" : ""} />
+            <span>{isResetting ? "Resetting..." : "Reset demo state"}</span>
+          </button>
+          {note && (
+            <span className="ix-hub-note mono" role="status">
+              {note}
+            </span>
+          )}
+        </div>
       </footer>
     </div>
   );
