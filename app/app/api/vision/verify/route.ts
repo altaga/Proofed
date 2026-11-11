@@ -166,7 +166,7 @@ Respond strictly with valid JSON without markdown formatting. Format:
         visualEvidence:
           "Doorplate reads 742 on white siding; order destination is 744 Maple Street.",
         agentAssessment:
-          "Photo shows door #742 rather than #744 Maple Street (+120m away). Delivery is blocked and the PayPal hold remains uncaptured ($0.00 charged).",
+          "Photo shows door #742 rather than destination #744 Maple Street (+120m distance). Handover verification rejected: destination mismatch.",
         boundingBoxes: [
           {
             label: "Door #742",
@@ -206,7 +206,7 @@ Respond strictly with valid JSON without markdown formatting. Format:
         visualEvidence:
           "Door #744 matches, but carton shows crushed top seam and tripped impact indicator.",
         agentAssessment:
-          "Door #744 matches the address, but the outer carton is crushed. Delivery is rejected and the buyer is charged $0.00.",
+          "Door #744 matches destination, but parcel shows physical carton crushing. Handover verification rejected: damaged parcel.",
         boundingBoxes: [
           {
             label: "Door #744",

@@ -4499,6 +4499,103 @@ main[data-testid="page-client"] {
   color: #FF7A3D;
 }
 
+/* =========================================================================
+   PAYPAL HOLD RELEASE & REFUND RECEIPT CARD
+   ========================================================================= */
+
+.quote-voided-receipt-box {
+  margin-top: 10px;
+  background: #181714;
+  border: 1px solid #363228;
+  border-left: 3px solid #3FB27F;
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.voided-receipt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #26241F;
+}
+
+.voided-header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #3FB27F;
+}
+
+.voided-shield-icon {
+  flex-shrink: 0;
+}
+
+.voided-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #EDEDEF;
+}
+
+.voided-status-pill {
+  font-size: 9px;
+  background: rgba(63, 178, 127, 0.12);
+  color: #3FB27F;
+  border: 1px solid rgba(63, 178, 127, 0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.voided-receipt-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+}
+
+.voided-grid-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.voided-grid-label {
+  color: #8C867A;
+  font-weight: 500;
+}
+
+.voided-grid-val {
+  color: #EDEDEF;
+  font-weight: 600;
+  text-align: right;
+}
+
+.voided-grid-val.highlight-zero {
+  color: #3FB27F;
+  font-weight: 700;
+}
+
+.voided-grid-val.highlight-refunded {
+  color: #3FB27F;
+  font-weight: 700;
+}
+
+.voided-receipt-footer {
+  font-size: 10px;
+  line-height: 1.45;
+  color: #8C867A;
+  padding-top: 6px;
+  border-top: 1px solid #26241F;
+}
+
 .client-page-layout {
   flex: 1;
   min-height: 0;

@@ -280,9 +280,9 @@ export function DeliveryApp() {
         setActiveOrder(payload.order);
         setFeedback({
           tone: "failure",
-          title: "Delivery blocked · $0.00 charged",
-          message: `${visionResult?.visualEvidence || "Address mismatch detected"} Capture remains locked so the buyer is not charged.`,
-          paypalDetail: `PayPal hold remains active until resolved in chat or released.`,
+          title: "Delivery rejected · Package returned to hub",
+          message: `${visionResult?.visualEvidence || "Address mismatch detected"}. Handover aborted.`,
+          paypalDetail: "Incident logged. Customer notified to choose redelivery or cancellation.",
           recoveryAction: true,
         });
       }
@@ -318,7 +318,7 @@ export function DeliveryApp() {
         <div className="delivery-header">
           <h2>Delivery handoff</h2>
           <p className="delivery-subtitle">
-            Scan the parcel and photograph the doorstep. Funds are captured once the address and package condition are confirmed.
+            Scan the parcel barcode and photograph the doorstep to verify destination address and package integrity.
           </p>
         </div>
 
@@ -377,9 +377,9 @@ export function DeliveryApp() {
                 </span>
               </div>
               <div className="manifest-row">
-                <span className="manifest-label">Hold</span>
+                <span className="manifest-label">Parcel value</span>
                 <span className="manifest-value manifest-amount mono">
-                  {activeOrder.formatted_total} <span className="hold-pill">Held · $0.00 charged</span>
+                  {activeOrder.formatted_total} <span className="hold-pill">Requires proof</span>
                 </span>
               </div>
               <div className="manifest-row">
@@ -616,10 +616,10 @@ export function DeliveryApp() {
                   {isVerified
                     ? "Door #744 matches the order address and the parcel is intact."
                     : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "Photo shows #742 instead of #744 Maple St. Capture remains locked at $0.00."
+                    ? "Photo shows #742 instead of destination #744 Maple St. Handover rejected."
                     : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                    ? "No parcel detected on the doorstep. Capture remains locked at $0.00."
-                    : "Visible transit damage on the carton. Capture remains locked at $0.00."}
+                    ? "No parcel detected on the doorstep. Handover rejected."
+                    : "Visible transit damage on the carton. Handover rejected."}
                 </span>
               </div>
             </div>
@@ -630,7 +630,7 @@ export function DeliveryApp() {
         <section className="delivery-step" aria-label="Step 3: Complete Handover">
           <div className="step-label-row">
             <span className="step-num mono">03</span>
-            <span className="step-title">Settlement</span>
+            <span className="step-title">Handover recording</span>
           </div>
 
           <button
@@ -652,8 +652,8 @@ export function DeliveryApp() {
                 : isAnalyzing
                 ? "Checking photo…"
                 : isVerified
-                ? `Confirm delivery & capture ${activeOrder?.formatted_total ?? "$24.00"}`
-                : "Record failed delivery ($0.00 charged)"}
+                ? "Verify delivery & complete handoff"
+                : "Report delivery failure (Return to hub)"}
             </span>
           </button>
         </section>
@@ -675,7 +675,7 @@ export function DeliveryApp() {
             )}
             {feedback.recoveryAction && (
               <div className="feedback-recovery-status mono">
-                <span>Autonomous protocol: hold released back to customer account.</span>
+                <span>Handover aborted. Incident logged for customer resolution.</span>
               </div>
             )}
           </div>

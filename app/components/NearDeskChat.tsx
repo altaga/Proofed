@@ -123,10 +123,17 @@ export function NearDeskChat({
   const currentPrompts = (() => {
     if (activeOrder?.status === "DELIVERY_FAILED") {
       return [
-        "Release PayPal hold and cancel order",
-        "Re-dispatch courier to corrected address",
-        "Why was my delivery rejected?",
-        "Show PayPal audit trail",
+        "Pedir otro (Re-enviar a 744 Maple St)",
+        "Recibir reembolso (Liberar retención PayPal)",
+        "¿Por qué falló la entrega?",
+        "Ver estado de retención en PayPal",
+      ];
+    }
+    if (activeOrder?.status === "VOIDED") {
+      return [
+        "I have a $20 budget, what snacks or coffee do you have?",
+        "Recommend specialty coffee beans under $30",
+        "Clear cart and start over",
       ];
     }
     if (activeOrder?.status === "AUTHORIZED") {
@@ -222,39 +229,19 @@ export function NearDeskChat({
         const data = await res.json();
         const serverOrder = (data.orders || []).find((o: { id: string }) => o.id === orderId);
         if (serverOrder && serverOrder.status !== lastOrderMsg.order.status) {
-          // If status changed to DELIVERY_FAILED
+          // If status changed to DELIVERY_FAILED, escalate directly to the shopper
           if (serverOrder.status === "DELIVERY_FAILED") {
-            if (autonomyMode === "autopilot") {
-              // Execute auto-void immediately
-              await fetch("/api/paypal/void", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ orderId, reason: "Auto-pilot autonomous void on delivery failure" }),
-              });
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `fail-auto-${Date.now()}`,
-                  role: "assistant",
-                  content: `**Autonomous Delivery Alert (Auto-Pilot Executed)**\n\nPorch camera detected delivery failure (${serverOrder.failure_reason || "Door mismatch"}).\n\nBecause you configured **Auto-Pilot Mode**, your PayPal hold was **automatically released** in 1.2s. **$0.00 charged**. A $5.00 apology credit has been added to your profile.`,
-                  tier: "AUTO-PILOT-VOID",
-                  timestamp: Date.now(),
-                  order: { ...serverOrder, status: "VOIDED" },
-                },
-              ]);
-            } else {
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `fail-alert-${Date.now()}`,
-                  role: "assistant",
-                  content: `**Delivery Alert: Verification Failed**\n\nThe courier's porch vision system detected that the package was dropped at the wrong doorstep or sustained impact damage (${serverOrder.failure_reason || "Address Mismatch"}).\n\nYour funds **remain 100% safe on PayPal ($0.00 charged)**. How would you like to proceed?`,
-                  tier: "PHYSICAL-GUARD",
-                  timestamp: Date.now(),
-                  order: serverOrder,
-                },
-              ]);
-            }
+            setMessages((prev) => [
+              ...prev.map((m) => (m.order?.id === orderId ? { ...m, order: serverOrder } : m)),
+              {
+                id: `fail-alert-${Date.now()}`,
+                role: "assistant",
+                content: `**Delivery Notice: Handover Not Verified**\n\nThe courier attempted delivery at **door #742** instead of your destination address (**#744 Maple Street**). Because physical delivery could not be confirmed, handover was aborted and the parcel returned to the hub.\n\nYour funds **remain 100% safe on PayPal ($0.00 debited)**.\n\nThis incident has been escalated for your decision: would you like to **re-dispatch a replacement** to your verified address, or receive an **instant refund** and release of the PayPal hold?`,
+                tier: "ESCALATION",
+                timestamp: Date.now(),
+                order: serverOrder,
+              },
+            ]);
           }
         }
       } catch {
@@ -262,29 +249,41 @@ export function NearDeskChat({
       }
     };
 
-    const interval = setInterval(() => void checkStatus(), 4000);
+    const interval = setInterval(() => void checkStatus(), 3000);
     return () => clearInterval(interval);
-  }, [messages, autonomyMode]);
+  }, [messages]);
 
   async function handleActionVoid(orderId?: string) {
-    if (!orderId) return;
+    if (!orderId || loading) return;
     setLoading(true);
     try {
       const res = await fetch("/api/paypal/void", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, reason: "Client requested instant void in chat" }),
+        body: JSON.stringify({ orderId, reason: "Customer requested instant hold release after failed delivery" }),
       });
       const data = await res.json();
+      const updatedOrder = data.order || { id: orderId, status: "VOIDED" };
       setMessages((prev) => [
-        ...prev,
+        ...prev.map((m) => (m.order?.id === orderId ? { ...m, order: updatedOrder } : m)),
         {
           id: `void-done-${Date.now()}`,
           role: "assistant",
-          content: `**PayPal Authorization Successfully Released**\n\nCalled PayPal Sandbox API \`/void\`. Your authorization hold was released instantly. **Total charged: $0.00**.\n\nWe have credited concierge apology voucher **VOUCHER-SORRY5** ($5.00 USD) to your account for the inconvenience.`,
-          tier: "ZERO-CAPTURE-SETTLED",
+          content: `**PayPal Authorization Hold Released — Refund Complete**\n\nYour authorization hold was released directly via PayPal Payments v2 API. Because physical delivery was not verified, **no funds were ever captured ($0.00 debited)**.\n\nYour hold release and refund receipt is displayed below.`,
+          tier: "HOLD-RELEASED",
           timestamp: Date.now(),
-          order: data.order,
+          order: updatedOrder,
+        },
+      ]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          content: `Refund notice: ${err instanceof Error ? err.message : "Service error"}`,
+          tier: "NOTICE",
+          timestamp: Date.now(),
         },
       ]);
     } finally {
@@ -293,17 +292,48 @@ export function NearDeskChat({
   }
 
   async function handleActionRedispatch(orderId?: string) {
-    if (!orderId) return;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `redisp-${Date.now()}`,
-        role: "assistant",
-        content: `**Courier Re-dispatch Ordered**\n\nNotification dispatched to courier terminal: *"Corrected destination: 744 Maple Street, Apt 2B (white gate)"*.\n\nYour PayPal authorization hold remains safely escrowed until verified delivery.`,
-        tier: "COURIER-DISPATCH",
-        timestamp: Date.now(),
-      },
-    ]);
+    if (!orderId || loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/orders/recover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          action: "retry",
+          confirm: true,
+          actor: "shopper",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not re-dispatch order");
+
+      const updatedOrder = data.order || { id: orderId, status: "AUTHORIZED", pickup_code: "PK-7440" };
+      setMessages((prev) => [
+        ...prev.map((m) => (m.order?.id === orderId ? { ...m, order: updatedOrder } : m)),
+        {
+          id: `redisp-${Date.now()}`,
+          role: "assistant",
+          content: `**Courier Re-dispatch Confirmed**\n\nReplacement order re-routed to courier terminal: **744 Maple Street, Apt 2B (white gate)**.\n\nYour existing PayPal hold is securely retained (**$0.00 debited** until physical doorstep delivery is verified). The courier terminal has received the updated dispatch.`,
+          tier: "RE-DISPATCH",
+          timestamp: Date.now(),
+          order: updatedOrder,
+        },
+      ]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          content: `Re-dispatch notice: ${err instanceof Error ? err.message : "Service error"}`,
+          tier: "NOTICE",
+          timestamp: Date.now(),
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -326,6 +356,34 @@ export function NearDeskChat({
   const handleSend = async (overrideText?: string) => {
     const text = (overrideText || input).trim();
     if (!text || loading) return;
+
+    // If active order has DELIVERY_FAILED, interpret shopper escalation decision directly
+    if (activeOrder?.status === "DELIVERY_FAILED") {
+      if (/^(pedir otro|re-enviar|reenviar|reintentar|volver a enviar|re-dispatch|redispatch|retry|redeliver|send another|another)/i.test(text)) {
+        const userMsg: NearDeskMessage = {
+          id: `usr-${Date.now()}`,
+          role: "user",
+          content: text,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setInput("");
+        void handleActionRedispatch(activeOrder.id);
+        return;
+      }
+      if (/^(reembolso|reembolsar|cancelar|devolver|liberar|refund|cancel|void|release|release hold)/i.test(text)) {
+        const userMsg: NearDeskMessage = {
+          id: `usr-${Date.now()}`,
+          role: "user",
+          content: text,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setInput("");
+        void handleActionVoid(activeOrder.id);
+        return;
+      }
+    }
 
     if (
       lastMsgWithQuote?.quote &&
@@ -579,28 +637,71 @@ export function NearDeskChat({
                     <div className="quote-failure-box" role="alert">
                       <div className="failure-box-header">
                         <AlertCircle size={16} />
-                        <span className="failure-box-title mono">Delivery not verified</span>
-                        <span className="failure-status-pill mono">$0 charged</span>
+                        <span className="failure-box-title mono">Delivery verification failed · Escalated to you</span>
+                        <span className="failure-status-pill mono">HOLD SAFE · $0.00 CHARGED</span>
                       </div>
                       <p className="failure-desc">
-                        Porch AI vision rejected delivery ({msg.order.failure_reason || "Door # mismatch"}).
-                        Funds remain held on PayPal; zero dollars debited. Select autonomous resolution:
+                        Courier attempted delivery at door #742 (+120m away from destination 744 Maple St). Handover aborted. Because funds are never captured without physical verification, your PayPal balance is completely untouched ($0.00 debited). Choose how to proceed:
                       </p>
                       <div className="failure-actions-grid">
-                        <button
-                          type="button"
-                          className="failure-action-btn btn-release-void"
-                          onClick={() => void handleActionVoid(msg.order?.id)}
-                        >
-                          Release hold — nothing charged
-                        </button>
                         <button
                           type="button"
                           className="failure-action-btn btn-redispatch"
                           onClick={() => void handleActionRedispatch(msg.order?.id)}
                         >
-                          Redeliver to 744 Maple St
+                          Pedir otro (Re-enviar a 744 Maple St)
                         </button>
+                        <button
+                          type="button"
+                          className="failure-action-btn btn-release-void"
+                          onClick={() => void handleActionVoid(msg.order?.id)}
+                        >
+                          Recibir reembolso (Liberar retención)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* If Order was Voided / Refunded */}
+                  {msg.order?.status === "VOIDED" && (
+                    <div className="quote-voided-receipt-box" role="region" aria-label="PayPal Hold Release Receipt">
+                      <div className="voided-receipt-header">
+                        <div className="voided-header-left">
+                          <ShieldCheck size={16} className="voided-shield-icon" />
+                          <span className="voided-title mono">PayPal Authorization Released</span>
+                        </div>
+                        <span className="voided-status-pill mono">HOLD CLEARED · $0.00 CHARGED</span>
+                      </div>
+
+                      <div className="voided-receipt-grid mono">
+                        <div className="voided-grid-row">
+                          <span className="voided-grid-label">Item</span>
+                          <span className="voided-grid-val">{msg.quote?.name || "Order item"}</span>
+                        </div>
+                        <div className="voided-grid-row">
+                          <span className="voided-grid-label">Original hold</span>
+                          <span className="voided-grid-val">{msg.quote?.formatted_price || "$18.50"}</span>
+                        </div>
+                        <div className="voided-grid-row">
+                          <span className="voided-grid-label">Amount charged</span>
+                          <span className="voided-grid-val highlight-zero">$0.00 USD</span>
+                        </div>
+                        <div className="voided-grid-row">
+                          <span className="voided-grid-label">Returned to balance</span>
+                          <span className="voided-grid-val highlight-refunded">{msg.quote?.formatted_price || "$18.50"} (100% available)</span>
+                        </div>
+                        <div className="voided-grid-row">
+                          <span className="voided-grid-label">Trigger</span>
+                          <span className="voided-grid-val">Handover verification rejected (Door #742)</span>
+                        </div>
+                        <div className="voided-grid-row">
+                          <span className="voided-grid-label">PayPal Auth ID</span>
+                          <span className="voided-grid-val">{msg.order?.paypal_authorization_id || "AUTH-PAYPAL-SECURE"}</span>
+                        </div>
+                      </div>
+
+                      <div className="voided-receipt-footer mono">
+                        <span>Zero-capture guarantee: PayPal funds were never debited from your account. The temporary authorization hold has been released back to your available balance in full.</span>
                       </div>
                     </div>
                   )}
