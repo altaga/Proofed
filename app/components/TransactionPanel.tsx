@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import { sandboxOrderUrl, sandboxPaymentUrl } from "@/lib/sandbox-links";
 import {
   buildTxSteps,
   compactStatus,
@@ -80,6 +81,18 @@ export function TransactionPanel({
   const summary = compactStatus(order, quote);
   const tail = amount && summary.startsWith(amount) ? summary.slice(amount.length).replace(/^\s*·\s*/, "") : summary;
 
+  const lineItems =
+    order?.items && order.items.length > 0
+      ? order.items
+      : quote?.lines && quote.lines.length > 0
+        ? quote.lines
+        : null;
+
+  const hubName =
+    venueName && !venueName.toLowerCase().includes("dome")
+      ? venueName
+      : "Proofed Autonomous Commerce Hub";
+
   return (
     <section
       className={`tx-panel${compact ? " compact" : ""}`}
@@ -135,10 +148,79 @@ export function TransactionPanel({
 
       {open && (
         <div className="tx-details">
-          <p>{itemLine(order, quote)}</p>
-          {venueName ? <p className="tx-note">{venueName}</p> : null}
-          <p>{moneySentence(order, quote)}</p>
-          {order ? <p><span className={`status ${order.status}`}>{order.status}</span></p> : null}
+          <div className="tx-receipt-card">
+            <div className="tx-hub-meta">
+              <div>
+                <span className="tx-hub-name">{hubName}</span>
+                <span className="tx-hub-station"> · Silicon Valley Station #744</span>
+              </div>
+              {order ? <span className={`status ${order.status}`}>{order.status}</span> : null}
+            </div>
+
+            {lineItems && lineItems.length > 0 ? (
+              <table className="tx-line-items" aria-label="Order line items">
+                <thead>
+                  <tr>
+                    <th>Item Description</th>
+                    <th style={{ textAlign: "center", width: "40px" }}>Qty</th>
+                    <th style={{ textAlign: "right", width: "70px" }}>Price</th>
+                    <th style={{ textAlign: "right", width: "75px" }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineItems.map((it, idx) => {
+                    const unitCents = it.unit_price_cents ?? 0;
+                    const totalCents = unitCents * it.qty;
+                    return (
+                      <tr key={it.sku || idx}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{it.name}</div>
+                          {it.sku ? <span className="tx-item-sku">SKU: {it.sku}</span> : null}
+                        </td>
+                        <td style={{ textAlign: "center", fontFamily: "var(--font-mono), ui-monospace, monospace" }}>
+                          {it.qty}
+                        </td>
+                        <td style={{ textAlign: "right", fontFamily: "var(--font-mono), ui-monospace, monospace" }}>
+                          {unitCents > 0 ? `$${(unitCents / 100).toFixed(2)}` : "—"}
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 700, fontFamily: "var(--font-mono), ui-monospace, monospace" }}>
+                          {totalCents > 0 ? `$${(totalCents / 100).toFixed(2)}` : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <p>{itemLine(order, quote)}</p>
+            )}
+
+            <div className="tx-financial-summary">
+              <div className="tx-summary-row">
+                <span>Items Subtotal</span>
+                <span className="mono">{amount || "—"}</span>
+              </div>
+              <div className="tx-summary-row">
+                <span>Doorstep Courier Delivery</span>
+                <span className="mono">$0.00 (Free Escrow)</span>
+              </div>
+              <div className="tx-summary-row">
+                <span>Estimated Tax (Inclusive)</span>
+                <span className="mono">$0.00</span>
+              </div>
+              <div className="tx-summary-row total">
+                <span>Total Authorization</span>
+                <span className="mono">{amount || "—"}</span>
+              </div>
+            </div>
+
+            <div className="tx-escrow-badge">
+              <strong>PayPal Authorization Protocol:</strong> Funds ({amount || "$0.00"}) are held in escrow under <code>intent=AUTHORIZE</code>. No money is transferred until the courier confirms physical doorstep handover with PIN verification.
+            </div>
+          </div>
+
+          <p className="tx-money-sentence">{moneySentence(order, quote)}</p>
+
           {steps.length > 0 && (
             <ol className="tx-stepper" aria-label="Payment steps">
               {steps.map((step) => (
@@ -153,11 +235,35 @@ export function TransactionPanel({
               ))}
             </ol>
           )}
-          {order?.pickup_code && (
-            <div className="tx-ids">
-              Recipient PIN <Copyable value={order.pickup_code} />
+
+          <div className="tx-ids">
+            <div>
+              <strong>Delivery Destination:</strong> 744 North Capitol Ave (Doorstep Courier)
             </div>
-          )}
+            {order?.pickup_code ? (
+              <div>
+                <strong>Recipient PIN:</strong> <Copyable value={order.pickup_code} />
+              </div>
+            ) : null}
+            {order?.paypal_order_id ? (
+              <div>
+                <strong>PayPal Order ID:</strong>{" "}
+                <Copyable value={order.paypal_order_id} href={sandboxOrderUrl(order.paypal_order_id)} />
+              </div>
+            ) : null}
+            {order?.paypal_authorization_id ? (
+              <div>
+                <strong>PayPal Authorization ID:</strong>{" "}
+                <Copyable value={order.paypal_authorization_id} href={sandboxPaymentUrl(order.paypal_authorization_id)} />
+              </div>
+            ) : null}
+            {order?.paypal_capture_id ? (
+              <div>
+                <strong>PayPal Capture ID:</strong>{" "}
+                <Copyable value={order.paypal_capture_id} href={sandboxPaymentUrl(order.paypal_capture_id)} />
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
     </section>

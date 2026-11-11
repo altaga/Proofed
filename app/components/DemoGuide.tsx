@@ -68,7 +68,7 @@ export function DemoGuide({ venueName }: { name?: string; tagline?: string; venu
   const isFailed = latest?.status === "DELIVERY_FAILED";
   const isVoided = latest?.status === "VOIDED";
 
-  const activeVenueName = deliveryMode === "home" ? "742 Evergreen Terrace (Smart Porch Box)" : venueName || "Pudgy Stadium Shop";
+  const activeVenueName = deliveryMode === "home" ? "744 North Capitol Ave (Doorstep Delivery)" : venueName || "Proofed Autonomous Commerce Hub";
 
   return (
     <div className="demo-guide-container">

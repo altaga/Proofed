@@ -264,7 +264,95 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .tx-step strong { display: block; font-size: 0.95rem; }
 .tx-meta { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
 .tx-note { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
-.tx-ids { margin-top: 10px; display: grid; gap: 4px; font-size: 0.82rem; color: var(--muted); }
+.tx-ids { margin-top: 10px; display: grid; gap: 6px; font-size: 0.84rem; color: var(--muted); }
+.tx-ids strong { color: var(--ink); }
+
+.tx-receipt-card {
+  border: 1px solid var(--line);
+  background: #fbfbfa;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin: 10px 0 14px;
+}
+.tx-hub-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.tx-hub-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+.tx-hub-station {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+.tx-line-items {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  margin-bottom: 12px;
+}
+.tx-line-items th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+.tx-line-items td {
+  padding: 6px 0;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+.tx-item-sku {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.74rem;
+  color: var(--muted);
+  display: block;
+}
+.tx-financial-summary {
+  display: grid;
+  gap: 6px;
+  font-size: 0.84rem;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+.tx-summary-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+}
+.tx-summary-row.total {
+  font-weight: 750;
+  color: var(--ink);
+  font-size: 0.98rem;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+  margin-top: 4px;
+}
+.tx-escrow-badge {
+  font-size: 0.78rem;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: rgba(0, 44, 108, 0.05);
+  color: #002c6c;
+  border: 1px solid rgba(0, 44, 108, 0.12);
+  margin-top: 12px;
+  line-height: 1.45;
+}
+.tx-money-sentence {
+  font-size: 0.88rem;
+  color: var(--ink);
+  margin: 6px 0 10px;
+}
 .link-btn {
   border: 0; background: none; color: var(--brand); font-weight: 700; cursor: pointer; padding: 0;
 }

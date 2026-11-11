@@ -328,7 +328,7 @@ export function UIGallery() {
 
           {/* Transaction Panel Render */}
           <div style={{ marginTop: 20 }}>
-            <TransactionPanel order={currentOrder} venueName="Pudgy Stadium Shop" expanded />
+            <TransactionPanel order={currentOrder} venueName="Proofed Autonomous Commerce Hub" expanded />
           </div>
         </section>
       )}

@@ -201,6 +201,25 @@ export type PaypalRefund = {
   status?: string;
 };
 
+export type PaypalOrderItem = {
+  name: string;
+  unitPriceCents: number;
+  qty: number;
+  sku?: string;
+  description?: string;
+  category?: "PHYSICAL_GOODS" | "DIGITAL_GOODS" | "DONATION";
+};
+
+export type PaypalShippingAddress = {
+  fullName?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  adminArea2?: string;
+  adminArea1?: string;
+  postalCode?: string;
+  countryCode?: string;
+};
+
 export async function createPaypalOrder(input: {
   amountCents: number;
   currency: string;
@@ -209,7 +228,66 @@ export async function createPaypalOrder(input: {
   customId: string;
   brandName: string;
   requestId: string;
+  items?: PaypalOrderItem[];
+  shippingAddress?: PaypalShippingAddress;
 }): Promise<PaypalOrder> {
+  const items =
+    input.items && input.items.length > 0
+      ? input.items.map((item) => ({
+          name: item.name.slice(0, 127),
+          description: (item.description || item.name).slice(0, 127),
+          sku: item.sku ? item.sku.slice(0, 127) : undefined,
+          unit_amount: {
+            currency_code: input.currency,
+            value: centsToValue(item.unitPriceCents),
+          },
+          quantity: String(item.qty),
+          category: item.category || "PHYSICAL_GOODS",
+        }))
+      : undefined;
+
+  const itemTotalCents =
+    input.items && input.items.length > 0
+      ? input.items.reduce((sum, item) => sum + item.unitPriceCents * item.qty, 0)
+      : input.amountCents;
+
+  const breakdown = {
+    item_total: {
+      currency_code: input.currency,
+      value: centsToValue(itemTotalCents),
+    },
+    shipping: {
+      currency_code: input.currency,
+      value: centsToValue(Math.max(0, input.amountCents - itemTotalCents)),
+    },
+    handling: {
+      currency_code: input.currency,
+      value: "0.00",
+    },
+    tax_total: {
+      currency_code: input.currency,
+      value: "0.00",
+    },
+    discount: {
+      currency_code: input.currency,
+      value: "0.00",
+    },
+  };
+
+  const shipping = {
+    type: "SHIPPING",
+    name: {
+      full_name: input.shippingAddress?.fullName || "Doorstep Delivery Recipient",
+    },
+    address: {
+      address_line_1: input.shippingAddress?.addressLine1 || "744 North Capitol Ave",
+      admin_area_2: input.shippingAddress?.adminArea2 || "San Jose",
+      admin_area_1: input.shippingAddress?.adminArea1 || "CA",
+      postal_code: input.shippingAddress?.postalCode || "95133",
+      country_code: input.shippingAddress?.countryCode || "US",
+    },
+  };
+
   const { data } = await paypalFetch<PaypalOrder>("/v2/checkout/orders", {
     method: "POST",
     requestId: input.requestId,
@@ -218,19 +296,23 @@ export async function createPaypalOrder(input: {
       intent: "AUTHORIZE",
       purchase_units: [
         {
-          reference_id: "venue-pickup",
+          reference_id: "doorstep-handover",
           description: input.description,
           custom_id: input.customId,
           invoice_id: input.invoiceId,
+          soft_descriptor: "PROOFED*HOLD",
           amount: {
             currency_code: input.currency,
             value: centsToValue(input.amountCents),
+            breakdown,
           },
+          items,
+          shipping,
         },
       ],
       application_context: {
         brand_name: input.brandName.slice(0, 127),
-        shipping_preference: "NO_SHIPPING",
+        shipping_preference: "SET_PROVIDED_ADDRESS",
         user_action: "PAY_NOW",
         return_url: "https://example.com/return",
         cancel_url: "https://example.com/cancel",
