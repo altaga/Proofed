@@ -266,8 +266,8 @@ export function ShopperApp({
                           </div>
                           <span className="btn-paypal-amt mono">${(quoted.unit_price_cents / 100).toFixed(2)}</span>
                         </button>
-                        <div className="hold-disclaimer mono">
-                          <span>intent=AUTHORIZE · $0.00 charged until physical handover verification</span>
+                        <div className="hold-disclaimer">
+                          <span>No charge today — payment is completed only upon delivery.</span>
                         </div>
                       </div>
                     )}

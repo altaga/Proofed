@@ -8,12 +8,9 @@ import {
   Camera,
   Check,
   CheckCircle2,
-  Clock,
   ExternalLink,
-  Lock,
   MapPin,
   Package,
-  QrCode,
   RefreshCw,
   RotateCcw,
   ShieldAlert,
@@ -83,7 +80,13 @@ type VisionVerifyResponse = {
   visualEvidence: string;
   agentAssessment?: string;
   boundingBoxes: BoundingBox[];
-  handoverVerdict: "VERIFIED" | "REJECTED_MISMATCH" | "REJECTED_DAMAGED" | "REJECTED_NO_PACKAGE" | "REJECTED_INVALID_PIN" | "REJECTED_GEOFENCE";
+  handoverVerdict:
+    | "VERIFIED"
+    | "REJECTED_MISMATCH"
+    | "REJECTED_DAMAGED"
+    | "REJECTED_NO_PACKAGE"
+    | "REJECTED_INVALID_PIN"
+    | "REJECTED_GEOFENCE";
   photoSha256Digest?: string;
   serverHmacSignature?: string;
   recipientPinVerified?: boolean;
@@ -94,7 +97,7 @@ type VisionVerifyResponse = {
 const PHOTO_PRESETS: PhotoPreset[] = [
   {
     id: "correct",
-    shortLabel: "Puerta #15 (Correcta)",
+    shortLabel: "Door #15 (Correct)",
     tag: "Match",
     doorNumber: "15",
     imagePath: "/delivery/door-15.svg",
@@ -102,7 +105,7 @@ const PHOTO_PRESETS: PhotoPreset[] = [
   },
   {
     id: "wrong_door",
-    shortLabel: "Puerta #13 (Error)",
+    shortLabel: "Door #13 (Wrong door)",
     tag: "Mismatch",
     doorNumber: "13",
     imagePath: "/delivery/door-13.svg",
@@ -110,7 +113,7 @@ const PHOTO_PRESETS: PhotoPreset[] = [
   },
   {
     id: "damaged",
-    shortLabel: "Caja Dañada (Rechazo)",
+    shortLabel: "Damaged box",
     tag: "Damaged",
     doorNumber: "15",
     imagePath: "/delivery/crushed-box.svg",
@@ -131,7 +134,7 @@ function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
 }
 
 function getParcelTrackingNumber(order?: DeliveryOrder | null): string {
-  if (!order) return "PKG-PL7440-KRK";
+  if (!order) return "PKG-PL7440";
   const clean = order.id.replace(/^ord_/, "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
   const suffix = clean.slice(-5) || "7440";
   return `PKG-PL${suffix}`;
@@ -188,13 +191,8 @@ function BarcodeGraphic() {
 }
 
 export function DeliveryApp() {
-  // Wizard Step: 1 = Paquete (Parcel), 2 = Foto & Visión (Doorstep), 3 = PIN & Entrega (Handoff)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
-
   const [activeOrder, setActiveOrder] = useState<DeliveryOrder | null>(null);
-  const [knownOrders, setKnownOrders] = useState<DeliveryOrder[]>([]);
-  
-  // Recipient Handover PIN (strictly separate from parcel tracking!)
   const [recipientPin, setRecipientPin] = useState("");
 
   const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(PHOTO_PRESETS[0]);
@@ -203,7 +201,6 @@ export function DeliveryApp() {
   const [customPhotoName, setCustomPhotoName] = useState<string | null>(null);
   const [customPhotoBase64, setCustomPhotoBase64] = useState<string | null>(null);
 
-  // GPS Geofence state (Filarecka 2B, Kraków: 50.0556092, 19.9203676)
   const [gpsData, setGpsData] = useState<{
     lat: number;
     lng: number;
@@ -222,24 +219,18 @@ export function DeliveryApp() {
     isLocating: false,
   });
 
-  // Vision Pipeline states
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [visionResult, setVisionResult] = useState<VisionVerifyResponse | null>(null);
-
-  // Form submission & feedback
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{
     tone: "success" | "failure" | "info";
     title: string;
     message: string;
-    paypalDetail?: string;
-    recoveryAction?: boolean;
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Trigger computer vision & tri-factor verification
   const runVisionVerification = useCallback(
     async (params: { image?: string; presetId?: string; gpsCoords?: { lat: number; lng: number } }) => {
       setIsAnalyzing(true);
@@ -299,9 +290,8 @@ export function DeliveryApp() {
         });
       },
       (err) => {
-        console.warn("Geolocation notice:", err.message);
         setGpsData((prev) => ({ ...prev, isLocating: false }));
-        alert(`Notice: ${err.message}. Using calibrated venue coordinates (ul. Filarecka 2B).`);
+        alert(`Notice: ${err.message}. Using destination coordinates (ul. Filarecka 2B).`);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
@@ -328,7 +318,6 @@ export function DeliveryApp() {
     });
   }
 
-  // Fetch active held order or latest order
   async function fetchLatestOrder() {
     try {
       const res = await fetch("/api/orders");
@@ -341,7 +330,7 @@ export function DeliveryApp() {
           cachedOrders = JSON.parse(cachedRaw) as DeliveryOrder[];
         }
       } catch {
-        // ignore storage errors
+        // ignore
       }
 
       const combined: DeliveryOrder[] = Array.isArray(cachedOrders) ? [...cachedOrders] : [];
@@ -350,7 +339,6 @@ export function DeliveryApp() {
           combined.push(s);
         }
       }
-      setKnownOrders(combined);
 
       const held =
         combined.find((o) => o.status === "AUTHORIZED") ||
@@ -365,17 +353,15 @@ export function DeliveryApp() {
         }
       }
     } catch {
-      // Quiet fail on initial load
+      // Quiet fail
     }
   }
 
-  // Initial load
   useEffect(() => {
     void fetchLatestOrder();
     void runVisionVerification({ presetId: "correct" });
   }, [runVisionVerification]);
 
-  // Preset Selection
   function handleSelectPreset(preset: PhotoPreset) {
     setSelectedPreset(preset);
     setMediaMode("preset");
@@ -385,7 +371,6 @@ export function DeliveryApp() {
     void runVisionVerification({ presetId: preset.id });
   }
 
-  // File Upload or Camera Capture
   function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>, mode: "camera" | "upload") {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -403,7 +388,6 @@ export function DeliveryApp() {
     reader.readAsDataURL(file);
   }
 
-  // Complete Handover: checks tri-factor evidence and verifies recipient PIN
   async function handleConfirmHandover() {
     if (!activeOrder) return;
     setIsSubmitting(true);
@@ -413,8 +397,8 @@ export function DeliveryApp() {
     if (!pinToVerify || pinToVerify.length < 6) {
       setFeedback({
         tone: "failure",
-        title: "PIN del Destinatario Requerido",
-        message: "Introduce el PIN de 6 caracteres que el comprador tiene en su pantalla de chat (ej. 9N56RC).",
+        title: "Delivery PIN Required",
+        message: "Please enter the 6-character PIN provided by the customer.",
       });
       setIsSubmitting(false);
       return;
@@ -430,7 +414,7 @@ export function DeliveryApp() {
           body: JSON.stringify({
             orderId: activeOrder.id,
             pickupCode: pinToVerify,
-            note: `Tri-factor verified: ${visionResult?.visualEvidence || "GPS zone, Door #15, and intact parcel on floor confirmed"} (${((visionResult?.confidence ?? visionResult?.overallHandoverScore) ?? 98.5).toFixed(1)}% score) · Recipient PIN verified`,
+            note: `Doorstep #15 and intact parcel verified · Customer PIN (${pinToVerify}) confirmed`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
             presetId: customPhotoBase64 ? "custom" : selectedPreset.id,
@@ -452,9 +436,8 @@ export function DeliveryApp() {
         }
         setFeedback({
           tone: "success",
-          title: "¡Entrega Verificada y Custodia Transferida!",
-          message: `Paquete entregado en #15 Filarecka 2B, Kraków. Verificación GPS (${gpsData.distanceMeters}m), Puerta #15 por Visión IA, paquete intacto y PIN del destinatario (${pinToVerify}) comprobados.`,
-          paypalDetail: `Evento criptográfico registrado en el ledger. Captura de fondos ejecutada en PayPal Payments v2 para la orden ${payload.order.id}.`,
+          title: "Delivery Completed",
+          message: `Package delivered to #15 Filarecka 2B, Kraków and payment completed.`,
         });
       } else {
         const reason =
@@ -473,7 +456,7 @@ export function DeliveryApp() {
             orderId: activeOrder.id,
             pickupCode: pinToVerify,
             reason,
-            note: `Verification rejected: ${visionResult?.agentAssessment || visionResult?.visualEvidence || "Handover conditions not met"}`,
+            note: `Delivery verification failed: ${visionResult?.visualEvidence || "Conditions not met"}`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
             orderSnapshot: activeOrder,
@@ -492,17 +475,15 @@ export function DeliveryApp() {
         }
         setFeedback({
           tone: "failure",
-          title: "Entrega Rechazada · Paquete Retornado al Hub",
-          message: `${visionResult?.visualEvidence || "Discrepancia detectada en entrega"}. Transferencia abortada.`,
-          paypalDetail: "Incidente auditado. La retención de PayPal permanece en $0.00 capturados.",
-          recoveryAction: true,
+          title: "Delivery Cancelled · Package Returned",
+          message: `Delivery could not be verified at this door. The customer has not been charged.`,
         });
       }
     } catch (err) {
       setFeedback({
         tone: "failure",
-        title: "Error de Entrega",
-        message: err instanceof Error ? err.message : "Error al procesar la entrega",
+        title: "Delivery Error",
+        message: err instanceof Error ? err.message : "Could not process delivery",
       });
     } finally {
       setIsSubmitting(false);
@@ -516,11 +497,11 @@ export function DeliveryApp() {
   return (
     <div className="delivery-container">
       <div className="delivery-card">
-        {/* Top Bar with GPS Telemetry & Controls */}
+        {/* Top Bar with GPS */}
         <div className="delivery-top-bar">
           <div className="courier-badge">
             <span className="courier-pulse" />
-            <span className="courier-id">Repartidor · Ruta 4B</span>
+            <span className="courier-id">Courier · Route 4B</span>
           </div>
           <div className="delivery-gps-ctrls">
             <div className={`delivery-gps mono ${gpsData.inZone ? "gps-in-zone" : "gps-out-zone"}`}>
@@ -528,38 +509,36 @@ export function DeliveryApp() {
               <span>
                 {gpsData.inZone
                   ? `Filarecka 2B (${gpsData.distanceMeters}m)`
-                  : `Fuera de zona (+${gpsData.distanceMeters}m)`}
+                  : `Out of zone (+${gpsData.distanceMeters}m)`}
               </span>
             </div>
             <button
               type="button"
               className="gps-toggle-btn"
               onClick={handleToggleGpsSimulation}
-              title="Alternar GPS entre la zona de entrega y fuera de zona"
             >
-              {gpsData.inZone ? "Simular Lejos (+2.5km)" : "En Sitio (0m)"}
+              {gpsData.inZone ? "Simulate Far" : "Reset Location"}
             </button>
             <button
               type="button"
               className="gps-locate-btn"
               onClick={handleGetLiveLocation}
               disabled={gpsData.isLocating}
-              title="Consultar GPS real del dispositivo"
             >
-              {gpsData.isLocating ? "Localizando…" : "GPS Real"}
+              {gpsData.isLocating ? "Locating…" : "Live GPS"}
             </button>
           </div>
         </div>
 
-        {/* Clean 3-Step Wizard Navigation */}
-        <nav className="delivery-stepper" aria-label="Progreso de entrega">
+        {/* Clean 3-Step Stepper */}
+        <nav className="delivery-stepper" aria-label="Delivery Steps">
           <button
             type="button"
             className={`stepper-item ${currentStep === 1 ? "is-active" : currentStep > 1 ? "is-completed" : ""}`}
             onClick={() => setCurrentStep(1)}
           >
             <span className="stepper-badge">{currentStep > 1 ? <Check size={11} /> : "1"}</span>
-            <span className="stepper-label">01 Paquete</span>
+            <span className="stepper-label">Package</span>
           </button>
           <div className="stepper-divider" />
           <button
@@ -568,7 +547,7 @@ export function DeliveryApp() {
             onClick={() => setCurrentStep(2)}
           >
             <span className="stepper-badge">{currentStep > 2 ? <Check size={11} /> : "2"}</span>
-            <span className="stepper-label">02 Foto &amp; Visión</span>
+            <span className="stepper-label">Door Photo</span>
           </button>
           <div className="stepper-divider" />
           <button
@@ -578,96 +557,74 @@ export function DeliveryApp() {
               if (isVerified || isDelivered) setCurrentStep(3);
             }}
             disabled={!isVerified && !isDelivered}
-            title={!isVerified && !isDelivered ? "Completa la verificación fotográfica primero" : "Paso 3: PIN y Entrega"}
           >
             <span className="stepper-badge">{isDelivered ? <Check size={11} /> : "3"}</span>
-            <span className="stepper-label">03 PIN &amp; Entrega</span>
+            <span className="stepper-label">Delivery PIN</span>
           </button>
         </nav>
 
-        {/* Delivery Header */}
+        {/* Step Title */}
         <div className="delivery-header">
           <h2>
-            {currentStep === 1 && "Verificación del Paquete"}
-            {currentStep === 2 && "Foto de Puerta e Inspección IA"}
-            {currentStep === 3 && (isDelivered ? "Entrega Completada" : "PIN del Destinatario y Liquidación")}
+            {currentStep === 1 && "1. Confirm Package"}
+            {currentStep === 2 && "2. Doorstep Photo"}
+            {currentStep === 3 && (isDelivered ? "Delivery Complete" : "3. Customer PIN")}
           </h2>
           <p className="delivery-subtitle">
-            {currentStep === 1 && "Confirma el código de tracking del bulto y el manifiesto antes de descender del vehículo."}
-            {currentStep === 2 && "Toma una fotografía del paquete colocado frente a la puerta para validar el número de vivienda y el estado físico."}
-            {currentStep === 3 && !isDelivered && "Solicita el PIN secreto de 6 caracteres que el cliente tiene en su app de compra para autorizar la captura en PayPal."}
-            {currentStep === 3 && isDelivered && "Los fondos retenidos en PayPal fueron capturados satisfactoriamente."}
+            {currentStep === 1 && "Check the package tracking code and delivery address."}
+            {currentStep === 2 && "Take a photo of the package at the door to verify the apartment number and box condition."}
+            {currentStep === 3 && !isDelivered && "Enter the 6-character PIN from the customer to complete the delivery."}
+            {currentStep === 3 && isDelivered && "The package has been delivered and payment is complete."}
           </p>
         </div>
 
         {/* ============================================================ */}
-        {/* PASO 1: PAQUETE & MANIFIESTO                                 */}
+        {/* STEP 1: PACKAGE                                              */}
         {/* ============================================================ */}
         {currentStep === 1 && (
-          <section className="delivery-step-content" aria-label="Paso 1: Paquete y Destino">
-            {/* Barcode & Tracking Identifier Box */}
-            <div className="parcel-barcode-card">
-              <div className="parcel-barcode-badge">
-                <Package size={14} />
-                <span>Etiqueta de Envío · Código de Barras</span>
-              </div>
-
-              <BarcodeGraphic />
-
-              <div className="parcel-tracking-row">
-                <span className="parcel-tracking-code mono">{parcelTrackingCode}</span>
-                <span className="parcel-status-pill mono">LISTO PARA ENTREGA</span>
-              </div>
-
-              <div className="parcel-ref-sub mono">
-                <span>Orden ref: {activeOrder?.id || "ord_machivp0c339c16ce5"}</span>
-                <button
-                  type="button"
-                  className="parcel-refresh-mini"
-                  onClick={() => void fetchLatestOrder()}
-                  title="Actualizar pedidos de compra activos"
-                >
-                  <RefreshCw size={12} className={isSubmitting ? "spin" : ""} />
-                  <span>Actualizar</span>
-                </button>
-              </div>
-            </div>
-
-            {!activeOrder && (
+          <section className="delivery-step-content" aria-label="Step 1: Confirm Package">
+            {!activeOrder ? (
               <div className="delivery-no-order">
                 <EmptyOrderState
-                  title="No hay entregas asignadas"
-                  body="Las órdenes aparecen aquí automáticamente una vez que el cliente autoriza una retención en el chat de la tienda."
-                  actionLabel="Abrir Chat de Tienda"
+                  title="No active delivery"
+                  body="Orders appear here automatically once a customer approves a payment hold in Shop."
+                  actionLabel="Open Shop Chat"
                 />
               </div>
-            )}
+            ) : (
+              <div className="manifest-card" style={{ padding: "18px 16px" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", paddingBottom: "16px", marginBottom: "14px", borderBottom: "1px solid #2E2B25" }}>
+                  <BarcodeGraphic />
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span className="parcel-tracking-code mono">{parcelTrackingCode}</span>
+                    <button
+                      type="button"
+                      className="parcel-refresh-mini"
+                      onClick={() => void fetchLatestOrder()}
+                      title="Refresh active order"
+                    >
+                      <RefreshCw size={12} />
+                      <span>Refresh</span>
+                    </button>
+                  </div>
+                </div>
 
-            {/* Manifest Details */}
-            {activeOrder && (
-              <div className="manifest-card">
                 <div className="manifest-row">
-                  <span className="manifest-label">Destino</span>
-                  <span className="manifest-value mono" style={{ color: "#F4F1EA", fontWeight: 600 }}>
-                    ul. Filarecka 2B, m. 15, 30-110 Kraków
+                  <span className="manifest-label">Deliver to</span>
+                  <span className="manifest-value" style={{ color: "#F4F1EA", fontWeight: 600 }}>
+                    ul. Filarecka 2B, Apt 15, Kraków
                   </span>
                 </div>
                 <div className="manifest-row">
-                  <span className="manifest-label">Retención PayPal</span>
-                  <span className="manifest-value manifest-amount mono">
-                    {activeOrder.formatted_total} <span className="hold-pill">Hold ($0.00 cobrado)</span>
+                  <span className="manifest-label">Order Total</span>
+                  <span className="manifest-value mono">
+                    {activeOrder.formatted_total} <span className="hold-pill">Payment on hold</span>
                   </span>
                 </div>
-                <div className="manifest-row">
-                  <span className="manifest-label">Estado</span>
-                  <span className={`status-badge status-${activeOrder.status.toLowerCase()} mono`}>
-                    {activeOrder.status}
-                  </span>
-                </div>
-                <div className="manifest-items-list">
+                <div className="manifest-items-list" style={{ marginTop: "8px" }}>
                   {activeOrder.items?.map((item, idx) => (
                     <div key={idx} className="manifest-item-line">
-                      <Package size={12} />
+                      <Package size={13} />
                       <span>
                         {item.name} × {item.qty}
                       </span>
@@ -677,7 +634,6 @@ export function DeliveryApp() {
               </div>
             )}
 
-            {/* Step 1 Actions */}
             <div className="step-nav-bar">
               <button
                 type="button"
@@ -685,7 +641,7 @@ export function DeliveryApp() {
                 onClick={() => setCurrentStep(2)}
                 disabled={!activeOrder}
               >
-                <span>Confirmar paquete y pasar a foto</span>
+                <span>Continue to Door Photo</span>
                 <ArrowRight size={16} />
               </button>
             </div>
@@ -693,15 +649,14 @@ export function DeliveryApp() {
         )}
 
         {/* ============================================================ */}
-        {/* PASO 2: FOTO & VISIÓN IA                                     */}
+        {/* STEP 2: DOOR PHOTO                                           */}
         {/* ============================================================ */}
         {currentStep === 2 && (
-          <section className="delivery-step-content" aria-label="Paso 2: Foto de Puerta e Inspección IA">
-            {/* Direct Camera / Upload Buttons */}
+          <section className="delivery-step-content" aria-label="Step 2: Doorstep Photo">
             <div className="capture-modes-row">
               <label className="capture-option-btn btn-take-photo">
                 <Camera size={15} />
-                <span>Tomar foto con cámara</span>
+                <span>Take photo</span>
                 <input
                   ref={cameraInputRef}
                   type="file"
@@ -714,7 +669,7 @@ export function DeliveryApp() {
 
               <label className="capture-option-btn upload-btn">
                 <Upload size={15} />
-                <span>{customPhotoName ? customPhotoName : "Subir imagen"}</span>
+                <span>{customPhotoName ? customPhotoName : "Upload image"}</span>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -725,10 +680,10 @@ export function DeliveryApp() {
               </label>
             </div>
 
-            {/* Demo Presets Switcher */}
+            {/* Demo Sample Selector */}
             <div className="scenario-switcher-bar">
-              <span className="scenario-switcher-label">Prueba rápida (Simulador):</span>
-              <div className="scenario-pills-row" role="radiogroup" aria-label="Escenarios de prueba">
+              <span className="scenario-switcher-label">Sample photos:</span>
+              <div className="scenario-pills-row" role="radiogroup" aria-label="Sample photos">
                 {PHOTO_PRESETS.map((preset) => {
                   const active = mediaMode === "preset" && selectedPreset.id === preset.id;
                   return (
@@ -748,30 +703,13 @@ export function DeliveryApp() {
               </div>
             </div>
 
-            {/* Viewfinder Frame with Bounding Boxes */}
+            {/* Clean Photo Preview */}
             <div className={`vision-viewfinder-frame ${isAnalyzing ? "is-analyzing" : ""}`}>
-              <div className="viewfinder-telemetry-strip">
-                <div className="viewfinder-hud-status">
-                  <span>
-                    {mediaMode === "camera"
-                      ? "Cámara en directo"
-                      : mediaMode === "upload"
-                      ? customPhotoName || "Foto cargada"
-                      : selectedPreset.shortLabel}
-                  </span>
-                </div>
-                <div className="viewfinder-hud-meta mono">
-                  <span>
-                    Puntuación: {visionResult ? `${((visionResult.overallHandoverScore ?? visionResult.confidence) ?? 98.5).toFixed(1)}/100` : "Analizando…"}
-                  </span>
-                </div>
-              </div>
-
               <div className="viewfinder-media-container">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={previewUrl}
-                  alt="Vista previa de entrega en puerta"
+                  alt="Doorstep preview"
                   className="viewfinder-media"
                 />
 
@@ -779,7 +717,7 @@ export function DeliveryApp() {
                   <div className="vision-laser-sweep-overlay" aria-live="polite">
                     <div className="vision-scanning-pill mono">
                       <RefreshCw size={13} className="spin" />
-                      <span>Comprobando placa de puerta y caja con Visión IA…</span>
+                      <span>Checking door number and package…</span>
                     </div>
                   </div>
                 )}
@@ -804,7 +742,6 @@ export function DeliveryApp() {
                         >
                           <span className="bbox-dot" />
                           <span className="bbox-name">{box.label}</span>
-                          <span className="bbox-conf">{box.confidence.toFixed(0)}%</span>
                         </div>
                       </div>
                     );
@@ -812,109 +749,33 @@ export function DeliveryApp() {
               </div>
             </div>
 
-            {/* Compact Vision AI Telemetry Card */}
-            <div className="ai-vision-telemetry-card">
-              <div className="telemetry-top-strip">
-                <span className="telemetry-model-badge mono">
-                  MiniMax M3.1 Flash · Multimodal Vision Engine
-                </span>
-                <span className="telemetry-latency mono">
-                  {visionResult?.processedInMs ?? 328} ms
-                </span>
+            {/* Simple Verdict Banner */}
+            <div className={`telemetry-verdict-banner ${isVerified ? "verdict-good" : "verdict-bad"}`}>
+              <div className="verdict-banner-icon">
+                {isVerified ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
               </div>
-
-              <div className="telemetry-grid">
-                <div className="telemetry-cell">
-                  <span className="telemetry-label">Destino</span>
-                  <span className="telemetry-val">#15 Filarecka 2B</span>
-                </div>
-
-                <div className="telemetry-cell">
-                  <span className="telemetry-label">Placa de Puerta</span>
-                  <div className="telemetry-val-group">
-                    <span className="telemetry-val mono">
-                      #{visionResult?.detectedDoorNumber ?? "—"}
-                    </span>
-                    {visionResult && (
-                      <span
-                        className={`mini-pill ${Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "pill-good" : "pill-bad"}`}
-                      >
-                        {Boolean(visionResult?.doorplateMatch ?? visionResult?.isDoorMatch) ? "Coincide (99%)" : "Error (12%)"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="telemetry-cell">
-                  <span className="telemetry-label">Estado de Caja</span>
-                  <div className="telemetry-val-group">
-                    <span className="telemetry-val">
-                      {visionResult?.packageCondition === "damaged" ? "Dañada (24%)" : "Intacta (98%)"}
-                    </span>
-                    {visionResult && (
-                      <span
-                        className={`mini-pill ${visionResult.packageCondition === "damaged" ? "pill-bad" : "pill-good"}`}
-                      >
-                        {visionResult.packageCondition === "damaged" ? "Aplastada" : "OK"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="telemetry-cell">
-                  <span className="telemetry-label">Puntaje Global</span>
-                  <div className="telemetry-val-group">
-                    <span
-                      className="telemetry-val mono"
-                      style={{
-                        color: (visionResult?.overallHandoverScore ?? 98.5) >= 80 ? "#3FB27F" : "#FF7B72",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {(visionResult?.overallHandoverScore ?? 98.5).toFixed(1)} / 100
-                    </span>
-                    <span
-                      className={`mini-pill ${(visionResult?.overallHandoverScore ?? 98.5) >= 80 ? "pill-good" : "pill-bad"}`}
-                    >
-                      {(visionResult?.overallHandoverScore ?? 98.5) >= 80 ? "Aprobado" : "Rechazado"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Verdict Banner */}
-              <div className={`telemetry-verdict-banner ${isVerified ? "verdict-good" : "verdict-bad"}`}>
-                <div className="verdict-banner-icon">
-                  {isVerified ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-                </div>
-                <div className="verdict-banner-text">
-                  <span className="verdict-banner-title">
-                    {isVerified
-                      ? "Verificación de puerta y paquete aprobada"
-                      : !gpsData.inZone
-                      ? "Bloqueado — Fuera del perímetro GPS"
-                      : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                      ? "Bloqueado — Número de puerta incorrecto"
-                      : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                      ? "Bloqueado — No se detecta paquete en el piso"
-                      : "Bloqueado — Paquete con daños físicos visibles"}
-                  </span>
-                  <span className="verdict-banner-sub">
-                    {isVerified
-                      ? "Perímetro GPS, placa #15 y paquete intacto confirmados. Listo para solicitar PIN."
-                      : !gpsData.inZone
-                      ? `El dispositivo está a ${gpsData.distanceMeters}m de Filarecka 2B. Retención bloqueada en $0.00.`
-                      : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                      ? "La foto muestra la puerta #13 en lugar de la #15 asignada."
-                      : visionResult?.handoverVerdict === "REJECTED_NO_PACKAGE"
-                      ? "No se encontró el bulto apoyado frente a la puerta."
-                      : "Caja aplastada o perforada. Cobro retenido en PayPal."}
-                  </span>
-                </div>
+              <div className="verdict-banner-text">
+                <span className="verdict-banner-title">
+                  {isVerified
+                    ? "Door #15 & Intact Package Verified"
+                    : !gpsData.inZone
+                    ? "Out of Delivery Zone"
+                    : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
+                    ? "Wrong Door Number (#13 instead of #15)"
+                    : "Damaged Package Detected"}
+                </span>
+                <span className="verdict-banner-sub">
+                  {isVerified
+                    ? "Location and package condition confirmed. Proceed to enter the customer's PIN."
+                    : !gpsData.inZone
+                    ? `You are ${gpsData.distanceMeters}m away from the destination address.`
+                    : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
+                    ? "This photo shows Door #13, but the order is for Door #15."
+                    : "The box appears crushed or damaged. Delivery cannot be completed."}
+                </span>
               </div>
             </div>
 
-            {/* Step 2 Actions */}
             <div className="step-nav-bar">
               <button
                 type="button"
@@ -922,7 +783,7 @@ export function DeliveryApp() {
                 onClick={() => setCurrentStep(1)}
               >
                 <ArrowLeft size={15} />
-                <span>Volver al paquete</span>
+                <span>Back</span>
               </button>
 
               {isVerified ? (
@@ -931,7 +792,7 @@ export function DeliveryApp() {
                   className="step-btn-primary"
                   onClick={() => setCurrentStep(3)}
                 >
-                  <span>Continuar a PIN del cliente</span>
+                  <span>Continue to Delivery PIN</span>
                   <ArrowRight size={16} />
                 </button>
               ) : (
@@ -942,7 +803,7 @@ export function DeliveryApp() {
                   disabled={isSubmitting}
                 >
                   <XCircle size={15} />
-                  <span>Reportar entrega fallida</span>
+                  <span>Report Failed Delivery</span>
                 </button>
               )}
             </div>
@@ -950,49 +811,23 @@ export function DeliveryApp() {
         )}
 
         {/* ============================================================ */}
-        {/* PASO 3: PIN DEL DESTINATARIO & LIQUIDACIÓN                   */}
+        {/* STEP 3: CUSTOMER PIN                                         */}
         {/* ============================================================ */}
         {currentStep === 3 && (
-          <section className="delivery-step-content" aria-label="Paso 3: PIN del Destinatario y Liquidación">
-            {/* If order is already completed */}
-            {isDelivered && (
+          <section className="delivery-step-content" aria-label="Step 3: Customer PIN">
+            {isDelivered ? (
               <div className="delivery-success-view">
                 <div className="success-icon-ring">
-                  <CheckCircle2 size={38} />
+                  <CheckCircle2 size={36} />
                 </div>
-                <h3>¡Entrega Verificada y Custodia Transferida!</h3>
+                <h3>Delivery Complete</h3>
                 <p className="success-desc">
-                  La retención de fondos fue autorizada previamente y ahora se liquidó exitosamente mediante PayPal Payments v2.
+                  The package was delivered and the payment of <strong>{activeOrder?.formatted_total || "$18.50"}</strong> has been completed.
                 </p>
-
-                <div className="manifest-card" style={{ marginTop: "12px", width: "100%" }}>
-                  <div className="manifest-row">
-                    <span className="manifest-label">Estado PayPal</span>
-                    <span className="manifest-value mono" style={{ color: "#3FB27F", fontWeight: 700 }}>
-                      CAPTURED ({activeOrder?.formatted_total || "$18.50"})
-                    </span>
-                  </div>
-                  <div className="manifest-row">
-                    <span className="manifest-label">Tracking de Bulto</span>
-                    <span className="manifest-value mono">{parcelTrackingCode}</span>
-                  </div>
-                  <div className="manifest-row">
-                    <span className="manifest-label">PIN Destinatario</span>
-                    <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
-                      ✔ {recipientPin || activeOrder?.pickup_code}
-                    </span>
-                  </div>
-                  <div className="manifest-row">
-                    <span className="manifest-label">Sello de Evidencia</span>
-                    <span className="manifest-value mono" style={{ fontSize: "11px" }}>
-                      SHA-256 + HMAC Server Signed
-                    </span>
-                  </div>
-                </div>
 
                 <div className="success-actions-row">
                   <Link href="/merchant" className="step-btn-secondary" style={{ flex: 1, textAlign: "center" }}>
-                    <span>Ver en Merchant Desk</span>
+                    <span>Open Merchant Desk</span>
                     <ExternalLink size={14} />
                   </Link>
                   <button
@@ -1006,36 +841,24 @@ export function DeliveryApp() {
                     }}
                   >
                     <RotateCcw size={14} />
-                    <span>Nueva Entrega</span>
+                    <span>Next Delivery</span>
                   </button>
                 </div>
               </div>
-            )}
-
-            {!isDelivered && (
+            ) : (
               <>
-                {/* Clear Explainer */}
-                <div className="recipient-pin-guidance">
-                  <Lock size={15} className="pin-lock-icon" />
-                  <span>
-                    Pide al comprador su <strong>PIN secreto de 6 caracteres</strong> que visualiza en su pantalla de compra para liberar los fondos.
-                  </span>
-                </div>
-
-                {/* PIN Input Box */}
                 <div className="recipient-pin-box">
                   <div className="pin-box-top">
                     <label htmlFor="customer-pin-field" className="pin-box-label">
-                      PIN de Entrega del Destinatario
+                      Customer Delivery PIN
                     </label>
                     {activeOrder?.pickup_code && (
                       <button
                         type="button"
                         className="pin-autofill-btn mono"
                         onClick={() => setRecipientPin(activeOrder.pickup_code || "")}
-                        title="Autocompletar el PIN para la demo"
                       >
-                        Autocompletar demo ({activeOrder.pickup_code})
+                        Auto-fill demo ({activeOrder.pickup_code})
                       </button>
                     )}
                   </div>
@@ -1051,41 +874,8 @@ export function DeliveryApp() {
                     autoComplete="off"
                     spellCheck={false}
                   />
-
-                  <div className="pin-box-caption mono">
-                    <span>* Clave temporal del cliente, independiente del tracking de bulto ({parcelTrackingCode}).</span>
-                  </div>
                 </div>
 
-                {/* Handover Verification Checklist */}
-                <div className="manifest-card" style={{ marginTop: "12px", padding: "10px 14px" }}>
-                  <div className="manifest-row" style={{ marginBottom: "6px" }}>
-                    <span className="manifest-label">1. Perímetro GPS</span>
-                    <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
-                      ✔ Filarecka 2B ({gpsData.distanceMeters}m de distancia)
-                    </span>
-                  </div>
-                  <div className="manifest-row" style={{ marginBottom: "6px" }}>
-                    <span className="manifest-label">2. Puerta y Paquete</span>
-                    <span className="manifest-value mono" style={{ color: "#3FB27F" }}>
-                      ✔ Puerta #15 Visión IA y Caja Intacta en Suelo
-                    </span>
-                  </div>
-                  <div className="manifest-row" style={{ marginBottom: "6px" }}>
-                    <span className="manifest-label">3. PIN del Destinatario</span>
-                    <span className="manifest-value mono" style={{ color: recipientPin.length === 6 ? "#3FB27F" : "#ABA598", fontWeight: 700 }}>
-                      {recipientPin.length === 6 ? `✔ ${recipientPin}` : "Pendiente de ingresar"}
-                    </span>
-                  </div>
-                  <div className="manifest-row">
-                    <span className="manifest-label">4. Vínculo Criptográfico</span>
-                    <span className="manifest-value mono" style={{ fontSize: "11px", opacity: 0.85 }}>
-                      SHA-256 Digest + Server HMAC Signature
-                    </span>
-                  </div>
-                </div>
-
-                {/* Step 3 Actions */}
                 <div className="step-nav-bar">
                   <button
                     type="button"
@@ -1094,7 +884,7 @@ export function DeliveryApp() {
                     disabled={isSubmitting}
                   >
                     <ArrowLeft size={15} />
-                    <span>Volver a la foto</span>
+                    <span>Back</span>
                   </button>
 
                   <button
@@ -1109,9 +899,7 @@ export function DeliveryApp() {
                       <CheckCircle2 size={16} />
                     )}
                     <span>
-                      {isSubmitting
-                        ? "Procesando captura en PayPal…"
-                        : `Verificar PIN y Capturar PayPal (${activeOrder?.formatted_total || "$18.50"})`}
+                      {isSubmitting ? "Completing…" : "Complete Delivery"}
                     </span>
                   </button>
                 </div>
@@ -1130,16 +918,6 @@ export function DeliveryApp() {
               <h4>{feedback.title}</h4>
             </div>
             <p className="feedback-message">{feedback.message}</p>
-            {feedback.paypalDetail && (
-              <div className="feedback-paypal mono">
-                <span>{feedback.paypalDetail}</span>
-              </div>
-            )}
-            {feedback.recoveryAction && (
-              <div className="feedback-recovery-status mono">
-                <span>Entrega abortada. Incidente registrado para mediación del cliente.</span>
-              </div>
-            )}
           </div>
         )}
       </div>

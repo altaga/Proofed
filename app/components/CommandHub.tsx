@@ -19,40 +19,40 @@ const MODULES: ModuleDef[] = [
   {
     no: "01",
     name: "Client Marketplace",
-    role: "Autonomous Shopper",
+    role: "Shopper Experience",
     href: "/client",
-    badge: "Chat · 65 SKUs · intent=AUTHORIZE",
-    desc: "Natural language shopping assistant with real catalog integer cents. The buyer approves the hold with a 1-click PayPal button.",
-    actionText: "Launch Shopper Chat",
+    badge: "Shopping Chat · PayPal Hold",
+    desc: "Ask for products or share your budget. Approve a temporary payment hold with PayPal — you only pay once your order arrives.",
+    actionText: "Open Shopper Chat",
     icon: Bot,
   },
   {
     no: "02",
     name: "Doorstep Delivery",
-    role: "Courier Terminal",
+    role: "Courier App",
     href: "/delivery",
-    badge: "Vision LLM · GPS Zone · PIN Match",
-    desc: "Courier terminal with live GPS tracking, Multimodal Vision AI verification of Door #15 and intact parcel, and recipient PIN input.",
-    actionText: "Open Delivery Terminal",
+    badge: "3-Step Handoff · Photo & PIN",
+    desc: "Step-by-step courier workflow: confirm the package, photograph the doorstep for AI verification, and enter the customer's PIN.",
+    actionText: "Open Courier App",
     icon: Camera,
   },
   {
     no: "03",
     name: "Merchant Desk",
-    role: "Settlement Operations",
+    role: "Store Operations",
     href: "/merchant",
-    badge: "PayPal Payments v2",
-    desc: "Full order ledger and settlement desk. Review evidence hashes, tamper-evident photo digests, and manage voids or refunds.",
+    badge: "Order Management · Settlements",
+    desc: "Manage active orders, review delivery photos and status, and handle payment captures, cancellations, or refunds.",
     actionText: "Open Merchant Desk",
     icon: CreditCard,
   },
   {
     no: "04",
-    name: "Backend Monitor",
-    role: "Developer & Hackathon Audit",
+    name: "Developer & Judge Console",
+    role: "Technical Audit Trail",
     href: "/backend",
-    badge: "Dev & Judges · PayPal API Traces",
-    desc: "Technical console for developers and hackathon judges. Inspect raw PayPal Orders v2 & Payments v2 API calls, event streams, and security audit logs.",
+    badge: "For Devs & Hackathon Judges · PayPal API Logs",
+    desc: "Dedicated technical console for Hackathon Judges and developers. Inspect raw PayPal Orders v2 & Payments v2 API calls, event streams, and audit logs.",
     actionText: "Inspect Developer Console",
     icon: Layers,
   },
@@ -98,8 +98,8 @@ export function CommandHub() {
         </h1>
 
         <p className="ix-hub-lede">
-          An AI agent negotiates and quotes products in verified integer cents. PayPal authorizes and holds the funds.
-          Zero dollars are captured until Multimodal Vision AI and the buyer&apos;s handover PIN confirm physical delivery at the door.
+          An AI shopping assistant finds what you need. PayPal places a temporary hold on the payment.
+          Nothing is charged until doorstep photo verification and the customer&apos;s delivery PIN confirm the package arrived safely.
         </p>
       </header>
 

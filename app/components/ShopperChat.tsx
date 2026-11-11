@@ -58,8 +58,8 @@ const DEFAULT_MESSAGES: ShopperMessage[] = [
     id: "msg-0",
     role: "assistant",
     content:
-      "Welcome to **Proofed** — the trust layer between AI payments and the physical world.\n\nTell me what you are looking for or state a budget. All prices are verified against catalog integer cents. When you approve an order, PayPal places a **conditional capture authorization** (`intent=AUTHORIZE`, **$0.00 captured upfront**). Funds are captured **only after doorstep computer vision and your one-time recipient handover PIN are verified**.",
-    tier: "ZERO-TRUST-OPERATOR",
+      "Welcome to **Proofed**.\n\nTell me what you are looking for or share your budget. When you approve an order, PayPal places a temporary hold on your payment — **you are only charged once your package is delivered to your door**.",
+    tier: "SHOPPER-ASSISTANT",
     timestamp: Date.now(),
   },
 ];
@@ -125,10 +125,9 @@ export function ShopperChat({
   const currentPrompts = (() => {
     if (activeOrder?.status === "DELIVERY_FAILED") {
       return [
-        "Pedir otro (Re-enviar a Filarecka 2B / 15)",
-        "Recibir reembolso (Liberar retención PayPal)",
-        "¿Por qué falló la entrega?",
-        "Ver estado de retención en PayPal",
+        "Send a replacement to my address",
+        "Cancel order and release payment hold",
+        "What happened with my delivery?",
       ];
     }
     if (activeOrder?.status === "VOIDED") {
@@ -140,17 +139,15 @@ export function ShopperChat({
     }
     if (activeOrder?.status === "AUTHORIZED") {
       return [
-        "How does the doorstep proof verification work?",
+        "How does delivery verification work?",
         "What happens if the courier leaves the box at the wrong door?",
-        "Where can I collect my package?",
-        "Release PayPal hold and cancel order",
+        "Cancel order and release payment hold",
       ];
     }
     if (lastMsgWithQuote?.quote) {
       return [
-        "How does PayPal authorization hold protect me?",
-        "Do you have a cheaper alternative in stock?",
-        "What is the physical handover guarantee?",
+        "How does the PayPal payment hold work?",
+        "Do you have a cheaper alternative?",
         "Clear cart and start over",
       ];
     }
@@ -158,7 +155,6 @@ export function ShopperChat({
       "I need a 100W USB-C GaN fast charger and a braided cable",
       "Recommend specialty coffee beans or matcha under $30",
       "Looking for an insulated 32oz water bottle for the gym",
-      "Smart 2K video doorbell for the front porch",
       "I have a $20 budget, what snacks or coffee do you have?",
     ];
   })();
@@ -261,8 +257,8 @@ export function ShopperChat({
               {
                 id: `fail-alert-${Date.now()}`,
                 role: "assistant",
-                content: `**Delivery Notice: Handover Not Verified**\n\nThe courier attempted delivery at **door #13** instead of your destination address (**ul. Filarecka 2B / 15**). Because physical delivery and recipient handover PIN were not completed, handover was aborted and the parcel returned to the hub.\n\n**Payment Status:** **${lastOrderMsg.quote?.formatted_price || "$18.50"} authorized · $0.00 captured**.\n\nThis incident has been escalated for your decision: would you like to **re-dispatch a replacement** to your verified address, or **void the PayPal authorization**?`,
-                tier: "ESCALATION",
+                content: `**Delivery Update: Package Returned**\n\nThe courier attempted delivery at the wrong door (**#13** instead of **#15**), so the delivery was cancelled and **you were not charged ($0.00)**.\n\nWould you like us to **send a replacement** to your address, or **cancel the order and release the payment hold**?`,
+                tier: "DELIVERY-UPDATE",
                 timestamp: Date.now(),
                 order: serverOrder,
               },
@@ -303,9 +299,17 @@ export function ShopperChat({
           {
             id: `fraud-block-${Date.now()}`,
             role: "assistant",
-            content: `**Automated Refund Paused — Escalated to Merchant Review**\n\n${data.error || "Post-capture claim conflicts with recorded fulfillment evidence."}\n\n**Fulfillment Evidence & Policy Evaluation:**\n- **Policy Rule:** \`${audit?.policyRule || "RULE_CONTRADICTORY_EVIDENCE_ESCALATION"}\`\n- **Recorded Evidence:** ${audit?.evidenceTrail?.verifiedHandoverExists ? "Doorstep Vision LLM match (#15), verified recipient one-time handover PIN, and tamper-evident SHA-256 photo digest on record" : "Unverified status"}\n- **Outcome:** **ESCALATED_FOR_REVIEW** (Self-service refund paused; case and evidence forwarded to Merchant Operations)`,
-            tier: "POLICY-ESCALATION",
+            content: `**Refund Request Under Review**\n\nBecause our records show your package was delivered to your door and confirmed with your Delivery PIN, this request has been forwarded to our support team for review.`,
+            tier: "SUPPORT-REVIEW",
             timestamp: Date.now(),
+            toolTrace: [
+              {
+                name: "evaluate_refund_policy",
+                ok: false,
+                summary: `Rule: ${audit?.policyRule || "RULE_CONTRADICTORY_EVIDENCE_ESCALATION"}`,
+                outcome: "Escalated to Merchant Operations due to verified doorstep & PIN proof on file.",
+              },
+            ],
           },
         ]);
         return;
@@ -326,10 +330,18 @@ export function ShopperChat({
         {
           id: `void-done-${Date.now()}`,
           role: "assistant",
-          content: `**PayPal Authorization Voided — $0.00 Captured**\n\nYour PayPal authorization was voided via PayPal Payments v2 API (\`/v2/payments/authorizations/{id}/void\`). Because physical delivery was not verified, **$0.00 was captured**. Release timing of reserved funds depends on your payment provider.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_UNVERIFIED_HANDOVER_RELEASE"}\` · PASS · Address mismatch confirmed (#13) · Recipient PIN unverified · $0.00 captured.`,
-          tier: "AUTHORIZATION-VOIDED",
+          content: `**Order Cancelled — $0.00 Charged**\n\nYour PayPal payment hold has been released. You have not been charged.`,
+          tier: "ORDER-CANCELLED",
           timestamp: Date.now(),
           order: updatedOrder,
+          toolTrace: [
+            {
+              name: "paypal_void_authorization",
+              ok: true,
+              summary: `POST /v2/payments/authorizations/{id}/void (${audit?.policyRule || "RULE_UNVERIFIED_HANDOVER_RELEASE"})`,
+              outcome: "Hold released. $0.00 captured.",
+            },
+          ],
         },
       ]);
     } catch (err) {
@@ -338,7 +350,7 @@ export function ShopperChat({
         {
           id: `err-${Date.now()}`,
           role: "assistant",
-          content: `Void notice: ${err instanceof Error ? err.message : "Service error"}`,
+          content: `Notice: ${err instanceof Error ? err.message : "Service error"}`,
           tier: "NOTICE",
           timestamp: Date.now(),
         },
@@ -371,9 +383,17 @@ export function ShopperChat({
           {
             id: `fraud-block-${Date.now()}`,
             role: "assistant",
-            content: `**Automated Re-dispatch Paused — Escalated to Merchant Concierge**\n\n${data.error || "Maximum automated re-dispatch attempts reached."}\n\n**Fulfillment Policy Evaluation:**\n- **Policy Rule:** \`${audit?.policyRule || "RULE_MAX_REDISPATCH_LIMIT_REACHED"}\`\n- **Retry Count:** ${audit?.evidenceTrail?.retryCount ?? 2} previous re-dispatches (Automated policy limit: 2)\n- **Outcome:** **ESCALATED_FOR_REVIEW** (Forwarded to Merchant Concierge to confirm delivery instructions)`,
-            tier: "POLICY-ESCALATION",
+            content: `**Replacement Request Forwarded to Support**\n\nWe've reached the maximum number of automatic re-deliveries for this order. Our team will contact you shortly to confirm your address details.`,
+            tier: "SUPPORT-REVIEW",
             timestamp: Date.now(),
+            toolTrace: [
+              {
+                name: "evaluate_redispatch_policy",
+                ok: false,
+                summary: `Rule: ${audit?.policyRule || "RULE_MAX_REDISPATCH_LIMIT_REACHED"}`,
+                outcome: "Max automated retry limit (2) reached.",
+              },
+            ],
           },
         ]);
         return;
@@ -394,10 +414,18 @@ export function ShopperChat({
         {
           id: `redisp-${Date.now()}`,
           role: "assistant",
-          content: `**Courier Re-dispatch Confirmed (Policy Check Passed)**\n\nReplacement order re-routed to courier terminal: **ul. Filarecka 2B / 15, 30-110 Kraków**.\n\n**Policy Verification:** \`${audit?.policyRule || "RULE_VALID_REDISPATCH_WITHIN_LIMIT"}\` · Attempt ${(audit?.evidenceTrail?.retryCount ?? 0) + 1} of 2 permitted within PayPal 3-day honor window.\n\nYour existing PayPal authorization remains active (**$0.00 captured** until doorstep Vision LLM inspection and recipient handover PIN are verified).`,
+          content: `**Replacement On the Way**\n\nA new package is being dispatched to **ul. Filarecka 2B, Apt 15**. Your payment hold remains active (**$0.00 charged** until your package arrives).`,
           tier: "RE-DISPATCH",
           timestamp: Date.now(),
           order: updatedOrder,
+          toolTrace: [
+            {
+              name: "courier_redispatch",
+              ok: true,
+              summary: `Rule: ${audit?.policyRule || "RULE_VALID_REDISPATCH_WITHIN_LIMIT"}`,
+              outcome: "Replacement routed to courier terminal.",
+            },
+          ],
         },
       ]);
     } catch (err) {
@@ -406,7 +434,7 @@ export function ShopperChat({
         {
           id: `err-${Date.now()}`,
           role: "assistant",
-          content: `Re-dispatch notice: ${err instanceof Error ? err.message : "Service error"}`,
+          content: `Notice: ${err instanceof Error ? err.message : "Service error"}`,
           tier: "NOTICE",
           timestamp: Date.now(),
         },
@@ -626,46 +654,18 @@ export function ShopperChat({
                     <div className="quote-info">
                       <div className="quote-header-line">
                         <strong className="quote-name">{msg.quote.name}</strong>
-                        <span className="quote-sku mono">{msg.quote.sku}</span>
                       </div>
-                      <div className="quote-price-line mono">
+                      <div className="quote-price-line">
                         <span className="quote-price">{msg.quote.formatted_price}</span>
-                        <span className="quote-units">({msg.quote.available} units available)</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Powered by PayPal Brand Badge (Automated Hold) */}
-                  <div className="quote-paypal-powered-badge">
-                    <div className="paypal-badge-brand">
-                      <svg
-                        className="paypal-logo-svg"
-                        viewBox="0 0 24 24"
-                        width="16"
-                        height="16"
-                        aria-hidden="true"
-                      >
-                        <path
-                          fill="#003087"
-                          d="M20.067 8.478c-.492.88-1.22 1.458-2.203 1.761-.986.306-2.222.306-3.708.306H12.5l-1.3 8.243h-2.94L10.3 3.5h5.8c1.378 0 2.45.244 3.218.732.767.489 1.05 1.346.749 2.571-.052.212-.128.438-.228.675z"
-                        />
-                        <path
-                          fill="#0079C1"
-                          d="M18.8 9.5c-.3 1.8-1.5 2.8-3.4 2.8h-1.8l-.8 5.2h-2.5l2-12.8h4.5c1.7 0 2.7.5 2.5 2.2-.1.9-.3 1.7-.5 2.6z"
-                        />
-                      </svg>
-                      <span className="paypal-brand-title">
-                        Powered by <strong>PayPal</strong>
-                      </span>
-                    </div>
-                    <span className="paypal-protocol-pill mono">intent=AUTHORIZE</span>
-                  </div>
-
-                  {/* If Order is being placed in PayPal Sandbox */}
+                  {/* If Order is being staged */}
                   {!msg.order && (
-                    <div className="quote-auto-staging mono">
+                    <div className="quote-auto-staging">
                       <Sparkles className="spin" size={12} />
-                      <span>Preparing PayPal sandbox checkout ($0.00 captured upfront)…</span>
+                      <span>Preparing checkout…</span>
                     </div>
                   )}
 
@@ -696,10 +696,18 @@ export function ShopperChat({
                                 {
                                   id: `auth-${Date.now()}`,
                                   role: "assistant",
-                                  content: `PayPal authorization placed! **${(data.order.formatted_total as string) || msg.quote?.formatted_price || "$18.50"} authorized, $0.00 captured**. Funds are held securely on PayPal until physical handover and recipient PIN are verified. Recipient PIN: **${(data.order.pickup_code as string) || "PK-9912"}**.`,
+                                  content: `Your PayPal payment hold for **${(data.order.formatted_total as string) || msg.quote?.formatted_price || "$18.50"}** is active (**$0.00 charged today**). Share your Delivery PIN **${(data.order.pickup_code as string) || "PK-9912"}** with the courier when your package arrives at your door.`,
                                   tier: "PAYPAL-AUTHORIZE",
                                   timestamp: Date.now(),
                                   order: data.order,
+                                  toolTrace: [
+                                    {
+                                      name: "paypal_authorize_hold",
+                                      ok: true,
+                                      summary: `POST /v2/checkout/orders/${data.order.paypal_order_id || "ORDER"}/authorize`,
+                                      outcome: `Hold authorized (${data.order.paypal_authorization_id || "AUTH-OK"}) · $0.00 captured upfront · PIN: ${data.order.pickup_code}`,
+                                    },
+                                  ],
                                 },
                               ]);
                               if (onOrderCreated) {
@@ -745,8 +753,8 @@ export function ShopperChat({
                         </div>
                         <span className="btn-paypal-amt mono">{msg.quote?.formatted_price || "$18.50"}</span>
                       </button>
-                      <div className="hold-disclaimer mono">
-                        <span>intent=AUTHORIZE · $0.00 charged until physical handover verification</span>
+                      <div className="hold-disclaimer">
+                        <span>No charge today — payment is completed only upon delivery.</span>
                       </div>
                     </div>
                   )}
@@ -756,22 +764,17 @@ export function ShopperChat({
                     <div className="quote-authorized-box">
                       <div className="quote-authorized-badge">
                         <div className="auth-left">
-                          <span className="auth-pill mono">
-                            {msg.quote?.formatted_price || "$18.50"} authorized · $0.00 captured
+                          <span className="auth-pill">
+                            Payment Hold Active · $0.00 charged today
                           </span>
                           <span className="auth-sub">
-                            Buyer Approved · Conditional capture via PayPal Authorization
+                            Share this PIN with the courier when your package arrives
                           </span>
                         </div>
                         <div className="auth-code mono">
-                          <span>RECIPIENT PIN:</span>
+                          <span>DELIVERY PIN</span>
                           <strong>{msg.order.pickup_code}</strong>
                         </div>
-                      </div>
-                      <div className="auth-customer-guidance mono">
-                        <span>
-                          PayPal Order: <strong>{msg.order.paypal_order_id || "ORDER-PP"}</strong> · Auth ID: <strong>{msg.order.paypal_authorization_id || "AUTH-PP"}</strong> · Valid 29 days (3-day honor period). Capture occurs only after doorstep Vision LLM + recipient PIN verification.
-                        </span>
                       </div>
                     </div>
                   )}
@@ -781,22 +784,17 @@ export function ShopperChat({
                     <div className="quote-authorized-box" style={{ borderColor: "rgba(63, 178, 127, 0.45)" }}>
                       <div className="quote-authorized-badge">
                         <div className="auth-left">
-                          <span className="auth-pill mono" style={{ color: "#3FB27F" }}>
-                            Handover Verified · {msg.quote?.formatted_price || "$18.50"} captured
+                          <span className="auth-pill" style={{ color: "#3FB27F" }}>
+                            Order Delivered · {msg.quote?.formatted_price || "$18.50"} paid
                           </span>
                           <span className="auth-sub">
-                            Door #15 Vision LLM + Recipient One-Time PIN ({msg.order.pickup_code || "VERIFIED"}) confirmed
+                            Delivered to your door and confirmed with your PIN
                           </span>
                         </div>
                         <div className="auth-code mono">
-                          <span>STATUS:</span>
-                          <strong style={{ color: "#3FB27F" }}>CAPTURED</strong>
+                          <span>STATUS</span>
+                          <strong style={{ color: "#3FB27F" }}>PAID</strong>
                         </div>
-                      </div>
-                      <div className="auth-customer-guidance mono">
-                        <span>
-                          Tamper-evident fulfillment event recorded · PayPal Capture ID: <strong>{msg.order.paypal_capture_id || "CAP-PP-VERIFIED"}</strong>.
-                        </span>
                       </div>
                     </div>
                   )}
@@ -806,32 +804,25 @@ export function ShopperChat({
                     <div className="quote-failure-box" role="alert">
                       <div className="failure-box-header">
                         <AlertCircle size={16} />
-                        <span className="failure-box-title mono">Delivery verification failed · Escalated to you</span>
-                        <span className="failure-status-pill mono">
-                          {msg.quote?.formatted_price || "$18.50"} AUTHORIZED · $0.00 CAPTURED
-                        </span>
+                        <span className="failure-box-title">Delivery Attempt Unsuccessful ($0.00 Charged)</span>
                       </div>
                       <p className="failure-desc">
-                        Courier attempted delivery at door #13 (+80m away from destination Filarecka 2B / 15). Because doorstep Vision LLM audit and recipient PIN verification were not completed, handover was aborted and capture was blocked ($0.00 captured). Choose how to proceed:
+                        The courier couldn&apos;t verify your doorstep address, so the package was returned and you were not charged. How would you like to proceed?
                       </p>
-                      <div className="failure-audit-strip mono">
-                        <ShieldCheck size={12} />
-                        <span>Fulfillment policy active: Tamper-evident doorstep Vision LLM inspection &amp; retry limits evaluated before voiding authorization or re-dispatching.</span>
-                      </div>
                       <div className="failure-actions-grid">
                         <button
                           type="button"
                           className="failure-action-btn btn-redispatch"
                           onClick={() => void handleActionRedispatch(msg.order?.id)}
                         >
-                          Pedir otro (Re-enviar a Filarecka 2B / 15)
+                          Send a replacement
                         </button>
                         <button
                           type="button"
                           className="failure-action-btn btn-release-void"
                           onClick={() => void handleActionVoid(msg.order?.id)}
                         >
-                          Recibir reembolso (Anular autorización)
+                          Cancel order &amp; release hold
                         </button>
                       </div>
                     </div>
@@ -839,67 +830,15 @@ export function ShopperChat({
 
                   {/* If Order was Voided */}
                   {msg.order?.status === "VOIDED" && (
-                    <div className="quote-voided-receipt-box" role="region" aria-label="PayPal Authorization Void Receipt">
+                    <div className="quote-voided-receipt-box" role="region" aria-label="Order Cancelled">
                       <div className="voided-receipt-header">
                         <div className="voided-header-left">
                           <ShieldCheck size={16} className="voided-shield-icon" />
-                          <span className="voided-title mono">PayPal Authorization Voided</span>
-                        </div>
-                        <span className="voided-status-pill mono">AUTHORIZATION VOIDED · $0.00 CAPTURED</span>
-                      </div>
-
-                      <div className="voided-receipt-grid mono">
-                        <div className="voided-grid-row">
-                          <span className="voided-grid-label">Item</span>
-                          <span className="voided-grid-val">{msg.quote?.name || "Order item"}</span>
-                        </div>
-                        <div className="voided-grid-row">
-                          <span className="voided-grid-label">Authorized amount</span>
-                          <span className="voided-grid-val">{msg.quote?.formatted_price || "$18.50"}</span>
-                        </div>
-                        <div className="voided-grid-row">
-                          <span className="voided-grid-label">Amount captured</span>
-                          <span className="voided-grid-val highlight-zero">$0.00 USD</span>
-                        </div>
-                        <div className="voided-grid-row">
-                          <span className="voided-grid-label">Authorization status</span>
-                          <span className="voided-grid-val highlight-refunded">
-                            VOIDED (Release timing depends on payment provider)
-                          </span>
-                        </div>
-                        <div className="voided-grid-row">
-                          <span className="voided-grid-label">Trigger</span>
-                          <span className="voided-grid-val">Handover verification rejected (Door #13)</span>
-                        </div>
-                        <div className="voided-grid-row">
-                          <span className="voided-grid-label">PayPal Auth ID</span>
-                          <span className="voided-grid-val">{msg.order?.paypal_authorization_id || "AUTH-PAYPAL-SECURE"}</span>
+                          <span className="voided-title">Order Cancelled — $0.00 Charged</span>
                         </div>
                       </div>
-
-                      <div className="voided-audit-trail mono">
-                        <div className="audit-trail-header">
-                          <span className="audit-label">FULFILLMENT POLICY VERIFICATION</span>
-                          <span className="audit-pass-tag">RULE_UNVERIFIED_HANDOVER_RELEASE · PASS</span>
-                        </div>
-                        <div className="audit-trail-checks">
-                          <div className="audit-check-line">
-                            <span className="check-icon">✔</span>
-                            <span>Evidence Check: Handover rejected by Multimodal Vision LLM (#13 mismatch)</span>
-                          </div>
-                          <div className="audit-check-line">
-                            <span className="check-icon">✔</span>
-                            <span>Recipient PIN: One-time handover credential was never used</span>
-                          </div>
-                          <div className="audit-check-line">
-                            <span className="check-icon">✔</span>
-                            <span>Conditional Capture: $0.00 captured · Eligible for PayPal authorization void</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="voided-receipt-footer mono">
-                        <span>Conditional capture protection: No funds were captured by the merchant. The PayPal authorization has been voided; available balance restoration timing depends on your issuing bank or payment provider.</span>
+                      <div className="voided-receipt-footer">
+                        <span>Your PayPal payment hold for {msg.quote?.formatted_price || "$18.50"} has been released. You have not been charged.</span>
                       </div>
                     </div>
                   )}
