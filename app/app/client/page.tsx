@@ -1,7 +1,7 @@
 ﻿import { ShopperChat } from "@/components/ShopperChat";
 
 export const metadata = {
-  title: "Client Marketplace Chat · Proofed",
+  title: "Proofed",
   description: "Natural language assistant with access to 60+ marketplace products, zero-trust pricing, and two-phase PayPal holds.",
 };
 

@@ -1,7 +1,7 @@
 ﻿import { BackendMonitor } from "@/components/BackendMonitor";
 
 export const metadata = {
-  title: "Backend Monitor · Proofed",
+  title: "Proofed",
   description: "Hyper-simple client flow, hold metrics, and settlement pipeline monitor.",
 };
 

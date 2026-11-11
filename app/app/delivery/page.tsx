@@ -1,7 +1,7 @@
 ﻿import { DeliveryApp } from "@/components/DeliveryApp";
 
 export const metadata = {
-  title: "Delivery Terminal · Proofed",
+  title: "Proofed",
   description: "Courier package scanning, doorstep photo capture, and physical handover verification.",
 };
 

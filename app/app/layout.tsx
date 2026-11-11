@@ -5,10 +5,17 @@ import { AppShell } from "@/components/AppShell";
 import "./globals.css";
 
 export function generateMetadata(): Metadata {
-  const cfg = getProjectConfig();
   return {
-    title: `${cfg.name} — ${cfg.tagline}`,
-    description: cfg.tagline,
+    title: "Proofed",
+    description: "Authorize now. Capture only after proof of handover.",
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "any" },
+        { url: "/icon.svg", type: "image/svg+xml" },
+      ],
+      shortcut: "/favicon.ico",
+      apple: "/icon.svg",
+    },
   };
 }
 
