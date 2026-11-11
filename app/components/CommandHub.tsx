@@ -42,30 +42,7 @@ const MODULES = [
 ];
 
 export function CommandHub() {
-  const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-
-  const seed = async () => {
-    setBusy(true);
-    setNote(null);
-    try {
-      const res = await fetch("/api/demo/seed-held", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preset: "wrong-doorstep" }),
-      });
-      const data = await res.json();
-      setNote(
-        res.ok && data.order
-          ? `${data.order.id} · ${data.order.formatted_total} held · 0.00 captured`
-          : "Order seeded."
-      );
-    } catch {
-      setNote("Could not seed an order. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const reset = async () => {
     if (!window.confirm("Reset all orders to the initial catalog?")) return;
@@ -105,9 +82,9 @@ export function CommandHub() {
       </nav>
 
       <footer className="ix-foot">
-        <button type="button" className="ix-btn" onClick={seed} disabled={busy}>
-          {busy ? "Placing hold…" : "Create a held order"}
-        </button>
+        <Link href="/client" className="ix-btn">
+          Start in Client →
+        </Link>
         <button type="button" className="ix-link" onClick={reset}>
           Reset data
         </button>

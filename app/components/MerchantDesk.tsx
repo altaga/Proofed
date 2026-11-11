@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MoreHorizontal, X } from "lucide-react";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { EmptyOrderState } from "./EmptyOrderState";
 import { TransactionPanel } from "./TransactionPanel";
 import { formatWhen, statusWord, storyEvents } from "./tx-model";
 
@@ -104,10 +105,11 @@ export function MerchantDesk() {
   return (
     <div>
       {orders.length === 0 ? (
-        <div className="empty-state">
-          <h3>No orders yet</h3>
-          <p>When someone pays in the shop, their order shows up here.</p>
-        </div>
+        <EmptyOrderState
+          title="No orders yet"
+          body="Orders appear here as soon as a customer places a PayPal hold in Shop. Chat with the assistant to initiate a purchase."
+          actionLabel="Open Shop Chat"
+        />
       ) : (
         <div className="order-list">
           {orders.map((order) => (

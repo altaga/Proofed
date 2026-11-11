@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" role="img" aria-label="Minimalist Muted Sticky Notes (6-Pack)">
+  <defs>
+    <radialGradient id="grad-OFF-NOTE-STICK" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#23211C"/>
+      <stop offset="100%" stop-color="#141310"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="200" rx="20" fill="url(#grad-OFF-NOTE-STICK)" stroke="#2B2923" stroke-width="2"/>
+  <rect x="6" y="6" width="188" height="188" rx="16" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+  
+  <!-- Subtle SKU Watermark -->
+  <text x="16" y="28" font-family="monospace" font-size="9" fill="#5E594D" letter-spacing="0.5">OFF-NOTE-STICK</text>
+  
+  <!-- Graphic Glyph -->
+  <g>
+    
+      <rect x="70" y="60" width="60" height="80" rx="6" fill="#211F1B" stroke="#E6E2D8" stroke-width="4"/>
+      <line x1="82" y1="60" x2="82" y2="140" stroke="#8C867A" stroke-width="3"/>
+      <line x1="92" y1="80" x2="120" y2="80" stroke="#8C867A" stroke-width="2"/>
+      <line x1="92" y1="95" x2="120" y2="95" stroke="#8C867A" stroke-width="2"/>
+      <line x1="92" y1="110" x2="115" y2="110" stroke="#F97316" stroke-width="2"/>
+    
+  </g>
+</svg>

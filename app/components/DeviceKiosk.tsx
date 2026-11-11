@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, RefreshCcw, X } from "lucide-react";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { EmptyOrderState } from "./EmptyOrderState";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
 import { Toast } from "./Toast";
 
@@ -82,6 +83,25 @@ export function DeviceKiosk({
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{ action: "substitute" | "retry" | "cancel"; items?: Alternative } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  const [activeHeldOrder, setActiveHeldOrder] = useState<PublicOrder | null>(null);
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/orders")
+      .then((r) => r.json())
+      .then((data) => {
+        const orders: PublicOrder[] = data.orders || [];
+        const held = orders.find(
+          (o) => (o.status === "AUTHORIZED" || o.status === "DELIVERY_CONFIRMED") && o.pickup_code,
+        );
+        if (held) {
+          setActiveHeldOrder(held);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => setOrdersLoaded(true));
+  }, []);
 
   useEffect(() => {
     if (initialCode && !code) {
@@ -203,9 +223,8 @@ export function DeviceKiosk({
       <Toast message={toast} tone="ok" />
       <div className="terminal-header-bar">
         <div className="terminal-status-indicator">
-          <span className="terminal-pulse" />
           <span>
-            {deliveryMode === "home" ? "Doorstep · 742 Evergreen Terrace" : "Locker · Bay 04"}
+            {deliveryMode === "home" ? "Doorstep · 744 Maple St" : "Locker · Bay 04"}
           </span>
         </div>
         <div className="terminal-sensor-pill">
@@ -290,12 +309,12 @@ export function DeviceKiosk({
             <div className="porch-feed-card">
               <div className="porch-feed-screen">
                 <div className="porch-cam-header">
-                  <span className="cam-live-indicator"><span className="pulse-dot" /> Front porch</span>
-                  <span className="cam-coords mono">742 Evergreen Ter</span>
+                  <span className="cam-live-indicator">Front porch</span>
+                  <span className="cam-coords mono">744 Maple St</span>
                 </div>
                 <div className="porch-visual-area">
                   <div className="porch-door-graphic">
-                    <span className="porch-house-num">742</span>
+                    <span className="porch-house-num">744</span>
                     <div className="porch-door-panel" />
                   </div>
                   <div className="porch-mat-area">
@@ -325,14 +344,22 @@ export function DeviceKiosk({
             </div>
           )}
 
-          {initialCode && code !== initialCode && (
+          {!compact && ordersLoaded && !initialCode && !activeHeldOrder && (
+            <EmptyOrderState
+              title="No held order to collect"
+              body="Place an order in Shop and approve the PayPal hold first. Once authorized, its pickup PIN will appear here automatically."
+              actionLabel="Open Shop Chat"
+            />
+          )}
+
+          {((initialCode && code !== initialCode) || (activeHeldOrder?.pickup_code && code !== activeHeldOrder.pickup_code)) && (
             <div style={{ textAlign: "center", marginBottom: 12 }}>
               <button
                 type="button"
                 className="autofill-btn"
-                onClick={() => setCode(initialCode)}
+                onClick={() => setCode(initialCode || activeHeldOrder?.pickup_code || "")}
               >
-                Auto-fill generated code: <strong>{initialCode}</strong>
+                Auto-fill active order code: <strong>{initialCode || activeHeldOrder?.pickup_code}</strong>
               </button>
             </div>
           )}
@@ -371,6 +398,7 @@ export function DeviceKiosk({
                 ? "Confirm Doorstep Handover & Capture Payment"
                 : "Confirm Handover & Capture Funds"}
           </button>
+          {code.length < 6 && <p className="kiosk-hint">Enter all 6 characters to enable handover.</p>}
 
           <div className="kiosk-footer-actions">
             <button

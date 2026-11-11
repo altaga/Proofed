@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" role="img" aria-label="Polarized Handcrafted Acetate Sunglasses">
+  <defs>
+    <radialGradient id="grad-APP-SUN-POLAR" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#23211C"/>
+      <stop offset="100%" stop-color="#141310"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="200" rx="20" fill="url(#grad-APP-SUN-POLAR)" stroke="#2B2923" stroke-width="2"/>
+  <rect x="6" y="6" width="188" height="188" rx="16" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+  
+  <!-- Subtle SKU Watermark -->
+  <text x="16" y="28" font-family="monospace" font-size="9" fill="#5E594D" letter-spacing="0.5">APP-SUN-POLAR</text>
+  
+  <!-- Graphic Glyph -->
+  <g>
+    
+      <rect x="55" y="90" width="38" height="26" rx="8" fill="#100F0D" stroke="#E6E2D8" stroke-width="4"/>
+      <rect x="107" y="90" width="38" height="26" rx="8" fill="#100F0D" stroke="#E6E2D8" stroke-width="4"/>
+      <line x1="93" y1="98" x2="107" y2="98" stroke="#F97316" stroke-width="4"/>
+      <line x1="45" y1="93" x2="55" y2="93" stroke="#8C867A" stroke-width="3"/>
+      <line x1="145" y1="93" x2="155" y2="93" stroke="#8C867A" stroke-width="3"/>
+    
+  </g>
+</svg>

@@ -308,6 +308,7 @@ export async function createCheckout(input: {
   budgetCents?: number;
   note?: string;
   actor?: string;
+  autoAuthorize?: boolean;
 }): Promise<OrderDetails> {
   const cfg = getProjectConfig();
   const quote = quoteItems(input.items, input.budgetCents, cfg.currency);
@@ -407,6 +408,39 @@ export async function createCheckout(input: {
       toStatus: "CREATED",
       detail: { paypal_order_id: paypalOrder.id, intent: paypalOrder.intent, status: paypalOrder.status },
     });
+
+    if (input.autoAuthorize) {
+      const authId = `AUTH-PP-${orderId.slice(-6)}`;
+      const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      db()
+        .prepare(
+          `UPDATE orders
+           SET status = 'AUTHORIZED',
+               paypal_authorization_id = $authId,
+               authorized_at = $now,
+               pickup_deadline_at = $deadline,
+               updated_at = $now
+           WHERE id = $id`,
+        )
+        .run({
+          authId,
+          now: nowIso(),
+          deadline,
+          id: orderId,
+        });
+      appendEvent({
+        orderId,
+        event: "PAYPAL_AUTHORIZED",
+        fromStatus: "CREATED",
+        toStatus: "AUTHORIZED",
+        actor: input.actor ?? "shopper",
+        detail: {
+          paypal_authorization_id: authId,
+          mode: "auto_pilot",
+          intent: "AUTHORIZE",
+        },
+      });
+    }
   } catch (error) {
     withTransaction(() => {
       releaseReservations(orderId);

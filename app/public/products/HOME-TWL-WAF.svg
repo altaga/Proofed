@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" role="img" aria-label="Organic Waffle Kitchen Towels (3-Pack)">
+  <defs>
+    <radialGradient id="grad-HOME-TWL-WAF" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#23211C"/>
+      <stop offset="100%" stop-color="#141310"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="200" rx="20" fill="url(#grad-HOME-TWL-WAF)" stroke="#2B2923" stroke-width="2"/>
+  <rect x="6" y="6" width="188" height="188" rx="16" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+  
+  <!-- Subtle SKU Watermark -->
+  <text x="16" y="28" font-family="monospace" font-size="9" fill="#5E594D" letter-spacing="0.5">HOME-TWL-WAF</text>
+  
+  <!-- Graphic Glyph -->
+  <g>
+    
+      <rect x="65" y="70" width="70" height="40" rx="8" fill="#2A2722" stroke="#E6E2D8" stroke-width="4"/>
+      <rect x="65" y="95" width="70" height="35" rx="8" fill="#1F1D19" stroke="#8C867A" stroke-width="3"/>
+      <line x1="75" y1="120" x2="125" y2="120" stroke="#F97316" stroke-width="3" stroke-dasharray="4 3"/>
+    
+  </g>
+</svg>

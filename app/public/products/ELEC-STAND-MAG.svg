@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" role="img" aria-label="3-in-1 MagSafe Charging Stand">
+  <defs>
+    <radialGradient id="grad-ELEC-STAND-MAG" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#23211C"/>
+      <stop offset="100%" stop-color="#141310"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="200" rx="20" fill="url(#grad-ELEC-STAND-MAG)" stroke="#2B2923" stroke-width="2"/>
+  <rect x="6" y="6" width="188" height="188" rx="16" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+  
+  <!-- Subtle SKU Watermark -->
+  <text x="16" y="28" font-family="monospace" font-size="9" fill="#5E594D" letter-spacing="0.5">ELEC-STAND-MAG</text>
+  
+  <!-- Graphic Glyph -->
+  <g>
+    
+      <ellipse cx="100" cy="130" rx="35" ry="12" fill="#24221C" stroke="#8C867A" stroke-width="3"/>
+      <line x1="100" y1="130" x2="100" y2="80" stroke="#E6E2D8" stroke-width="6"/>
+      <circle cx="100" cy="75" r="24" fill="#24221C" stroke="#F97316" stroke-width="4"/>
+      <circle cx="100" cy="75" r="14" fill="none" stroke="#E6E2D8" stroke-width="2" stroke-dasharray="4 3"/>
+    
+  </g>
+</svg>

@@ -1,23 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" role="img" aria-label="Stadium Towel">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#e7f6f2"/>
-      <stop offset="100%" stop-color="#f3e6d0"/>
-    </linearGradient>
-    <linearGradient id="ac" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#0f766e"/>
-      <stop offset="100%" stop-color="#7c2d12"/>
-    </linearGradient>
+    <radialGradient id="grad-DC-TWL-01" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#23211C"/>
+      <stop offset="100%" stop-color="#141310"/>
+    </radialGradient>
   </defs>
-  <rect width="640" height="480" rx="36" fill="url(#bg)"/>
-  <rect x="18" y="18" width="604" height="444" rx="28" fill="none" stroke="rgba(20,17,14,0.08)" stroke-width="2"/>
-  <circle cx="86" cy="78" r="18" fill="none" stroke="#0f766e" stroke-width="3" opacity="0.45"/>
-  <circle cx="554" cy="402" r="22" fill="none" stroke="#152033" stroke-width="3" opacity="0.18"/>
+  <rect width="200" height="200" rx="20" fill="url(#grad-DC-TWL-01)" stroke="#2B2923" stroke-width="2"/>
+  <rect x="6" y="6" width="188" height="188" rx="16" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
   
-  <rect x="170" y="120" width="300" height="210" rx="18" fill="#0f766e" transform="rotate(-8 320 225)"/>
-  <rect x="190" y="140" width="300" height="210" rx="18" fill="#ccfbf1" transform="rotate(6 340 245)"/>
-  <rect x="200" y="150" width="280" height="28" fill="#0f766e" opacity="0.25" transform="rotate(6 340 164)"/>
-  <rect x="200" y="210" width="280" height="28" fill="#0f766e" opacity="0.25" transform="rotate(6 340 224)"/>
-  <text x="320" y="410" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#152033">Stadium Towel</text>
-
+  <!-- Subtle SKU Watermark -->
+  <text x="16" y="28" font-family="monospace" font-size="9" fill="#5E594D" letter-spacing="0.5">DC-TWL-01</text>
+  
+  <!-- Graphic Glyph -->
+  <g>
+    
+      <rect x="65" y="70" width="70" height="40" rx="8" fill="#2A2722" stroke="#E6E2D8" stroke-width="4"/>
+      <rect x="65" y="95" width="70" height="35" rx="8" fill="#1F1D19" stroke="#8C867A" stroke-width="3"/>
+      <line x1="75" y1="120" x2="125" y2="120" stroke="#F97316" stroke-width="3" stroke-dasharray="4 3"/>
+    
+  </g>
 </svg>

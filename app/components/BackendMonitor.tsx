@@ -89,28 +89,6 @@ export function BackendMonitor() {
     return () => clearInterval(timer);
   }, []);
 
-  async function handleSeedDemo() {
-    setActionBusy("seed");
-    try {
-      const res = await fetch("/api/demo/seed-held", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sku: "ELEC-GAN-100",
-          note: "Backend Simulated Client Order",
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.order) {
-        setActionMsg(`Seeded new order ${data.order.id} in AUTHORIZED state.`);
-        await loadData();
-        setSelectedOrder(data.order);
-      }
-    } finally {
-      setActionBusy(null);
-    }
-  }
-
   async function handleVoid(orderId: string) {
     if (!confirm(`Are you sure you want to void the PayPal authorization hold for order ${orderId}?`)) return;
     setActionBusy(`void-${orderId}`);
@@ -173,14 +151,6 @@ export function BackendMonitor() {
         </div>
 
         <div className="backend-quick-actions">
-          <button
-            type="button"
-            className="admin-btn admin-btn-seed"
-            disabled={Boolean(actionBusy)}
-            onClick={handleSeedDemo}
-          >
-            <span>New test order</span>
-          </button>
           <button
             type="button"
             className="admin-btn admin-btn-refresh"

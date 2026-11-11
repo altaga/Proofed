@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, RotateCcw, Send } from "lucide-react";
 import { PayPalApprove } from "./PayPalApprove";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
+import { ProductThumbnail } from "./ProductThumbnail";
 import { AgentLog, type AgentStep } from "./AgentLog";
 import { TransactionPanel } from "./TransactionPanel";
 import { SafeMarkdown } from "./SafeMarkdown";
@@ -187,7 +188,7 @@ export function ShopperApp({
               {item.role === "assistant" && item.toolTrace ? <AgentLog steps={item.toolTrace} /> : null}
               {index === lastAssistantIndex && quoted ? (
                 <div className="product-card quote-card">
-                  <img src={`/products/${quoted.sku}.svg`} alt="" />
+                  <ProductThumbnail sku={quoted.sku} name={quoted.name} className="quote-card-thumb" />
                   <div>
                     <strong>{quoted.name}</strong>
                     <div className="price">${(quoted.unit_price_cents / 100).toFixed(2)}</div>

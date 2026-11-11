@@ -51,17 +51,22 @@ function llmModel() {
 function systemPrompt() {
   const cfg = getProjectConfig();
   return [
-    `You are the in-store shopping assistant for ${cfg.venueName}, powered by ${cfg.name}.`,
-    "Customers speak naturally and may name a budget. Help them pick items that are actually in stock.",
+    `You are the autonomous in-store shopping operator for ${cfg.venueName}, powered by ${cfg.name}.`,
+    "Customers speak naturally and often state a maximum budget (e.g. '$20 budget', 'under $30').",
+    "AUTOMATIC DIRECT COMMERCE IS PERMANENTLY ACTIVE: When a customer states a budget or asks what is available within a budget, NEVER output a catalog menu, list of items, or bullet points.",
+    "Instead, IMMEDIATELY select the single highest-rated in-stock item matching their request within the budget, call propose_checkout in the same turn, and reply in ONE single concise sentence confirming the selected item fits their budget.",
+    "Do NOT ask follow-up questions when a budget is provided. Do NOT ask them to choose between options. Pick the best in-stock option directly.",
+    "NEVER propose or suggest combinations that exceed the customer's stated budget. If they say $20, every suggested and quoted item MUST be under $20.",
     "You MUST call tools to read prices, stock, and order state. Never invent a price, SKU, stock count, pickup code, or PayPal id.",
     "Never send a money amount to a tool except optional budget_cents or max_price_cents as integer cents ($20 is 2000, never 20 or 20000). The backend recomputes totals and will correct a mistaken budget.",
-    "Write concise sentences. You may bold item names with markdown like **Pudgy Keychain**. Do not leave raw or unpaired asterisks.",
-    "Typical flow: search or list the catalog → propose_checkout → after the customer agrees, create_checkout.",
-    "After create_checkout, tell them to approve the PayPal button in this page. That places a hold (AUTHORIZE), not a capture.",
-    "Capture happens only after the pickup station records handover evidence.",
-    "If something fails (out of stock, station jam, pickup timeout, capture declined), call investigate_failure and then propose_recovery with retry, substitute, or cancel.",
-    "If a tool returns an error, explain it honestly. Do not pretend a payment succeeded.",
-    "Be concise and concrete. Amounts you mention must come from the latest tool result.",
+    "Write concise sentences (1-2 sentences maximum, strictly under 35 words).",
+    "Shopping flow: search or list the catalog → propose_checkout.",
+    "If the customer expresses intent to buy, agrees to a quote, says 'yes', 'confirm', 'place order', 'buy it', or asks to purchase, immediately call create_checkout.",
+    "A temporary hold (intent=AUTHORIZE) is placed on PayPal. Capture happens ONLY after the pickup station or courier verifies physical handover evidence.",
+    "Crucial safeguard: Never call get_order_status, investigate_failure, or propose_recovery unless an order was already created in this conversation session.",
+    "If the customer asks to cancel or release a hold but NO order was created yet in this session, do NOT call any order tools. Simply tell the customer that they don't have an active order or hold right now, and zero dollars have been charged ($0.00).",
+    "If a tool returns an error, explain it honestly and concisely. Never retry calling the same failing tool repeatedly.",
+    "Be concise, concrete, and fast. Amounts you mention must come from the latest tool result.",
   ].join(" ");
 }
 
@@ -103,7 +108,12 @@ function saveMessage(sessionId: string, role: string, content: string, toolTrace
     });
 }
 
-async function minimaxChat(messages: unknown[], timeoutMs = 45_000): Promise<MiniMaxMessage> {
+async function minimaxChat(
+  messages: unknown[],
+  options?: { timeoutMs?: number; allowTools?: boolean },
+): Promise<MiniMaxMessage> {
+  const timeoutMs = options?.timeoutMs ?? 45_000;
+  const allowTools = options?.allowTools ?? true;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -117,7 +127,8 @@ async function minimaxChat(messages: unknown[], timeoutMs = 45_000): Promise<Min
       body: JSON.stringify({
         model: llmModel(),
         messages,
-        tools: agentToolDefinitions,
+        tools: allowTools ? agentToolDefinitions : undefined,
+        tool_choice: allowTools ? undefined : "none",
         max_tokens: 2048,
       }),
     });
@@ -384,8 +395,12 @@ function extractArtifacts(
     }
   }
   if (!quote && catalogItems.length > 0) {
+    const inBudgetItems = budgetCents
+      ? catalogItems.filter((item) => Number(item.price_cents ?? item.unit_price_cents ?? 0) <= budgetCents)
+      : catalogItems;
+    const candidates = inBudgetItems.length > 0 ? inBudgetItems : catalogItems;
     const pick =
-      catalogItems.find((item) => Number(item.available ?? item.stock_on_hand ?? 0) > 0) ?? catalogItems[0];
+      candidates.find((item) => Number(item.available ?? item.stock_on_hand ?? 0) > 0) ?? candidates[0];
     if (typeof pick.sku === "string") {
       quote = {
         ...publicQuote(quoteItems([{ sku: pick.sku, qty: 1 }], budgetCents, getProjectConfig().currency)),
@@ -414,6 +429,7 @@ export async function runAgentTurn(input: {
   let finalText = "";
 
   try {
+    const executedSignatures = new Set<string>();
     for (let step = 0; step < 8; step += 1) {
       const message = await minimaxChat(messages);
       const assistantPayload: Record<string, unknown> = {
@@ -425,6 +441,7 @@ export async function runAgentTurn(input: {
       messages.push(assistantPayload);
 
       if (message.tool_calls && message.tool_calls.length > 0) {
+        let shouldStopLoop = false;
         for (const call of message.tool_calls) {
           const name = call.function?.name || "unknown";
           let args: unknown = {};
@@ -436,6 +453,15 @@ export async function runAgentTurn(input: {
           const shopperBudget =
             parseBudgetCents(text) ?? parseBudgetCentsFromMessages(history);
           const corrected = correctToolArgs(name, args, shopperBudget);
+
+          // Prevent infinite loops on identical tool arguments
+          const signature = `${name}:${JSON.stringify(corrected)}`;
+          if (executedSignatures.has(signature)) {
+            shouldStopLoop = true;
+            break;
+          }
+          executedSignatures.add(signature);
+
           const execution = await executeAgentTool(name, corrected);
           executions.push({ ...execution, args: corrected });
           messages.push({
@@ -443,6 +469,18 @@ export async function runAgentTurn(input: {
             tool_call_id: call.id,
             content: JSON.stringify(execution.result),
           });
+
+          // If an order lookup/investigation fails because no order exists, stop looping immediately
+          if (!execution.ok && (name === "get_order_status" || name === "investigate_failure" || name === "propose_recovery")) {
+            shouldStopLoop = true;
+          }
+        }
+
+        if (shouldStopLoop) {
+          // Finish turn by asking the model to formulate its final reply given the tool outcome without further tool calls
+          const finalPromptRes = await minimaxChat(messages, { allowTools: false });
+          finalText = visibleAssistantText(finalPromptRes.content);
+          break;
         }
         continue;
       }
@@ -466,9 +504,20 @@ export async function runAgentTurn(input: {
         : "I could not produce a reply just then. Please try again.";
   }
 
-  saveMessage(sessionId, "assistant", finalText, executions.map(summarizeTool));
   const shopperBudget = parseBudgetCents(text) ?? parseBudgetCentsFromMessages(history);
   const artifacts = extractArtifacts(executions, shopperBudget);
+
+  // Deterministic guardrail: When customer provides a budget in automatic mode, never spam multi-item bulleted menus
+  if (shopperBudget && artifacts.quote && typeof artifacts.quote === "object") {
+    const q = artifacts.quote as { lines?: Array<{ name: string; formatted_price?: string }> };
+    const firstItem = q.lines?.[0];
+    const hasBulletedList = (finalText.match(/^\s*[-*•]\s+/gm) ?? []).length >= 2;
+    if (firstItem && hasBulletedList) {
+      finalText = `Selected **${firstItem.name}** (${firstItem.formatted_price}) within your budget. Your automated PayPal authorization hold has been placed below.`;
+    }
+  }
+
+  saveMessage(sessionId, "assistant", finalText, executions.map(summarizeTool));
   return {
     sessionId,
     reply: finalText,

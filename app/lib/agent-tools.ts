@@ -244,11 +244,32 @@ export async function executeAgentTool(name: string, rawArgs: unknown): Promise<
       }
       case "get_order_status": {
         const args = z.object({ order_id: z.string() }).parse(rawArgs);
-        return { name, ok: true, result: publicOrderView(getOrderDetails(args.order_id)) };
+        try {
+          const details = getOrderDetails(args.order_id);
+          return { name, ok: true, result: publicOrderView(details) };
+        } catch {
+          return {
+            name,
+            ok: false,
+            result: {
+              error: `Order '${args.order_id}' was not found in the shop database. No active PayPal authorization exists for this ID.`,
+            },
+          };
+        }
       }
       case "investigate_failure": {
         const args = z.object({ order_id: z.string() }).parse(rawArgs);
-        return { name, ok: true, result: await investigateFailure(args.order_id) };
+        try {
+          return { name, ok: true, result: await investigateFailure(args.order_id) };
+        } catch (err) {
+          return {
+            name,
+            ok: false,
+            result: {
+              error: `Cannot investigate order '${args.order_id}': ${err instanceof Error ? err.message : "Order not found"}.`,
+            },
+          };
+        }
       }
       case "propose_recovery": {
         const args = z

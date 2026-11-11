@@ -1,18 +1,19 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   CornerDownLeft,
-  ExternalLink,
   ShieldCheck,
   Sparkles,
   Terminal,
 } from "lucide-react";
 import { PayPalApprove } from "./PayPalApprove";
 import { SafeMarkdown } from "./SafeMarkdown";
+import { ProductThumbnail } from "./ProductThumbnail";
 import type { AgentStep } from "./AgentLog";
 
 export type NearDeskMessage = {
@@ -40,13 +41,15 @@ export type NearDeskMessage = {
   };
 };
 
-const PROMPT_PRESETS = [
-  "I need a 100W USB-C GaN fast charger and a braided cable",
-  "Recommend specialty coffee beans or matcha under $30",
-  "Looking for an insulated 32oz water bottle for the gym",
-  "Smart 2K video doorbell for the front porch",
-  "I have a $20 budget, what snacks or coffee do you have?",
-  "Release PayPal hold and cancel order",
+
+
+const CHAT_STORAGE_KEY = "proofed.chat.v1";
+
+const STARTERS = [
+  { title: "Power and cables", hint: "100W GaN charger and a braided cable", prompt: "I need a 100W USB-C GaN fast charger and a braided cable" },
+  { title: "Coffee and matcha", hint: "Specialty beans under \$30", prompt: "Recommend specialty coffee beans or matcha under $30" },
+  { title: "Gym and outdoors", hint: "Insulated 32oz water bottle", prompt: "Looking for an insulated 32oz water bottle for the gym" },
+  { title: "Small budget", hint: "Snacks or coffee with \$20", prompt: "I have a $20 budget, what snacks or coffee do you have?" },
 ];
 
 const DEFAULT_MESSAGES: NearDeskMessage[] = [
@@ -54,56 +57,9 @@ const DEFAULT_MESSAGES: NearDeskMessage[] = [
     id: "msg-0",
     role: "assistant",
     content:
-      "Hi — tell me what you need and your budget. Prices always come from the catalog, and PayPal only holds the amount; you're charged once the item is actually handed over.",
-    tier: "ZERO-TRUST-POLICY",
-    timestamp: Date.now() - 1000 * 60 * 3,
-  },
-  {
-    id: "msg-1",
-    role: "user",
-    content: "I have a $20 budget. Do you have a keychain?",
-    timestamp: Date.now() - 1000 * 60 * 2,
-  },
-  {
-    id: "msg-2",
-    role: "assistant",
-    content:
-      "I located the **Pudgy Keychain** in the venue catalog. Verified price is **$12.00** (1200¢), leaving $8.00 remaining in your stated $20 budget. Stock level is verified with 8 units available at Station #04.",
-    tier: "MINIMAX-M3",
-    timestamp: Date.now() - 1000 * 60 * 1,
-    toolTrace: [
-      {
-        name: "search_catalog",
-        ok: true,
-        summary: "Found SKU DC-KEY-01 (Pudgy Keychain) @ 1200 cents",
-        input: 'query="keychain", budget_cents=2000',
-        outcome: "1 item matched catalog inventory",
-        guardrail: "Verified against SQLite catalog; model did not compute price",
-      },
-      {
-        name: "propose_checkout",
-        ok: true,
-        summary: "Cart validated: subtotal $12.00 <= budget $20.00",
-        input: "sku=DC-KEY-01, qty=1",
-        outcome: "Intent set to AUTHORIZE; orders v2 payload prepared",
-        guardrail: "Integer cents 1200 <= 2000 confirmed",
-      },
-    ],
-    quote: {
-      sku: "DC-KEY-01",
-      name: "Pudgy Keychain",
-      formatted_price: "$12.00",
-      unit_price_cents: 1200,
-      available: 8,
-    },
-    order: {
-      id: "ord_demo_9821",
-      status: "AUTHORIZED",
-      formatted_total: "$12.00",
-      pickup_code: "PK-9912",
-      paypal_order_id: "8UV92014KL582910M",
-      paypal_authorization_id: "7TH99120AP442109X",
-    },
+      "Welcome to Proofed. I am your autonomous commerce operator.\n\nTell me what you are looking for or state a budget. All prices are verified against catalog integer cents. When you confirm an item, your PayPal account is only placed on **authorization hold** (`intent=AUTHORIZE`). Your funds are captured **only upon verified physical handover**.",
+    tier: "ZERO-TRUST-OPERATOR",
+    timestamp: Date.now(),
   },
 ];
 
@@ -115,11 +71,144 @@ export function NearDeskChat({
   const [messages, setMessages] = useState<NearDeskMessage[]>(DEFAULT_MESSAGES);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [autonomyMode, setAutonomyMode] = useState<"interactive" | "autopilot">("interactive");
-  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({ "msg-2-0": true });
+  const [creatingOrderId, setCreatingOrderId] = useState<string | null>(null);
+  const [autonomyMode] = useState<"interactive" | "autopilot">("autopilot");
+  const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
+  const [techLogsOpen, setTechLogsOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [clientId, setClientId] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Restore the conversation after a reload so the shopper never loses an order in progress.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CHAT_STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as { messages?: NearDeskMessage[]; sessionId?: string | null };
+        if (Array.isArray(saved.messages) && saved.messages.length > 0) setMessages(saved.messages);
+        if (saved.sessionId) setSessionId(saved.sessionId);
+      }
+    } catch {
+      window.localStorage.removeItem(CHAT_STORAGE_KEY);
+    }
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(
+        CHAT_STORAGE_KEY,
+        JSON.stringify({ messages: messages.slice(-60), sessionId }),
+      );
+    } catch {
+      // Storage full or unavailable: the chat still works, it just will not persist.
+    }
+  }, [messages, sessionId, hydrated]);
+
+  const handleNewChat = () => {
+    if (loading) return;
+    window.localStorage.removeItem(CHAT_STORAGE_KEY);
+    setSessionId(null);
+    setMessages([{ ...DEFAULT_MESSAGES[0], timestamp: Date.now() }]);
+  };
+
+  const isFreshChat = messages.length === 1 && messages[0].id === "msg-0";
+
+  const activeOrderMsg = [...messages].reverse().find((m) => m.order?.id);
+  const activeOrder = activeOrderMsg?.order;
+  const lastMsgWithQuote = [...messages].reverse().find((m) => m.quote && !m.order);
+
+  const currentPrompts = (() => {
+    if (activeOrder?.status === "DELIVERY_FAILED") {
+      return [
+        "Release PayPal hold and cancel order",
+        "Re-dispatch courier to corrected address",
+        "Why was my delivery rejected?",
+        "Show PayPal audit trail",
+      ];
+    }
+    if (activeOrder?.status === "AUTHORIZED") {
+      return [
+        "How does the doorstep proof verification work?",
+        "What happens if the courier leaves the box at the wrong door?",
+        "Where can I collect my package?",
+        "Release PayPal hold and cancel order",
+      ];
+    }
+    if (lastMsgWithQuote?.quote) {
+      return [
+        "How does PayPal authorization hold protect me?",
+        "Do you have a cheaper alternative in stock?",
+        "What is the physical handover guarantee?",
+        "Clear cart and start over",
+      ];
+    }
+    return [
+      "I need a 100W USB-C GaN fast charger and a braided cable",
+      "Recommend specialty coffee beans or matcha under $30",
+      "Looking for an insulated 32oz water bottle for the gym",
+      "Smart 2K video doorbell for the front porch",
+      "I have a $20 budget, what snacks or coffee do you have?",
+    ];
+  })();
+
+  const handleConfirmOrder = async (sku: string, messageId: string) => {
+    if (creatingOrderId || loading) return;
+    setCreatingOrderId(messageId);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{ sku, qty: 1 }],
+          note: "Automated PayPal hold placed in chat",
+          actor: "shopper",
+          autoAuthorize: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Order creation failed");
+
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id === messageId) {
+            return {
+              ...m,
+              order: data.order,
+            };
+          }
+          return m;
+        }),
+      );
+
+      if (onOrderCreated && data.order) {
+        onOrderCreated(data.order);
+      }
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${Date.now()}`,
+          role: "assistant",
+          content: `Could not create order hold: ${err instanceof Error ? err.message : "Error"}`,
+          tier: "POLICY-ERROR",
+          timestamp: Date.now(),
+        },
+      ]);
+    } finally {
+      setCreatingOrderId(null);
+    }
+  };
+
+  // Automatically place PayPal hold on any quoted item without manual button click
+  useEffect(() => {
+    const lastMsgWithQuote = [...messages].reverse().find((m) => m.quote && !m.order);
+    if (lastMsgWithQuote && lastMsgWithQuote.quote && !creatingOrderId) {
+      void handleConfirmOrder(lastMsgWithQuote.quote.sku, lastMsgWithQuote.id);
+    }
+  }, [messages, creatingOrderId]);
 
   // Poll for delivery status changes on active order
   useEffect(() => {
@@ -238,6 +327,22 @@ export function NearDeskChat({
     const text = (overrideText || input).trim();
     if (!text || loading) return;
 
+    if (
+      lastMsgWithQuote?.quote &&
+      /^(confirm|buy|place order|yes|i'll take it|agree|proceed)/i.test(text)
+    ) {
+      const userMsg: NearDeskMessage = {
+        id: `usr-${Date.now()}`,
+        role: "user",
+        content: text,
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setInput("");
+      void handleConfirmOrder(lastMsgWithQuote.quote.sku, lastMsgWithQuote.id);
+      return;
+    }
+
     const userMsg: NearDeskMessage = {
       id: `usr-${Date.now()}`,
       role: "user",
@@ -298,37 +403,34 @@ export function NearDeskChat({
     }
   };
 
+  const allToolTraces = messages.flatMap((m) =>
+    (m.toolTrace || []).map((step, idx) => ({
+      ...step,
+      toolKey: `${m.id}-${idx}`,
+      timestamp: m.timestamp,
+    }))
+  );
+  const totalToolCount = allToolTraces.length;
+
   return (
     <div className="neardesk-chat-container">
       {/* Top Header Bar */}
       <div className="neardesk-chat-header">
         <div className="neardesk-header-left">
-          <span className="neardesk-status-dot" />
-          <span className="neardesk-title desktop-only">Proofed Assistant</span>
-          <span className="neardesk-title mobile-only">Assistant</span>
-          <span className="neardesk-catalog-pill mono desktop-only">68 products</span>
-          
+          <span className="neardesk-title">Direct Commerce</span>
         </div>
-        <div className="neardesk-header-right mono">
-          <div className="autonomy-toggle-group" role="group" aria-label="Autonomous Contingency Policy">
-            <span className="autonomy-label desktop-only">On failure</span>
+        <div className="neardesk-header-right">
+          {!isFreshChat && (
             <button
               type="button"
-              className={`autonomy-pill ${autonomyMode === "interactive" ? "active" : ""}`}
-              onClick={() => setAutonomyMode("interactive")}
-              title="If delivery fails, agent presents interactive choice cards in chat"
+              className="new-chat-btn"
+              onClick={handleNewChat}
+              disabled={loading}
+              title="Clear this conversation and start over"
             >
-              Interactive
+              New chat
             </button>
-            <button
-              type="button"
-              className={`autonomy-pill ${autonomyMode === "autopilot" ? "active" : ""}`}
-              onClick={() => setAutonomyMode("autopilot")}
-              title="If delivery fails, agent automatically releases PayPal hold in 1.2s and credits $5 voucher"
-            >
-              Auto-void
-            </button>
-          </div>
+          )}
         </div>
       </div>
 
@@ -338,15 +440,14 @@ export function NearDeskChat({
           const isUser = msg.role === "user";
           return (
             <div key={msg.id} className={`neardesk-msg-row ${isUser ? "user-row" : "agent-row"}`}>
-              {/* Micro Meta Header */}
-              <div className="neardesk-msg-meta mono">
+              {/* Message Meta */}
+              <div className="neardesk-msg-meta">
                 <span className={`neardesk-role-label ${isUser ? "role-user" : "role-agent"}`}>
                   {isUser ? "You" : "Proofed"}
                 </span>
-                {msg.tier && <span className="neardesk-tier-tag">{msg.tier}</span>}
                 <span className="meta-sep">·</span>
                 <span className="meta-time">
-                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                 </span>
               </div>
 
@@ -359,70 +460,13 @@ export function NearDeskChat({
                 )}
               </div>
 
-              {/* Collapsible Tool Traces (NearDesk Style) */}
-              {msg.toolTrace && msg.toolTrace.length > 0 && (
-                <div className="neardesk-tool-list">
-                  {msg.toolTrace.map((tool, idx) => {
-                    const toolKey = `${msg.id}-${idx}`;
-                    const isExpanded = Boolean(expandedTools[toolKey]);
-                    return (
-                      <div key={toolKey} className="neardesk-tool-card">
-                        <button
-                          type="button"
-                          className="neardesk-tool-header"
-                          onClick={() => toggleTool(toolKey)}
-                        >
-                          <div className="neardesk-tool-title mono">
-                            <Terminal className="tool-icon" size={13} />
-                            <span>Tool: {tool.name}</span>
-                            <span className={`tool-pill ${tool.ok ? "ok" : "err"}`}>
-                              {tool.ok ? "PASS" : "BLOCKED"}
-                            </span>
-                          </div>
-                          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        </button>
-
-                        {isExpanded && (
-                          <div className="neardesk-tool-detail mono">
-                            {tool.summary && (
-                              <div className="tool-line">
-                                <span className="tool-key">SUMMARY:</span>
-                                <span className="tool-val">{tool.summary}</span>
-                              </div>
-                            )}
-                            {tool.input && (
-                              <div className="tool-line">
-                                <span className="tool-key">INPUT:</span>
-                                <span className="tool-val">{tool.input}</span>
-                              </div>
-                            )}
-                            {tool.outcome && (
-                              <div className="tool-line">
-                                <span className="tool-key">OUTCOME:</span>
-                                <span className="tool-val">{tool.outcome}</span>
-                              </div>
-                            )}
-                            {tool.guardrail && (
-                              <div className="tool-line guardrail-line">
-                                <span className="tool-key">GUARDRAIL:</span>
-                                <span className="tool-val">{tool.guardrail}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
               {/* Inline Product Quote Card */}
               {msg.quote && (
                 <div className="neardesk-quote-card">
                   <div className="quote-product-row">
-                    <img
-                      src={`/products/${msg.quote.sku}.svg`}
-                      alt={msg.quote.name}
+                    <ProductThumbnail
+                      sku={msg.quote.sku}
+                      name={msg.quote.name}
                       className="quote-img"
                     />
                     <div className="quote-info">
@@ -437,12 +481,46 @@ export function NearDeskChat({
                     </div>
                   </div>
 
+                  {/* Powered by PayPal Brand Badge (Automated Hold) */}
+                  <div className="quote-paypal-powered-badge">
+                    <div className="paypal-badge-brand">
+                      <svg
+                        className="paypal-logo-svg"
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        aria-hidden="true"
+                      >
+                        <path
+                          fill="#003087"
+                          d="M20.067 8.478c-.492.88-1.22 1.458-2.203 1.761-.986.306-2.222.306-3.708.306H12.5l-1.3 8.243h-2.94L10.3 3.5h5.8c1.378 0 2.45.244 3.218.732.767.489 1.05 1.346.749 2.571-.052.212-.128.438-.228.675z"
+                        />
+                        <path
+                          fill="#0079C1"
+                          d="M18.8 9.5c-.3 1.8-1.5 2.8-3.4 2.8h-1.8l-.8 5.2h-2.5l2-12.8h4.5c1.7 0 2.7.5 2.5 2.2-.1.9-.3 1.7-.5 2.6z"
+                        />
+                      </svg>
+                      <span className="paypal-brand-title">
+                        Powered by <strong>PayPal</strong>
+                      </span>
+                    </div>
+                    <span className="paypal-protocol-pill mono">intent=AUTHORIZE</span>
+                  </div>
+
+                  {/* If Order is being placed automatically */}
+                  {!msg.order && (
+                    <div className="quote-auto-staging mono">
+                      <Sparkles className="spin" size={12} />
+                      <span>Placing automated PayPal authorization hold ($0.00 charged upfront)…</span>
+                    </div>
+                  )}
+
                   {/* Inline PayPal Hold Box */}
                   {msg.order?.status === "CREATED" && msg.order.paypal_order_id && clientId && (
                     <div className="quote-paypal-area">
                       <div className="paypal-hold-header">
                         <ShieldCheck size={14} />
-                        <span>Authorize Hold with PayPal (0¢ Charged Upfront)</span>
+                        <span>Authorize Hold with PayPal ($0.00 Charged Upfront)</span>
                       </div>
                       <PayPalApprove
                         clientId={clientId}
@@ -479,14 +557,19 @@ export function NearDeskChat({
 
                   {/* If Order is already Authorized */}
                   {msg.order?.status === "AUTHORIZED" && msg.order.pickup_code && (
-                    <div className="quote-authorized-badge">
-                      <div className="auth-left">
-                        <span className="auth-pill mono">Hold active · $0 charged</span>
-                        <span className="auth-sub">Funds safely escrowed on PayPal</span>
+                    <div className="quote-authorized-box">
+                      <div className="quote-authorized-badge">
+                        <div className="auth-left">
+                          <span className="auth-pill mono">Hold active · $0.00 charged</span>
+                          <span className="auth-sub">Funds safely escrowed on PayPal</span>
+                        </div>
+                        <div className="auth-code mono">
+                          <span>PIN:</span>
+                          <strong>{msg.order.pickup_code}</strong>
+                        </div>
                       </div>
-                      <div className="auth-code mono">
-                        <span>PIN:</span>
-                        <strong>{msg.order.pickup_code}</strong>
+                      <div className="auth-customer-guidance mono">
+                        <span>Awaiting physical handover at doorstep or locker station. Funds remain held securely on PayPal ($0.00 charged) until proof of delivery is verified.</span>
                       </div>
                     </div>
                   )}
@@ -527,6 +610,18 @@ export function NearDeskChat({
           );
         })}
 
+        {isFreshChat && !loading && (
+          <div className="chat-starters" role="group" aria-label="Conversation starters">
+            <span className="chat-starters-title">Start with</span>
+            {STARTERS.map((starter) => (
+              <button key={starter.title} type="button" className="chat-starter" onClick={() => void handleSend(starter.prompt)}>
+                <strong>{starter.title}</strong>
+                <span>{starter.hint}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading && (
           <div className="neardesk-loading-indicator mono">
             <Sparkles className="spin" size={13} />
@@ -538,10 +633,11 @@ export function NearDeskChat({
       </div>
 
       {/* Suggested Quick Prompts (NearDesk Style) */}
+      {!isFreshChat && (
       <div className="neardesk-prompts-bar">
-        <span className="prompts-label mono">Try</span>
+        <span className="prompts-label mono">Suggestions</span>
         <div className="prompts-scroll">
-          {PROMPT_PRESETS.map((preset, idx) => (
+          {currentPrompts.map((preset, idx) => (
             <button
               key={idx}
               type="button"
@@ -554,6 +650,7 @@ export function NearDeskChat({
           ))}
         </div>
       </div>
+      )}
 
       {/* Input Box with CornerDownLeft Button */}
       <div className="neardesk-input-bar">
@@ -581,6 +678,98 @@ export function NearDeskChat({
             <CornerDownLeft size={14} />
           </button>
         </div>
+      </div>
+
+      {/* Technical Audit & Policy Guardrail Drawer (Dropdown at the bottom for Tech Guys) */}
+      <div className="neardesk-tech-drawer">
+        <button
+          type="button"
+          className="tech-drawer-toggle"
+          onClick={() => setTechLogsOpen((prev) => !prev)}
+          aria-expanded={techLogsOpen}
+          aria-label="Toggle technical engineering logs"
+        >
+          <div className="tech-drawer-left mono">
+            <Terminal size={12} className="tech-drawer-icon" />
+            <span className="tech-title">System Audit</span>
+            <span className="tech-count-badge">
+              {totalToolCount} {totalToolCount === 1 ? "operation" : "operations"}
+            </span>
+            {totalToolCount > 0 && (
+              <span className="tech-guard-badge">Zero-trust verified</span>
+            )}
+          </div>
+          <div className="tech-drawer-right mono">
+            <span>{techLogsOpen ? "Hide logs" : "Inspect logs"}</span>
+            {techLogsOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          </div>
+        </button>
+
+        {techLogsOpen && (
+          <div className="tech-drawer-panel">
+            <div className="tech-drawer-meta-banner mono">
+              <span>ZERO-TRUST POLICY GUARDRAIL AUDIT</span>
+              <span>PRICES &amp; HOLDS VALIDATED VIA SQLITE INTEGER CENTS</span>
+            </div>
+
+            {totalToolCount === 0 ? (
+              <div className="tech-empty-state mono">
+                No tool calls recorded yet. Request a product or checkout above to inspect live agent catalog &amp; policy traces.
+              </div>
+            ) : (
+              allToolTraces.map((tool) => {
+                const isExpanded = Boolean(expandedTools[tool.toolKey]);
+                return (
+                  <div key={tool.toolKey} className="neardesk-tool-card">
+                    <button
+                      type="button"
+                      className="neardesk-tool-header"
+                      onClick={() => toggleTool(tool.toolKey)}
+                    >
+                      <div className="neardesk-tool-title mono">
+                        <Terminal className="tool-icon" size={13} />
+                        <span>Tool: {tool.name}</span>
+                        <span className={`tool-pill ${tool.ok ? "ok" : "err"}`}>
+                          {tool.ok ? "PASS" : "BLOCKED"}
+                        </span>
+                      </div>
+                      {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="neardesk-tool-detail mono">
+                        {tool.summary && (
+                          <div className="tool-line">
+                            <span className="tool-key">SUMMARY:</span>
+                            <span className="tool-val">{tool.summary}</span>
+                          </div>
+                        )}
+                        {tool.input && (
+                          <div className="tool-line">
+                            <span className="tool-key">INPUT:</span>
+                            <span className="tool-val">{tool.input}</span>
+                          </div>
+                        )}
+                        {tool.outcome && (
+                          <div className="tool-line">
+                            <span className="tool-key">OUTCOME:</span>
+                            <span className="tool-val">{tool.outcome}</span>
+                          </div>
+                        )}
+                        {tool.guardrail && (
+                          <div className="tool-line guardrail-line">
+                            <span className="tool-key">GUARDRAIL:</span>
+                            <span className="tool-val">{tool.guardrail}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

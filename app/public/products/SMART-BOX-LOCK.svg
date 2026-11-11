@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" role="img" aria-label="Smart Porch Delivery Box (Solenoid)">
+  <defs>
+    <radialGradient id="grad-SMART-BOX-LOCK" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#23211C"/>
+      <stop offset="100%" stop-color="#141310"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="200" rx="20" fill="url(#grad-SMART-BOX-LOCK)" stroke="#2B2923" stroke-width="2"/>
+  <rect x="6" y="6" width="188" height="188" rx="16" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+  
+  <!-- Subtle SKU Watermark -->
+  <text x="16" y="28" font-family="monospace" font-size="9" fill="#5E594D" letter-spacing="0.5">SMART-BOX-LOCK</text>
+  
+  <!-- Graphic Glyph -->
+  <g>
+    
+      <rect x="65" y="65" width="70" height="70" rx="14" fill="#211F1B" stroke="#E6E2D8" stroke-width="4"/>
+      <rect x="80" y="80" width="40" height="40" rx="8" fill="#181714" stroke="#8C867A" stroke-width="2"/>
+      <text x="100" y="107" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="700" font-size="22" fill="#F97316">S</text>
+    
+  </g>
+</svg>

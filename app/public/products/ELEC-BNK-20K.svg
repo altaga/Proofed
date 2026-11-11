@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" role="img" aria-label="20,000mAh 65W Laptop Power Bank">
+  <defs>
+    <radialGradient id="grad-ELEC-BNK-20K" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#23211C"/>
+      <stop offset="100%" stop-color="#141310"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="200" rx="20" fill="url(#grad-ELEC-BNK-20K)" stroke="#2B2923" stroke-width="2"/>
+  <rect x="6" y="6" width="188" height="188" rx="16" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+  
+  <!-- Subtle SKU Watermark -->
+  <text x="16" y="28" font-family="monospace" font-size="9" fill="#5E594D" letter-spacing="0.5">ELEC-BNK-20K</text>
+  
+  <!-- Graphic Glyph -->
+  <g>
+    
+      <rect x="65" y="60" width="70" height="80" rx="10" fill="#201E1A" stroke="#E6E2D8" stroke-width="4"/>
+      <circle cx="85" cy="76" r="3" fill="#22C55E"/>
+      <circle cx="95" cy="76" r="3" fill="#22C55E"/>
+      <circle cx="105" cy="76" r="3" fill="#22C55E"/>
+      <circle cx="115" cy="76" r="3" fill="#22C55E"/>
+      <rect x="80" y="115" width="18" height="8" rx="2" fill="#F97316"/>
+      <rect x="102" y="115" width="18" height="8" rx="2" fill="#6B7280"/>
+    
+  </g>
+</svg>

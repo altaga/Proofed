@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Clock,
   Cpu,
-  ExternalLink,
   MapPin,
   Package,
   QrCode,
@@ -18,6 +17,7 @@ import {
   Upload,
   XCircle,
 } from "lucide-react";
+import { EmptyOrderState } from "./EmptyOrderState";
 
 type OrderItem = {
   sku: string;
@@ -212,34 +212,6 @@ export function DeliveryApp() {
     reader.readAsDataURL(file);
   }
 
-  // Seed new held order for testing
-  async function handleSeedOrder() {
-    setIsSubmitting(true);
-    setFeedback(null);
-    try {
-      const res = await fetch("/api/demo/seed-held", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sku: "ELEC-GAN-100",
-          note: "Residential Doorstep Courier Delivery",
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.order) {
-        setActiveOrder(data.order);
-        if (data.order.pickup_code) setTrackingInput(data.order.pickup_code);
-        setFeedback({
-          tone: "info",
-          title: "Order Ready for Dispatch",
-          message: `Package ${data.order.id} seeded in AUTHORIZED (hold) state. PayPal hold placed. Funds not yet captured ($0.00 charged).`,
-        });
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   // Confirm or Reject Handover based on real vision verdict
   async function handleConfirmHandover() {
     if (!activeOrder && !trackingInput) return;
@@ -334,7 +306,6 @@ export function DeliveryApp() {
         {/* Top Bar */}
         <div className="delivery-top-bar">
           <div className="courier-badge">
-            <span className="courier-pulse" />
             <span className="courier-id">Courier · Route 4B</span>
           </div>
           <div className="delivery-gps mono">
@@ -363,7 +334,7 @@ export function DeliveryApp() {
               <input
                 type="text"
                 className="delivery-code-input mono"
-                placeholder="Parcel code (e.g. K9Z2X7)"
+                placeholder="Parcel code"
                 value={trackingInput}
                 maxLength={6}
                 onChange={(e) => setTrackingInput(e.target.value.toUpperCase().slice(0, 6))}
@@ -373,14 +344,24 @@ export function DeliveryApp() {
             <button
               type="button"
               className="autofill-order-btn"
-              onClick={handleSeedOrder}
+              onClick={() => void fetchLatestOrder()}
               disabled={isSubmitting}
-              title="Generate a new active order ready for delivery"
+              title="Refresh and check for authorized orders from Shop"
             >
               <RefreshCw size={14} className={isSubmitting ? "spin" : ""} />
-              <span>New parcel</span>
+              <span>Refresh</span>
             </button>
           </div>
+
+          {!activeOrder && (
+            <div className="delivery-no-order">
+              <EmptyOrderState
+                title="No active delivery"
+                body="Deliveries appear here automatically once a customer prompts the assistant and authorizes a PayPal hold in Shop."
+                actionLabel="Open Shop Chat"
+              />
+            </div>
+          )}
 
           {/* Active Package Manifest */}
           {activeOrder && (
@@ -457,6 +438,8 @@ export function DeliveryApp() {
           </div>
 
           {/* Scenario Switcher Pills */}
+          <details className="demo-samples" open>
+            <summary>Demo sample photos (no camera needed)</summary>
           <div className="scenario-switcher-bar">
             <span className="scenario-switcher-label">Sample photo</span>
             <div className="scenario-pills-row" role="radiogroup" aria-label="Delivery Test Scenarios">
@@ -478,12 +461,12 @@ export function DeliveryApp() {
               })}
             </div>
           </div>
+          </details>
 
           {/* Photo Preview with Bounding Boxes */}
           <div className={`vision-viewfinder-frame ${isAnalyzing ? "is-analyzing" : ""}`}>
             <div className="viewfinder-telemetry-strip">
               <div className="viewfinder-hud-status">
-                <span className="hud-dot dot-archive" />
                 <span>
                   {mediaMode === "camera"
                     ? "Camera photo"
@@ -691,41 +674,12 @@ export function DeliveryApp() {
               </div>
             )}
             {feedback.recoveryAction && (
-              <div style={{ marginTop: "10px" }}>
-                <a
-                  href="/client"
-                  className="footer-link"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    background: "#2E2B25",
-                    padding: "6px 12px",
-                    borderRadius: "4px",
-                    color: "#F4F1EA",
-                    fontWeight: 600,
-                  }}
-                >
-                  <span>Open Customer Chat to Resolve</span>
-                  <ExternalLink size={12} />
-                </a>
+              <div className="feedback-recovery-status mono">
+                <span>Autonomous protocol: hold released back to customer account.</span>
               </div>
             )}
           </div>
         )}
-
-        {/* Footer Navigation */}
-        <div className="delivery-footer-nav">
-          <a href="/client" className="footer-link">
-            <span>Open Client Chat</span>
-            <ExternalLink size={12} />
-          </a>
-          <span className="sep">·</span>
-          <a href="/backend" className="footer-link">
-            <span>Open Backend Monitor</span>
-            <ExternalLink size={12} />
-          </a>
-        </div>
       </div>
     </div>
   );

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%" role="img" aria-label="Organic Whole Flower Chamomile Tea (50g)">
+  <defs>
+    <radialGradient id="grad-PAN-TEA-CHAM" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#23211C"/>
+      <stop offset="100%" stop-color="#141310"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="200" rx="20" fill="url(#grad-PAN-TEA-CHAM)" stroke="#2B2923" stroke-width="2"/>
+  <rect x="6" y="6" width="188" height="188" rx="16" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+  
+  <!-- Subtle SKU Watermark -->
+  <text x="16" y="28" font-family="monospace" font-size="9" fill="#5E594D" letter-spacing="0.5">PAN-TEA-CHAM</text>
+  
+  <!-- Graphic Glyph -->
+  <g>
+    
+      <path d="M70 90 h60 v30 a30 30 0 0 1 -60 0 z" fill="#1F241C" stroke="#E6E2D8" stroke-width="4"/>
+      <path d="M100 55 q 20 15 0 30 q -20 -15 0 -30 z" fill="#10B981" stroke="#A7F3D0" stroke-width="2"/>
+    
+  </g>
+</svg>

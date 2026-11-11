@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import { ProductThumbnail } from "./ProductThumbnail";
+
 export type CatalogProduct = {
   sku: string;
   name: string;
@@ -24,7 +26,7 @@ export function ProductCard({
       onClick={() => { if (!oos) onSelect?.(item); }}
       disabled={oos}
     >
-      <img src={item.image || `/products/${item.sku}.svg`} alt="" />
+      <ProductThumbnail sku={item.sku} name={item.name} className="product-card-thumb" />
       <div className="meta">
         <strong>{item.name}</strong>
         <div className="mono">{item.sku}</div>

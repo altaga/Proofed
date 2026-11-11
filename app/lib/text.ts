@@ -13,10 +13,16 @@ export function escapeHtml(text: string): string {
 }
 
 function inlineMarkdown(text: string): string {
-  let out = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  const codeSpans: string[] = [];
+  let out = text.replace(/`([^`\n]+?)`/g, (_m, code: string) => {
+    codeSpans.push(`<code>${code}</code>`);
+    return `\u0000${codeSpans.length - 1}\u0000`;
+  });
+  out = out.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   out = out.replace(/__(.+?)__/g, "<strong>$1</strong>");
   out = out.replace(/(^|[\s(])\*(?!\s)([^*\n]+?)(?<!\s)\*(?=[\s).,]|$)/g, "$1<em>$2</em>");
   out = out.replace(/\*{1,2}/g, "");
+  out = out.replace(/\u0000(\d+)\u0000/g, (_m, i: string) => codeSpans[Number(i)]);
   return out;
 }
 
