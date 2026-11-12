@@ -327,6 +327,32 @@ export async function getPaypalOrder(orderId: string): Promise<PaypalOrder> {
   return data;
 }
 
+export async function patchPaypalOrderLifecycle(
+  orderId: string,
+  input: { customId: string; description: string; requestId?: string },
+): Promise<PaypalOrder | null> {
+  if (!isPaypalConfigured() || !orderId || orderId.startsWith("ORDER-PP-") || orderId.startsWith("SIM-")) {
+    return null;
+  }
+  await paypalFetch<Record<string, never>>(`/v2/checkout/orders/${orderId}`, {
+    method: "PATCH",
+    requestId: input.requestId,
+    body: [
+      {
+        op: "replace",
+        path: "/purchase_units/@reference_id=='doorstep-handover'/custom_id",
+        value: input.customId.slice(0, 127),
+      },
+      {
+        op: "replace",
+        path: "/purchase_units/@reference_id=='doorstep-handover'/description",
+        value: input.description.slice(0, 127),
+      },
+    ],
+  });
+  return getPaypalOrder(orderId);
+}
+
 export async function authorizePaypalOrder(orderId: string, requestId: string): Promise<PaypalOrder> {
   const { data } = await paypalFetch<PaypalOrder>(`/v2/checkout/orders/${orderId}/authorize`, {
     method: "POST",

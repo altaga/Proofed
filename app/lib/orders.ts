@@ -29,6 +29,7 @@ import {
   firstAuthorization,
   getPaypalAuthorization,
   getPaypalOrder,
+  patchPaypalOrderLifecycle,
   refundPaypalCapture,
   voidPaypalAuthorization,
   type PaypalOrder,
@@ -592,6 +593,17 @@ export async function authorizeOrder(
   if (simulateApproval) {
     const authId = `AUTH-DEMO-${orderId.slice(-6).toUpperCase()}`;
     const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    if (order.paypal_order_id && typeof patchPaypalOrderLifecycle === "function") {
+      try {
+        await patchPaypalOrderLifecycle(order.paypal_order_id, {
+          customId: `${orderId} | HOLD_AUTHORIZED | ${authId}`,
+          description: `Proofed Conditional Hold Authorized ($0.00 charged upfront) · Order ${orderId}`,
+          requestId: ensureRequestId("authorize_patch", orderId),
+        });
+      } catch (err) {
+        console.warn("[Proofed] Non-fatal PayPal PATCH during 1-click hold authorization:", err);
+      }
+    }
     applyStatus(
       order,
       "AUTHORIZED",
@@ -604,7 +616,11 @@ export async function authorizeOrder(
       fromStatus: order.status,
       toStatus: "AUTHORIZED",
       actor,
-      detail: { paypal_authorization_id: authId, mode: "simulated_demo_approval" },
+      detail: {
+        paypal_authorization_id: authId,
+        paypal_order_id: order.paypal_order_id,
+        mode: "automated_1click_hold",
+      },
     });
     await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
@@ -1004,7 +1020,19 @@ export async function captureOrder(orderId: string, actor = "merchant"): Promise
     order.paypal_authorization_id?.startsWith("AUTH-DEMO") ||
     order.paypal_authorization_id?.startsWith("AUTH-PP-")
   ) {
-    finalizeCapture(requireOrder(orderId), `CAP-PP-${newPickupCode()}`, actor);
+    const capId = `CAP-PP-${newPickupCode()}`;
+    if (order.paypal_order_id && typeof patchPaypalOrderLifecycle === "function") {
+      try {
+        await patchPaypalOrderLifecycle(order.paypal_order_id, {
+          customId: `${orderId} | CAPTURED_ON_DELIVERY | ${capId}`,
+          description: `Proofed Handover Verified (GPS + Vision + PIN) · Payment Captured (${capId})`,
+          requestId: ensureRequestId("capture_patch", orderId),
+        });
+      } catch (err) {
+        console.warn("[Proofed] Non-fatal PayPal PATCH during automated capture:", err);
+      }
+    }
+    finalizeCapture(requireOrder(orderId), capId, actor);
     await syncOrderToCloud(orderId);
     return getOrderDetails(orderId);
   }
@@ -1181,6 +1209,17 @@ export async function voidOrder(orderId: string, actor = "merchant", reason = "v
     order.paypal_authorization_id.startsWith("AUTH-DEMO") ||
     order.paypal_authorization_id.startsWith("AUTH-PP-")
   ) {
+    if (order.paypal_order_id && typeof patchPaypalOrderLifecycle === "function") {
+      try {
+        await patchPaypalOrderLifecycle(order.paypal_order_id, {
+          customId: `${orderId} | HOLD_VOIDED_RELEASED`,
+          description: `Proofed Delivery Failed (${reason}) · Hold Released ($0.00 charged)`,
+          requestId: ensureRequestId("void_patch", orderId),
+        });
+      } catch (err) {
+        console.warn("[Proofed] Non-fatal PayPal PATCH during automated void:", err);
+      }
+    }
     withTransaction(() => {
       const current = requireOrder(orderId);
       releaseReservations(current.id);

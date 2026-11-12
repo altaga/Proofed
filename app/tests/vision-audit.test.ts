@@ -11,6 +11,7 @@ import { join } from "node:path";
 vi.mock("../lib/paypal", () => ({
   createPaypalOrder: vi.fn().mockResolvedValue({ id: "MOCK-PP-ORDER", status: "CREATED" }),
   authorizePaypalOrder: vi.fn().mockResolvedValue({ id: "MOCK-AUTH-ID", status: "COMPLETED" }),
+  patchPaypalOrderLifecycle: vi.fn().mockResolvedValue({ id: "MOCK-PP-ORDER", status: "CREATED" }),
   voidPaypalAuthorization: vi.fn().mockResolvedValue(true),
   capturePaypalAuthorization: vi.fn().mockResolvedValue({ id: "MOCK-CAP-ID", status: "COMPLETED" }),
 }));
