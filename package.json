@@ -16,7 +16,7 @@
     "pack": "npm --prefix app run pack",
     "rename": "npm --prefix app run rename",
     "demo:reset": "npm --prefix app run demo:reset",
-    "screenshots": "npm --prefix app run screenshots"
+    "screenshots": "node scripts/capture_screenshots.mjs"
   },
   "workspaces": [
     "app"
