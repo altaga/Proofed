@@ -43,7 +43,7 @@ Following our technical security audit, Proofed enforces strict server-side inva
 2. **Fail-Closed Multimodal Vision & GPS (`app/lib/vision-audit.ts`)**:
    - Live photographs are analyzed by **`MiniMax-M3.1-Flash`** with dynamic bounding box extraction (`doorNumberBox`, `packageBox`) and zero prompt bias.
    - Missing photographs, API timeouts, malformed responses, or missing GPS coordinates **fail closed** (`captureAuthorized: false`, `overallHandoverScore: 0`).
-   - Demo sample presets (`Door #15`, `Door #13`, `Damaged box`) are explicitly labeled `source: "demo-simulation-preset"`.
+   - Demo sample presets (`Door #15`, `Door #14`, `Damaged box`) are explicitly labeled `source: "demo-simulation-preset"`.
 3. **Courier-Blind One-Time Recipient PIN**:
    - The courier endpoint (`GET /api/orders?view=courier`) redacts `pickup_code` (`pickup_code: null`, `pickup_code_masked: "••••••"`).
    - The courier interface (`/delivery`) never auto-fills or displays the buyer's PIN; the courier must obtain the 6-character code from the buyer's checkout screen, enforced server-side with expiration and a 5-attempt retry limit.
@@ -72,7 +72,7 @@ Following our technical security audit, Proofed enforces strict server-side inva
 | **0:00–0:20** | **Problem & Thesis** | AI agents can initiate purchases in milliseconds, but physical delivery is uncertain. Proofed uses PayPal `intent=AUTHORIZE` to hold funds (`$0.00` charged) until physical handover is proven. |
 | **0:20–0:45** | **1. Client: AI Shopping & PayPal Hold** | In `/client`, ask for an item under budget (e.g., *"Coffee under $20"*). Click the gold **PayPal Hold (`$18.50`)** button. Show `$18.50 held · $0.00 charged` and the 6-character **Delivery PIN** given only to the customer. |
 | **0:45–1:25** | **2. Delivery: Tri-Factor Handover & Capture** | In `/delivery`, review Step 1 (`Package` at `ul. Filarecka 2B, m. 15, Kraków`), click `Continue to Doorstep Photo`, upload a real photo or test `Door #15`, then in Step 3 enter the customer's 6-character PIN to trigger PayPal Payments v2 `/capture`. |
-| **1:25–2:00** | **3. Exception Flow: Wrong Door #13 & Recovery** | Create a second order. In `/delivery` Step 2, select `Door #13 (Wrong door)`. Vision blocks progression (`#13 instead of #15`). Click `Report Failed Delivery`. Return to `/client` and show the 3 customer recovery options (`I received the package`, `Send a replacement`, `Cancel & release hold`). |
+| **1:25–2:00** | **3. Exception Flow: Wrong Door #14 & Recovery** | Create a second order. In `/delivery` Step 2, select `Door #14 (Wrong door)`. Vision blocks progression (`#14 instead of #15`). Click `Report Failed Delivery`. Return to `/client` and show the 3 customer recovery options (`I received the package`, `Send a replacement`, `Cancel & release hold`). |
 | **2:00–2:25** | **4. Merchant & Judge's Technical Audit** | Show `/merchant` for clean operational status, then open `/backend` (`For Devs & Judges`) to highlight the live PayPal Order/Authorization/Capture IDs, idempotency keys, and HMAC-signed event log. |
 
 ---

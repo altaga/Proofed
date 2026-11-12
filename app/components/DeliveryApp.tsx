@@ -109,10 +109,10 @@ const PHOTO_PRESETS: PhotoPreset[] = [
   },
   {
     id: "wrong_door",
-    shortLabel: "Door #13 (Wrong door)",
+    shortLabel: "Door #14 (Wrong door)",
     tag: "Mismatch",
-    doorNumber: "13",
-    imagePath: "/delivery/door-13.svg",
+    doorNumber: "14",
+    imagePath: "/delivery/door-14.svg",
     expectedStatus: "mismatch",
   },
   {
@@ -760,7 +760,7 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
                     {isDelivered
                       ? "Door #15 Match + Intact Parcel + PIN"
                       : activeOrder.failure_reason === "wrong_address"
-                      ? "Wrong Doorplate (#13 instead of #15)"
+                      ? "Wrong Doorplate (#14 instead of #15)"
                       : activeOrder.failure_reason === "item_damaged"
                       ? "Damaged parcel condition"
                       : activeOrder.failure_reason === "geofence_violation"
@@ -1007,7 +1007,7 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
                       : !gpsData.inZone
                       ? "Out of Delivery Zone"
                       : visionResult.handoverVerdict === "REJECTED_MISMATCH"
-                      ? "Wrong Door Number (#13 instead of #15)"
+                      ? "Wrong Door Number (#14 instead of #15)"
                       : "Damaged Package Detected"}
                   </span>
                   <span className="verdict-banner-sub">
@@ -1016,7 +1016,7 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
                       : !gpsData.inZone
                       ? `You are ${gpsData.distanceMeters}m away from the destination address.`
                       : visionResult.handoverVerdict === "REJECTED_MISMATCH"
-                      ? "This photo shows Door #13, but the order is for Door #15."
+                      ? "This photo shows Door #14, but the order is for Door #15."
                       : "The box appears crushed or damaged. Delivery cannot be completed."}
                   </span>
                 </div>

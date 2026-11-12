@@ -40,7 +40,7 @@ We thank the evaluating agent for the rigorous code-level audit of `github.com/a
    - **Step 2 (Doorstep Photo & GPS)**: Live `MiniMax-M3.1-Flash` multimodal analysis (or explicitly labeled demo sample preset) verifies GPS proximity ($\le 250\text{m}$), Door `#15`, and intact box on floor with dynamic bounding boxes.
    - **Step 3 (Customer PIN)**: Courier enters the 6-character PIN provided by the customer. Server validates PIN match, expiration, retry count, and vision audit before calling PayPal Payments v2 `/capture`.
 4. **Exception Recovery (3 Customer Choices)**:
-   - If Step 2 detects a mismatch (e.g., Door `#13` or damaged carton), the courier reports a failed delivery (`DELIVERY_FAILED`, `$0.00` charged).
+   - If Step 2 detects a mismatch (e.g., Door `#14` or damaged carton), the courier reports a failed delivery (`DELIVERY_FAILED`, `$0.00` charged).
    - In `/client`, the customer can choose:
      1. **`I received the package`** (if it was a false alarm, confirming receipt and authorizing capture),
      2. **`Send a replacement`** (re-dispatching under the active authorization hold), or

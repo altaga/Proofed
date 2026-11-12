@@ -132,7 +132,7 @@ export function evaluateFraudAudit(
       flags.push("GENUINE_DELIVERY_FAILURE_VERIFIED");
       flags.push("ZERO_CAPTURE_CONFIRMED");
       verificationFactors.push(
-        "Multimodal Vision LLM confirmed address mismatch (#13 vs #15 Filarecka 2B)",
+        "Multimodal Vision LLM confirmed address mismatch (#14 vs #15 Filarecka 2B)",
         "Recipient handover PIN was not completed",
         "Zero funds captured ($0.00 captured)",
       );
@@ -140,7 +140,7 @@ export function evaluateFraudAudit(
       riskLevel = "LOW";
       allowed = true;
       policyDecision = "APPROVED";
-      auditExplanation = `Policy Check Passed (Rule: ${policyRule}): Multimodal Vision LLM recorded address mismatch (#13 vs destination #15 Filarecka 2B) and handover was aborted. $0.00 was captured. Eligible to void PayPal authorization; fund release timing depends on the buyer's payment provider.`;
+      auditExplanation = `Policy Check Passed (Rule: ${policyRule}): Multimodal Vision LLM recorded address mismatch (#14 vs destination #15 Filarecka 2B) and handover was aborted. $0.00 was captured. Eligible to void PayPal authorization; fund release timing depends on the buyer's payment provider.`;
     }
     // Rule 3: Active Pre-Delivery Authorization Cancellation
     else if (isAuthorized) {

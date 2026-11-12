@@ -458,7 +458,7 @@ Respond strictly with valid JSON without markdown formatting matching this schem
     const placementScore = 88.0;
     const overall = Math.round((addrScore * 0.4 + parcelScore * 0.4 + placementScore * 0.2) * 10) / 10;
     const verdict = "REJECTED_MISMATCH";
-    const detectedWrong = targetDoor === "744" ? "742" : "13";
+    const detectedWrong = targetDoor === "744" ? "742" : "14";
     const sig = createHmac("sha256", secret)
       .update(`${photoSha256Digest}:${detectedWrong}:${overall}:${verdict}:${gpsZoneVerified}`)
       .digest("hex");

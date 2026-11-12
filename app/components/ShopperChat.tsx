@@ -261,7 +261,7 @@ export function ShopperChat({
               {
                 id: `fail-alert-${Date.now()}`,
                 role: "assistant",
-                content: `**Delivery Update: Verification Issue**\n\nThe courier attempted delivery at the wrong door (**#13** instead of **#15**), so the automatic verification failed and **you were not charged ($0.00)**.\n\nDid the package actually reach you, would you like a **replacement sent**, or should we **cancel and release your payment hold**?`,
+                content: `**Delivery Update: Verification Issue**\n\nThe courier attempted delivery at the wrong door (**#14** instead of **#15**), so the automatic verification failed and **you were not charged ($0.00)**.\n\nDid the package actually reach you, would you like a **replacement sent**, or should we **cancel and release your payment hold**?`,
                 tier: "DELIVERY-UPDATE",
                 timestamp: Date.now(),
                 order: serverOrder,
@@ -973,7 +973,7 @@ export function ShopperChat({
                         <span className="failure-box-title">Delivery Issue Detected ($0.00 Charged)</span>
                       </div>
                       <p className="failure-desc">
-                        The courier could not verify the doorstep address (#13 instead of #15), so the delivery was paused and you were not charged ($0.00). If this was a mistake and you already received the package, please confirm below.
+                        The courier could not verify the doorstep address (#14 instead of #15), so the delivery was paused and you were not charged ($0.00). If this was a mistake and you already received the package, please confirm below.
                       </p>
                       <div className="failure-actions-grid">
                         <button

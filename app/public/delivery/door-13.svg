@@ -60,19 +60,19 @@
 
   <rect width="800" height="500" fill="url(#lightGlow13)" pointer-events="none" />
 
-  <!-- WRONG DOOR PLAQUE (#13 instead of #15) -->
+  <!-- WRONG DOOR PLAQUE (#14 instead of #15) -->
   <g id="plaque-13" filter="url(#crispShadow13)">
     <rect x="135" y="175" width="120" height="64" rx="6" fill="#0A0B0E" stroke="#E11D48" stroke-width="2" />
     <rect x="139" y="179" width="112" height="56" rx="4" fill="#14161E" />
-    <text x="195" y="216" font-family="'Inter', system-ui, sans-serif" font-weight="900" font-size="34" fill="url(#brassNum13)" text-anchor="middle" letter-spacing="2">13</text>
+    <text x="195" y="216" font-family="'Inter', system-ui, sans-serif" font-weight="900" font-size="34" fill="url(#brassNum13)" text-anchor="middle" letter-spacing="2">14</text>
     <text x="195" y="228" font-family="'Inter', monospace" font-size="7.5" font-weight="700" fill="#FDA4AF" text-anchor="middle" letter-spacing="1">FILARECKA 2B</text>
   </g>
   <text x="195" y="258" font-family="'Inter', monospace" font-size="9" font-weight="700" fill="#94A3B8" text-anchor="middle" letter-spacing="1.2">30-110 KRAKÓW</text>
 
-  <!-- Door-mounted Numeral 13 -->
+  <!-- Door-mounted Numeral 14 -->
   <g id="door-numeral-13" filter="url(#crispShadow13)">
     <rect x="495" y="150" width="40" height="28" rx="3" fill="#0F172A" stroke="#E11D48" stroke-width="1.5" />
-    <text x="515" y="171" font-family="'Inter', sans-serif" font-weight="900" font-size="18" fill="url(#brassNum13)" text-anchor="middle">13</text>
+    <text x="515" y="171" font-family="'Inter', sans-serif" font-weight="900" font-size="18" fill="url(#brassNum13)" text-anchor="middle">14</text>
   </g>
 
   <!-- Misdelivered Box on Floor -->
