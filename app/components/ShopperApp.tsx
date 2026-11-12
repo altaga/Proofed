@@ -55,7 +55,11 @@ export function ShopperApp({
   onOrderChange?: (order: PublicOrder | null) => void;
 }) {
   const receipt = showReceipt ?? true;
-  const [config, setConfig] = useState<{ name: string; venueName: string; paypalClientId: string } | null>(null);
+  const [config, setConfig] = useState<{ name: string; venueName: string; paypalClientId: string } | null>({
+    name: "Proofed",
+    venueName: "Doorstep Handover",
+    paypalClientId: "AURENVKKp9qvzggvkyehWs8DfYcIeqTGExPizTmcNFprVliVw2NNGRaXCuAch08Ks1Fh1mkiziPyA02O",
+  });
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatItem[]>([
     {

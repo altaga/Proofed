@@ -32,11 +32,13 @@ type OrderItem = {
 type DeliveryOrder = {
   id: string;
   status: string;
+  subtotal_cents?: number;
   formatted_total: string;
   pickup_code: string | null;
   failure_reason: string | null;
   items: OrderItem[];
   created_at?: string;
+  paypal_order_id?: string | null;
   paypal_authorization_id?: string | null;
   paypal_capture_id?: string | null;
 };

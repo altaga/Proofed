@@ -220,7 +220,10 @@ export function appendEvent(input: {
     });
 }
 
-function uniquePickupCode(): string {
+function uniquePickupCode(seed?: string): string {
+  if (seed) {
+    return newPickupCode(seed);
+  }
   for (let i = 0; i < 12; i += 1) {
     const code = newPickupCode();
     const existing = db()
@@ -365,7 +368,7 @@ export async function createCheckout(input: {
   }
 
   const orderId = newId("ord");
-  const pickupCode = uniquePickupCode();
+  const pickupCode = uniquePickupCode(orderId);
   const now = nowIso();
   const reservationExpiry = new Date(
     Date.now() + cfg.stockReservationMinutes * 60 * 1000,
@@ -764,13 +767,35 @@ export function ensureOrderHydrated(snapshot?: {
   if (!snapshot?.id) return;
   const existing = getOrder(snapshot.id);
   if (existing) {
-    // Never allow an untrusted client snapshot to overwrite pickup_code or status of an existing order
+    if (
+      !existing.paypal_authorization_id &&
+      snapshot.paypal_authorization_id &&
+      existing.status === "CREATED"
+    ) {
+      db()
+        .prepare(
+          `UPDATE orders
+           SET status = $status,
+               paypal_authorization_id = $pAuthId,
+               paypal_order_id = COALESCE(paypal_order_id, $pOrderId),
+               authorized_at = COALESCE(authorized_at, $now),
+               updated_at = $now
+           WHERE id = $id`,
+        )
+        .run({
+          id: existing.id,
+          status: snapshot.status === "AUTHORIZED" ? "AUTHORIZED" : existing.status,
+          pAuthId: snapshot.paypal_authorization_id,
+          pOrderId: snapshot.paypal_order_id || null,
+          now: nowIso(),
+        });
+    }
     return;
   }
   const cfg = getProjectConfig();
   const now = nowIso();
   const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  const pickup = (snapshot.pickup_code || newPickupCode()).toUpperCase();
+  const pickup = (snapshot.pickup_code || newPickupCode(snapshot.id)).toUpperCase();
   const items = snapshot.items?.length ? snapshot.items : [{ sku: "PAN-COF-ETH", qty: 1 }];
   const quote = quoteItems(
     items.map((i) => ({ sku: i.sku, qty: i.qty })),
@@ -1717,7 +1742,7 @@ export function seedDemoHeldOrder(input?: { sku?: string; note?: string }): Orde
   const quote = quoteItems([{ sku, qty: 1 }], undefined, cfg.currency);
   if (!quote.ok) throw new Error("Could not quote item for demo seed: " + (quote.errors?.join(", ") || "unknown"));
   const orderId = newId("ord");
-  const pickupCode = newPickupCode();
+  const pickupCode = newPickupCode(orderId);
   const now = nowIso();
   const deadline = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
