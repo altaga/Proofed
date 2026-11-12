@@ -5,6 +5,7 @@ import { MoreHorizontal, X } from "lucide-react";
 import { mergeEvents, mergeOrders } from "@/lib/order-merge";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EmptyOrderState } from "./EmptyOrderState";
+import { OrderLedgerGrid } from "./OrderLedgerGrid";
 import { TransactionPanel } from "./TransactionPanel";
 import { formatWhen, statusWord, storyEvents } from "./tx-model";
 
@@ -228,16 +229,11 @@ export function MerchantDesk() {
           actionLabel="Open Shop Chat"
         />
       ) : (
-        <div className="order-list">
-          {filteredOrders.map((order) => (
-            <button key={order.id} type="button" className="order-row" onClick={() => setSelected(order)}>
-              <span className="amount">{order.formatted_total}</span>
-              <span className="word">{statusWord(order.status)}</span>
-              <span className="when">{formatWhen(order.updated_at || order.created_at)}</span>
-              <span className="oid">{order.id}</span>
-            </button>
-          ))}
-        </div>
+        <OrderLedgerGrid
+          orders={filteredOrders}
+          selectedId={selected?.id ?? null}
+          onSelect={(row) => setSelected(orders.find((o) => o.id === row.id) ?? null)}
+        />
       )}
 
       {error && <div className="err" style={{ marginTop: 12 }}>{error}</div>}
