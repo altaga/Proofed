@@ -12,12 +12,14 @@ export function PayPalApprove({
   clientId,
   orderId,
   paypalOrderId,
+  orderSnapshot,
   onAuthorized,
   onError,
 }: {
   clientId: string;
   orderId: string;
   paypalOrderId: string;
+  orderSnapshot?: unknown;
   onAuthorized: (order: ApprovedOrder) => void;
   onError: (message: string) => void;
 }) {
@@ -37,7 +39,7 @@ export function PayPalApprove({
           const response = await fetch("/api/paypal/authorize", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ orderId }),
+            body: JSON.stringify({ orderId, orderSnapshot }),
           });
           const payload = await response.json();
           if (!response.ok) {

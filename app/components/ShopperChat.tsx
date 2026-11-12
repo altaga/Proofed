@@ -13,6 +13,7 @@ import {
   Terminal,
   XCircle,
 } from "lucide-react";
+import { PayPalApprove } from "./PayPalApprove";
 import { SafeMarkdown } from "./SafeMarkdown";
 import { ProductThumbnail } from "./ProductThumbnail";
 import type { AgentStep } from "./AgentLog";
@@ -852,42 +853,73 @@ export function ShopperChat({
                   {/* Explicit Buyer Approval Button for Staged Order */}
                   {msg.order?.status === "CREATED" && (
                     <div className="quote-paypal-area">
-                      <button
-                        type="button"
-                        className="approve-paypal-hold-btn"
-                        disabled={authorizingOrderId === msg.order?.id}
-                        onClick={() => handleSimulatedApproval(msg.order!.id, msg.order, msg.quote)}
-                      >
-                        <div className="btn-paypal-left">
-                          <svg
-                            className="paypal-btn-monogram"
-                            viewBox="0 0 24 24"
-                            width="20"
-                            height="20"
-                            aria-hidden="true"
-                          >
-                            <path
-                              fill="#003087"
-                              d="M20.067 8.478c-.492.88-1.22 1.458-2.203 1.761-.986.306-2.222.306-3.708.306H12.5l-1.3 8.243h-2.94L10.3 3.5h5.8c1.378 0 2.45.244 3.218.732.767.489 1.05 1.346.749 2.571-.052.212-.128.438-.228.675z"
-                            />
-                            <path
-                              fill="#0079C1"
-                              d="M18.8 9.5c-.3 1.8-1.5 2.8-3.4 2.8h-1.8l-.8 5.2h-2.5l2-12.8h4.5c1.7 0 2.7.5 2.5 2.2-.1.9-.3 1.7-.5 2.6z"
-                            />
-                          </svg>
-                          <span className="paypal-btn-brand-title">
-                            <span className="paypal-logo-text"><span className="pay-blue">Pay</span><span className="pal-blue">Pal</span></span>
-                            <span className="paypal-hold-label">
-                              {authorizingOrderId === msg.order?.id ? "Authorizing Hold…" : "Approve Hold"}
-                            </span>
-                          </span>
+                      {clientId && msg.order.paypal_order_id && !msg.order.paypal_order_id.startsWith("ORDER-") ? (
+                        <div className="paypal-smart-button-container">
+                          <PayPalApprove
+                            clientId={clientId}
+                            orderId={msg.order.id}
+                            paypalOrderId={msg.order.paypal_order_id}
+                            orderSnapshot={{
+                              id: msg.order.id,
+                              status: msg.order.status || "CREATED",
+                              subtotal_cents: msg.quote?.unit_price_cents || 1850,
+                              pickup_code: msg.order.pickup_code || null,
+                              paypal_order_id: msg.order.paypal_order_id,
+                              paypal_authorization_id: msg.order.paypal_authorization_id || null,
+                              items: msg.quote
+                                ? [
+                                    {
+                                      sku: msg.quote.sku,
+                                      name: msg.quote.name,
+                                      qty: 1,
+                                      unit_price_cents: msg.quote.unit_price_cents,
+                                    },
+                                  ]
+                                : undefined,
+                            }}
+                            onAuthorized={(authOrder) => handleOrderAuthorized(authOrder)}
+                            onError={(err) => {
+                              console.error("PayPal Smart Button error:", err);
+                            }}
+                          />
+                          <div className="hold-disclaimer" style={{ marginTop: 6 }}>
+                            <span>intent=AUTHORIZE · Buyer: sb-hypvt53832292@personal.example.com · $0.00 charged until delivery</span>
+                          </div>
                         </div>
-                        <span className="btn-paypal-amt mono">{msg.quote?.formatted_price || "$18.50"}</span>
-                      </button>
-
-                      <div className="hold-disclaimer">
-                        <span>intent=AUTHORIZE · $0.00 charged until delivery is verified</span>
-                      </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="approve-paypal-hold-btn"
+                          disabled={authorizingOrderId === msg.order?.id}
+                          onClick={() => handleSimulatedApproval(msg.order!.id, msg.order, msg.quote)}
+                        >
+                          <div className="btn-paypal-left">
+                            <svg
+                              className="paypal-btn-monogram"
+                              viewBox="0 0 24 24"
+                              width="20"
+                              height="20"
+                              aria-hidden="true"
+                            >
+                              <path
+                                fill="#003087"
+                                d="M20.067 8.478c-.492.88-1.22 1.458-2.203 1.761-.986.306-2.222.306-3.708.306H12.5l-1.3 8.243h-2.94L10.3 3.5h5.8c1.378 0 2.45.244 3.218.732.767.489 1.05 1.346.749 2.571-.052.212-.128.438-.228.675z"
+                              />
+                              <path
+                                fill="#0079C1"
+                                d="M18.8 9.5c-.3 1.8-1.5 2.8-3.4 2.8h-1.8l-.8 5.2h-2.5l2-12.8h4.5c1.7 0 2.7.5 2.5 2.2-.1.9-.3 1.7-.5 2.6z"
+                              />
+                            </svg>
+                            <span className="paypal-btn-brand-title">
+                              <span className="paypal-logo-text"><span className="pay-blue">Pay</span><span className="pal-blue">Pal</span></span>
+                              <span className="paypal-hold-label">
+                                {authorizingOrderId === msg.order?.id ? "Authorizing Hold…" : "Approve Hold"}
+                              </span>
+                            </span>
+                          </div>
+                          <span className="btn-paypal-amt mono">{msg.quote?.formatted_price || "$18.50"}</span>
+                        </button>
+                      )}
                     </div>
                   )}
 

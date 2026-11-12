@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { LoaderCircle, RotateCcw, Send } from "lucide-react";
+import { PayPalApprove } from "./PayPalApprove";
 import { ProductCard, type CatalogProduct } from "./ProductCard";
 import { ProductThumbnail } from "./ProductThumbnail";
 import { AgentLog, type AgentStep } from "./AgentLog";
@@ -213,62 +214,84 @@ export function ShopperApp({
                     <div className="price">${(quoted.unit_price_cents / 100).toFixed(2)}</div>
                     {needsPaypal && order && (
                       <div className="quote-paypal-area" style={{ marginTop: 12 }}>
-                        <button
-                          type="button"
-                          className="approve-paypal-hold-btn"
-                          disabled={authorizingHold}
-                          onClick={async () => {
-                            if (authorizingHold) return;
-                            setAuthorizingHold(true);
-                            try {
-                              const res = await fetch("/api/paypal/authorize", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  orderId: order.id,
-                                  simulateApproval: true,
-                                  orderSnapshot: order,
-                                }),
-                              });
-                              const data = await res.json();
-                              if (data.order) {
-                                setOrder(data.order as PublicOrder);
-                                setToast("PayPal placed a hold — pick up when you’re ready");
+                        {config?.paypalClientId && order.paypal_order_id && !order.paypal_order_id.startsWith("ORDER-") ? (
+                          <div className="paypal-smart-button-container" style={{ width: "100%", maxWidth: "340px", margin: "0 auto" }}>
+                            <PayPalApprove
+                              clientId={config.paypalClientId}
+                              orderId={order.id}
+                              paypalOrderId={order.paypal_order_id}
+                              orderSnapshot={order}
+                              onAuthorized={(authOrder) => {
+                                setOrder(authOrder as PublicOrder);
+                                setToast("PayPal hold active — verified on PayPal Sandbox");
                                 window.setTimeout(() => setToast(null), 3500);
-                              }
-                            } catch (e) {
-                              console.error(e);
-                            } finally {
-                              setAuthorizingHold(false);
-                            }
-                          }}
-                        >
-                          <div className="btn-paypal-left">
-                            <svg
-                              className="paypal-btn-monogram"
-                              viewBox="0 0 24 24"
-                              width="20"
-                              height="20"
-                              aria-hidden="true"
-                            >
-                              <path
-                                fill="#003087"
-                                d="M20.067 8.478c-.492.88-1.22 1.458-2.203 1.761-.986.306-2.222.306-3.708.306H12.5l-1.3 8.243h-2.94L10.3 3.5h5.8c1.378 0 2.45.244 3.218.732.767.489 1.05 1.346.749 2.571-.052.212-.128.438-.228.675z"
-                              />
-                              <path
-                                fill="#0079C1"
-                                d="M18.8 9.5c-.3 1.8-1.5 2.8-3.4 2.8h-1.8l-.8 5.2h-2.5l2-12.8h4.5c1.7 0 2.7.5 2.5 2.2-.1.9-.3 1.7-.5 2.6z"
-                              />
-                            </svg>
-                            <span className="paypal-btn-brand-title">
-                              <span className="paypal-logo-text"><span className="pay-blue">Pay</span><span className="pal-blue">Pal</span></span>
-                              <span className="paypal-hold-label">
-                                {authorizingHold ? "Authorizing Hold…" : "Approve Hold"}
-                              </span>
-                            </span>
+                              }}
+                              onError={(err) => {
+                                console.error("PayPal Smart Button error:", err);
+                              }}
+                            />
+                            <div className="hold-disclaimer" style={{ marginTop: 6 }}>
+                              <span>intent=AUTHORIZE · Buyer: sb-hypvt53832292@personal.example.com · $0.00 charged until delivery</span>
+                            </div>
                           </div>
-                          <span className="btn-paypal-amt mono">${(quoted.unit_price_cents / 100).toFixed(2)}</span>
-                        </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="approve-paypal-hold-btn"
+                            disabled={authorizingHold}
+                            onClick={async () => {
+                              if (authorizingHold) return;
+                              setAuthorizingHold(true);
+                              try {
+                                const res = await fetch("/api/paypal/authorize", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    orderId: order.id,
+                                    simulateApproval: true,
+                                    orderSnapshot: order,
+                                  }),
+                                });
+                                const data = await res.json();
+                                if (data.order) {
+                                  setOrder(data.order as PublicOrder);
+                                  setToast("PayPal placed a hold — pick up when you’re ready");
+                                  window.setTimeout(() => setToast(null), 3500);
+                                }
+                              } catch (e) {
+                                console.error(e);
+                              } finally {
+                                setAuthorizingHold(false);
+                              }
+                            }}
+                          >
+                            <div className="btn-paypal-left">
+                              <svg
+                                className="paypal-btn-monogram"
+                                viewBox="0 0 24 24"
+                                width="20"
+                                height="20"
+                                aria-hidden="true"
+                              >
+                                <path
+                                  fill="#003087"
+                                  d="M20.067 8.478c-.492.88-1.22 1.458-2.203 1.761-.986.306-2.222.306-3.708.306H12.5l-1.3 8.243h-2.94L10.3 3.5h5.8c1.378 0 2.45.244 3.218.732.767.489 1.05 1.346.749 2.571-.052.212-.128.438-.228.675z"
+                                />
+                                <path
+                                  fill="#0079C1"
+                                  d="M18.8 9.5c-.3 1.8-1.5 2.8-3.4 2.8h-1.8l-.8 5.2h-2.5l2-12.8h4.5c1.7 0 2.7.5 2.5 2.2-.1.9-.3 1.7-.5 2.6z"
+                                />
+                              </svg>
+                              <span className="paypal-btn-brand-title">
+                                <span className="paypal-logo-text"><span className="pay-blue">Pay</span><span className="pal-blue">Pal</span></span>
+                                <span className="paypal-hold-label">
+                                  {authorizingHold ? "Authorizing Hold…" : "Approve Hold"}
+                                </span>
+                              </span>
+                            </div>
+                            <span className="btn-paypal-amt mono">${(quoted.unit_price_cents / 100).toFixed(2)}</span>
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
