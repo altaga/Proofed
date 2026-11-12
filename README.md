@@ -1,9 +1,20 @@
-# Proofed
+<p align="center">
+  <img src="docs/logo.svg" alt="Proofed Logo" width="108" height="108" />
+</p>
 
-**Authorize now. Capture only after verified proof of physical handover.**
+<h1 align="center">Proofed</h1>
 
-> Proofed is the trust and settlement layer between autonomous AI commerce agents and the physical world. Built for the **PayPal AI Hackathon** (November 2026).  
-> **Live Production App**: [https://proofed-ai.vercel.app](https://proofed-ai.vercel.app)
+<p align="center">
+  <strong>Authorize now. Capture only after verified proof of physical handover.</strong><br>
+  <em>The settlement & trust layer between autonomous AI commerce agents and the physical world.</em>
+</p>
+
+<p align="center">
+  <a href="https://proofed-ai.vercel.app"><img src="https://img.shields.io/badge/Live_Production_App-proofed--ai.vercel.app-0070f3?style=for-the-badge&logo=vercel&logoColor=white" alt="Live App" /></a>
+  <a href="#3-live-paypal-sandbox-verification--audit-evidence"><img src="https://img.shields.io/badge/PayPal_Sandbox-Verified_Live-00457C?style=for-the-badge&logo=paypal&logoColor=white" alt="PayPal Verified" /></a>
+  <a href="#8-developer-quickstart--test-suite"><img src="https://img.shields.io/badge/Tests-30_Passing-10b981?style=for-the-badge" alt="Tests 30 Passing" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-amber?style=for-the-badge" alt="MIT License" /></a>
+</p>
 
 ---
 
@@ -83,7 +94,50 @@ Deep technical audit console exposing live PayPal Orders v2 & Payments v2 IDs, i
 
 ---
 
-## 3. Strict Architectural Invariants
+## 3. Live PayPal Sandbox Verification & Audit Evidence
+
+The following evidence captures live transactions directly in the **PayPal Developer Dashboard** and **PayPal Sandbox Customer Account**, demonstrating the complete lifecycle of authorizations, conditional captures, and voids:
+
+### A. PayPal Developer Dashboard — Live API Call History
+Captured from `developer.paypal.com/dashboard/api-calls/sandbox`. Demonstrates real `201 OK` responses for:
+- `POST /v2/checkout/orders` (Order Creation with `intent: "AUTHORIZE"`)
+- `POST /v2/checkout/orders/{id}/authorize` (Payment Hold Authorization)
+- `POST /v2/payments/authorizations/{id}/capture` (Conditional Settlement after physical proof)
+
+![PayPal Developer Sandbox API Calls](docs/screenshots/paypal-sand.png)
+
+---
+
+### B. PayPal API Response Payload Inspection
+Live inspection of the PayPal API response payload showing Proofed's strict cryptographic metadata:
+- `description`: `"Proofed Autonomous Commerce · Doorstep Courier Handover (Hold pending PIN verification)"`
+- `custom_id`: `"ord_mwdlonut46ec54294c | PIN_AUTH_GATE"`
+- `invoice_id`: `"ord_mwdlonut46ec54294c"`
+- `items`: Itemized integer-cent values (`$18.50 USD` for whole coffee beans)
+
+![PayPal API Payload Modal](docs/screenshots/paypal-sand-02.png)
+
+---
+
+### C. Buyer Sandbox Account — Post-Handover Capture ($18.50)
+Captured from the buyer's PayPal Sandbox account (`sandbox.paypal.com/unifiedtransactions`). Demonstrates that:
+1. At **8:45 AM**, an `Authorization To Test Store` (`$18.50 USD`) was placed with `$0.00` charged.
+2. At **8:46 AM**, upon verified doorstep photo & recipient PIN entry, the payment settled as `Purchase from Test Store` (`$18.50 USD`) — `Completed`.
+
+![PayPal Buyer Account Transactions - Capture](docs/screenshots/transactions1.png)
+
+---
+
+### D. Complete Lifecycle — Verified Capture vs Canceled/Voided Hold
+Demonstrates both success and fail-closed branches in the same buyer account:
+- **Captured Order ($18.50 USD)**: Handover verified at door `#15` $\rightarrow$ funds transferred to merchant (`Completed`).
+- **Voided Order ($38.00 USD)**: Handover failed at door `#14` $\rightarrow$ authorization canceled (`Canceled`), hold immediately released with `$0.00` deducted.
+
+![PayPal Buyer Account Transactions - Capture vs Void](docs/screenshots/transactions2.png)
+
+---
+
+## 4. Strict Architectural Invariants
 
 Proofed enforces strict server-side invariants ensuring that **an untrusted client can submit evidence, but cannot declare payment authorization, physical verification, or settlement success**:
 
@@ -101,7 +155,7 @@ Proofed enforces strict server-side invariants ensuring that **an untrusted clie
 
 ---
 
-## 4. Application Routes & Navigation
+## 5. Application Routes & Navigation
 
 | Route | View Name | Target User | Key Capabilities |
 |---|---|---|---|
@@ -113,7 +167,7 @@ Proofed enforces strict server-side invariants ensuring that **an untrusted clie
 
 ---
 
-## 5. Order State Machine
+## 6. Order State Machine
 
 ```
               ┌─────────┐
@@ -152,7 +206,7 @@ Proofed enforces strict server-side invariants ensuring that **an untrusted clie
 
 ---
 
-## 6. PayPal API Integration Reference
+## 7. PayPal API Integration Reference
 
 Proofed interacts with the PayPal REST API v2 in sandbox mode:
 
@@ -194,6 +248,110 @@ Proofed interacts with the PayPal REST API v2 in sandbox mode:
    POST /v2/payments/authorizations/{authorization_id}/void
    ```
    *Releases the hold immediately back to the buyer's PayPal balance/card.*
+
+---
+
+## 8. Recommended Demo Recording Script (2:25)
+
+| Time | Scene | Action | Narrative |
+|---|---|---|---|
+| **0:00–0:25** | Intro & Thesis | Show [https://proofed-ai.vercel.app](https://proofed-ai.vercel.app) header & diagram. | *"AI commerce agents can initiate orders in milliseconds, but charging upfront exposes users to delivery failure. Proofed uses PayPal `intent=AUTHORIZE` to hold funds until physical delivery is verified."* |
+| **0:25–0:55** | `/client` | Ask for an item (e.g. *"Coffee under $20"*). Click gold **PayPal Hold** button. | *"The agent quotes from our catalog in integer cents. The buyer approves the hold. Notice: $0.00 is charged today, and the buyer receives a private Delivery PIN."* |
+| **0:55–1:35** | `/delivery` | Review Step 1 Manifest. Advance to Step 2, click `Door #15 (Correct)`. Enter PIN in Step 3. | *"The courier arrives at Filarecka 2B. Computer vision analyzes the door photo, verifying apartment #15 and intact package. Entering the customer PIN triggers PayPal `/capture`."* |
+| **1:35–2:05** | `/delivery` | Start second order. In Step 2, click `Door #14 (Wrong door)`. | *"What if the courier drops it at the wrong door? Computer vision detects Door #14 instead of #15. Capture is blocked. Returning to `/client`, the buyer sees 3 instant recovery options."* |
+| **2:05–2:25** | Sandbox & Audit | Show `/backend`, then open `developer.paypal.com` and `sandbox.paypal.com`. | *"In `/backend`, judges can inspect live PayPal authorization and capture IDs. The sandbox dashboard confirms the 201 OK capture, and the buyer's account proves $0.00 was charged until delivery was confirmed."* |
+
+---
+
+## 9. Developer Quickstart & Test Suite
+
+### Prerequisites
+- **Node.js 22+** (uses built-in `node:sqlite`)
+- **npm 10+**
+
+### Local Setup
+```bash
+# 1. Clone repository
+git clone https://github.com/altaga/Proofed.git
+cd Proofed
+
+# 2. Install dependencies
+npm install
+
+# 3. Seed the SQLite catalog
+npm run seed
+
+# 4. Start local development server
+npm run dev
+# Open http://localhost:3000
+```
+
+### Running Tests
+```bash
+# Run core unit tests (state machine, policy, budget, text)
+npm test
+
+# Run vision & fraud audit tests (30 tests total)
+npm --prefix app test tests/vision-audit.test.ts tests/fraud-audit.test.ts
+
+# Run all test suites
+npm run test:all
+
+# Capture high-resolution Playwright screenshots
+npm run screenshots
+```
+
+---
+
+## 10. Project Structure
+
+```
+Proofed/
+├── README.md                      # Comprehensive project documentation & live sandbox evidence
+├── AGENTS.md                      # Autonomous agent operational manual & API catalog
+├── package.json                   # Root package workspace scripts
+├── scripts/
+│   └── capture_screenshots.mjs    # Automated Playwright retina screenshot runner
+├── docs/
+│   ├── logo.svg                   # Vector brand identity mark
+│   ├── ARCHITECTURE.md            # Deep system architecture & technical spec
+│   ├── DEMO_SCRIPT.md             # Video demo script with timestamped narration
+│   ├── PEER_AGENT_RESPONSE.md     # Technical response to adversarial audit
+│   └── screenshots/               # High-resolution screenshots of all views & sandbox proofs
+│       ├── client.png             # Shopper conversational interface
+│       ├── delivery-step1.png     # Courier package manifest & GPS geofence
+│       ├── delivery-door15.png    # Door #15 verified handover with bounding boxes
+│       ├── delivery-door14.png    # Door #14 fail-closed mismatch detection
+│       ├── merchant.png           # Merchant operations desk & order ledger
+│       ├── backend.png            # Technical audit console for judges
+│       ├── demo.png               # Synchronized presenter screen
+│       ├── paypal-sand.png        # PayPal Developer Sandbox API call history (201 OK)
+│       ├── paypal-sand-02.png     # PayPal API response payload inspection
+│       ├── transactions1.png      # PayPal buyer account - Completed capture ($18.50)
+│       └── transactions2.png      # PayPal buyer account - Capture vs Canceled void hold
+├── rules/
+│   ├── design-system.md           # Swiss/Fintech UI rules & color tokens
+│   ├── fintech-guardrails.md      # Financial invariants and money handling
+│   └── codebase-standards.md      # Code conventions & security rules
+└── app/
+    ├── app/                       # Next.js 15 App Router
+    │   ├── client/                # Shopper conversational interface
+    │   ├── delivery/              # Courier mobile terminal
+    │   ├── merchant/              # Merchant desk ledger
+    │   ├── backend/               # Technical inspector for judges
+    │   ├── demo/                  # Synchronized presenter screen
+    │   └── api/                   # REST API routes
+    ├── components/                # Modular React 19 components
+    ├── lib/                       # Core domain logic
+    │   ├── db.ts                  # Node:sqlite / Turso database wrapper
+    │   ├── orders.ts              # Order repository & event emitter
+    │   ├── paypal.ts              # PayPal Orders v2 & Payments v2 client
+    │   ├── policy.ts              # Zero-trust catalog policy engine
+    │   ├── state-machine.ts       # Formal order lifecycle state machine
+    │   ├── vision-audit.ts        # Multimodal MiniMax vision audit engine
+    │   └── money.ts               # Integer cents formatting & arithmetic
+    └── tests/                     # Unit, integration, and E2E test suites
+```
 
 ---
 

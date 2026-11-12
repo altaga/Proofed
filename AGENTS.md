@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.svg" alt="Proofed Logo" width="80" height="80" />
+</p>
+
 # AGENTS.md — Agent Operations & Architecture Manual
 
 > **Mission**: Authorize now. Capture only after verified proof of physical handover.  
@@ -77,17 +81,22 @@ Proofed/
 ├── scripts/
 │   └── capture_screenshots.mjs     # Playwright automated 2x retina screenshot capture
 ├── docs/
+│   ├── logo.svg                    # Vector brand identity mark
 │   ├── ARCHITECTURE.md             # System architecture & sequence diagrams
 │   ├── DEMO_SCRIPT.md              # 2:25 video recording script
 │   ├── PEER_AGENT_RESPONSE.md      # Technical response to security audit
-│   └── screenshots/                # Crisp UI screenshots (client, delivery, merchant, backend)
+│   └── screenshots/                # Crisp UI screenshots & live sandbox proofs
 │       ├── client.png              # Shopper chat & PayPal hold button
 │       ├── delivery-step1.png      # Courier manifest & GPS geofence
 │       ├── delivery-door15.png     # Door #15 verified handover with bounding boxes
 │       ├── delivery-door14.png     # Door #14 wrong door mismatch detection
 │       ├── merchant.png            # Merchant operations desk & order ledger
 │       ├── backend.png             # Developer & judge technical backend inspector
-│       └── demo.png                # Synchronized presenter view
+│       ├── demo.png                # Synchronized presenter view
+│       ├── paypal-sand.png         # PayPal Developer Sandbox API call history (201 OK)
+│       ├── paypal-sand-02.png      # PayPal API response payload inspection
+│       ├── transactions1.png       # PayPal buyer account - Completed capture ($18.50)
+│       └── transactions2.png       # PayPal buyer account - Capture vs Canceled void hold
 ├── rules/
 │   ├── design-system.md            # Swiss/Fintech UI rules & color tokens
 │   ├── fintech-guardrails.md       # Monetary & payment guardrails
@@ -97,7 +106,8 @@ Proofed/
     │   ├── api/                    # REST API endpoints
     │   │   ├── agent/              # Chat agent session & tool calling
     │   │   ├── demo/               # Demo order seeding & reset endpoints
-    │   │   ├── delivery/           # Courier verification & failure reporting
+    │   │   ├── device/             # Courier verification, queue & failure reporting
+│   │   ├── vision/             # Doorstep photo analysis with MiniMax vision
     │   │   ├── orders/             # Order drafting, retrieval, and recovery
     │   │   ├── paypal/             # PayPal authorize, capture, void, refund, webhooks
     │   │   └── stats/              # System metrics & ledger statistics
