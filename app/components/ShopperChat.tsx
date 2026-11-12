@@ -312,14 +312,38 @@ export function ShopperChat({
     } catch {}
   };
 
-  const handleSimulatedApproval = async (orderId: string) => {
+  const handleSimulatedApproval = async (
+    orderId: string,
+    msgOrder?: ShopperMessage["order"],
+    msgQuote?: ShopperMessage["quote"],
+  ) => {
     if (authorizingOrderId === orderId) return;
     setAuthorizingOrderId(orderId);
     try {
+      const orderSnapshot = msgOrder
+        ? {
+            id: msgOrder.id,
+            status: msgOrder.status || "CREATED",
+            subtotal_cents: msgQuote?.unit_price_cents || 1850,
+            pickup_code: msgOrder.pickup_code || null,
+            paypal_order_id: msgOrder.paypal_order_id || null,
+            paypal_authorization_id: msgOrder.paypal_authorization_id || null,
+            items: msgQuote
+              ? [
+                  {
+                    sku: msgQuote.sku,
+                    name: msgQuote.name,
+                    qty: 1,
+                    unit_price_cents: msgQuote.unit_price_cents,
+                  },
+                ]
+              : undefined,
+          }
+        : undefined;
       const res = await fetch("/api/paypal/authorize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, simulateApproval: true }),
+        body: JSON.stringify({ orderId, simulateApproval: true, orderSnapshot }),
       });
       const data = await res.json();
       if (data.order) {
@@ -832,7 +856,7 @@ export function ShopperChat({
                         type="button"
                         className="approve-paypal-hold-btn"
                         disabled={authorizingOrderId === msg.order?.id}
-                        onClick={() => handleSimulatedApproval(msg.order!.id)}
+                        onClick={() => handleSimulatedApproval(msg.order!.id, msg.order, msg.quote)}
                       >
                         <div className="btn-paypal-left">
                           <svg

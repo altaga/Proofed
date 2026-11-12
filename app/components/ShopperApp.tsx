@@ -224,7 +224,11 @@ export function ShopperApp({
                               const res = await fetch("/api/paypal/authorize", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ orderId: order.id, simulateApproval: true }),
+                                body: JSON.stringify({
+                                  orderId: order.id,
+                                  simulateApproval: true,
+                                  orderSnapshot: order,
+                                }),
                               });
                               const data = await res.json();
                               if (data.order) {

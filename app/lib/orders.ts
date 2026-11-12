@@ -780,6 +780,7 @@ export function ensureOrderHydrated(snapshot?: {
   const subtotal = snapshot.subtotal_cents || (quote.ok ? quote.subtotal_cents : 1850);
 
   withTransaction(() => {
+    const isInitial = snapshot.status === "CREATED" || snapshot.status === "APPROVED";
     db()
       .prepare(
         `INSERT OR IGNORE INTO orders (
@@ -788,7 +789,7 @@ export function ensureOrderHydrated(snapshot?: {
            pickup_deadline_at, created_at, updated_at
          ) VALUES (
            $id, $status, 'Cross-instance rehydrated order', $subtotal, $currency, $subtotal, $pickup,
-           'kiosk-1', $pOrderId, $pAuthId, $now, $deadline, $now, $now
+           'kiosk-1', $pOrderId, $pAuthId, $authAt, $deadline, $createdAt, $createdAt
          )`,
       )
       .run({
@@ -798,9 +799,12 @@ export function ensureOrderHydrated(snapshot?: {
         currency: cfg.currency,
         pickup,
         pOrderId: snapshot.paypal_order_id || `ORDER-PP-${snapshot.id!.slice(-6).toUpperCase()}`,
-        pAuthId: snapshot.paypal_authorization_id || `AUTH-PP-${snapshot.id!.slice(-6).toUpperCase()}`,
-        now,
-        deadline,
+        pAuthId: isInitial
+          ? null
+          : snapshot.paypal_authorization_id || `AUTH-PP-${snapshot.id!.slice(-6).toUpperCase()}`,
+        authAt: isInitial ? null : now,
+        deadline: isInitial ? null : deadline,
+        createdAt: now,
       });
 
     const lines = quote.ok
