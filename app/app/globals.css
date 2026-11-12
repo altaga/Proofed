@@ -3377,6 +3377,36 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   color: #8C877D;
 }
 
+.paypal-smart-button-container {
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+.instant-demo-auth-btn {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  color: #8C877D;
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+  width: 100%;
+  max-width: 340px;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+  text-align: center;
+}
+
+.instant-demo-auth-btn:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #F4F1EA;
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .viewfinder-video {
   transform: scaleX(1);
 }

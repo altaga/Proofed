@@ -280,6 +280,59 @@ export function ShopperChat({
     return () => clearInterval(interval);
   }, [messages]);
 
+  const handleOrderAuthorized = (authOrder: any) => {
+    setMessages((prev) => [
+      ...prev.map((m) =>
+        m.order?.id === authOrder.id ? { ...m, order: authOrder } : m
+      ),
+      {
+        id: `auth-${Date.now()}`,
+        role: "assistant",
+        content: `Your PayPal payment hold for **${(authOrder.formatted_total as string) || "$18.50"}** is active (**$0.00 charged today**). Share your Delivery PIN **${(authOrder.pickup_code as string) || "PK-9912"}** with the courier when your package arrives at your door.`,
+        tier: "PAYPAL-AUTHORIZE",
+        timestamp: Date.now(),
+        order: authOrder,
+        toolTrace: [
+          {
+            name: "paypal_authorize_hold",
+            ok: true,
+            summary: `POST /v2/checkout/orders/${authOrder.paypal_order_id || "ORDER"}/authorize`,
+            outcome: `Hold authorized (${authOrder.paypal_authorization_id || "AUTH-OK"}) · $0.00 captured upfront · PIN: ${authOrder.pickup_code}`,
+          },
+        ],
+      },
+    ]);
+    if (onOrderCreated) {
+      onOrderCreated(authOrder);
+    }
+    try {
+      const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
+      const list = cachedRaw ? (JSON.parse(cachedRaw) as Array<{ id: string }>) : [];
+      const next = [authOrder, ...list.filter((o) => o.id !== authOrder.id)];
+      window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(next.slice(0, 20)));
+    } catch {}
+  };
+
+  const handleSimulatedApproval = async (orderId: string) => {
+    if (authorizingOrderId === orderId) return;
+    setAuthorizingOrderId(orderId);
+    try {
+      const res = await fetch("/api/paypal/authorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, simulateApproval: true }),
+      });
+      const data = await res.json();
+      if (data.order) {
+        handleOrderAuthorized(data.order);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAuthorizingOrderId(null);
+    }
+  };
+
   async function handleActionVoid(orderId?: string) {
     if (!orderId || loading) return;
     setLoading(true);
@@ -776,90 +829,67 @@ export function ShopperChat({
                   {/* Explicit Buyer Approval Button for Staged Order */}
                   {msg.order?.status === "CREATED" && (
                     <div className="quote-paypal-area">
-                      <button
-                        type="button"
-                        className="approve-paypal-hold-btn"
-                        disabled={authorizingOrderId === msg.order?.id}
-                        onClick={async () => {
-                          if (!msg.order?.id || authorizingOrderId === msg.order.id) return;
-                          setAuthorizingOrderId(msg.order.id);
-                          try {
-                            const res = await fetch("/api/paypal/authorize", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ orderId: msg.order.id, simulateApproval: true }),
-                            });
-                            const data = await res.json();
-                            if (data.order) {
-                              setMessages((prev) => [
-                                ...prev.map((m) =>
-                                  m.order?.id === data.order.id
-                                    ? { ...m, order: data.order }
-                                    : m
-                                ),
-                                {
-                                  id: `auth-${Date.now()}`,
-                                  role: "assistant",
-                                  content: `Your PayPal payment hold for **${(data.order.formatted_total as string) || msg.quote?.formatted_price || "$18.50"}** is active (**$0.00 charged today**). Share your Delivery PIN **${(data.order.pickup_code as string) || "PK-9912"}** with the courier when your package arrives at your door.`,
-                                  tier: "PAYPAL-AUTHORIZE",
-                                  timestamp: Date.now(),
-                                  order: data.order,
-                                  toolTrace: [
-                                    {
-                                      name: "paypal_authorize_hold",
-                                      ok: true,
-                                      summary: `POST /v2/checkout/orders/${data.order.paypal_order_id || "ORDER"}/authorize`,
-                                      outcome: `Hold authorized (${data.order.paypal_authorization_id || "AUTH-OK"}) · $0.00 captured upfront · PIN: ${data.order.pickup_code}`,
-                                    },
-                                  ],
-                                },
-                              ]);
-                              if (onOrderCreated) {
-                                onOrderCreated(data.order);
-                              }
-                              try {
-                                const cachedRaw = window.localStorage.getItem("proofed:shared_orders_v1");
-                                const list = cachedRaw ? (JSON.parse(cachedRaw) as Array<{ id: string }>) : [];
-                                const next = [data.order, ...list.filter((o) => o.id !== data.order.id)];
-                                window.localStorage.setItem("proofed:shared_orders_v1", JSON.stringify(next.slice(0, 20)));
-                              } catch {}
-                            }
-                          } catch (e) {
-                            console.error(e);
-                          } finally {
-                            setAuthorizingOrderId(null);
-                          }
-                        }}
-                      >
-                        <div className="btn-paypal-left">
-                          <svg
-                            className="paypal-btn-monogram"
-                            viewBox="0 0 24 24"
-                            width="20"
-                            height="20"
-                            aria-hidden="true"
-                          >
-                            <path
-                              fill="#003087"
-                              d="M20.067 8.478c-.492.88-1.22 1.458-2.203 1.761-.986.306-2.222.306-3.708.306H12.5l-1.3 8.243h-2.94L10.3 3.5h5.8c1.378 0 2.45.244 3.218.732.767.489 1.05 1.346.749 2.571-.052.212-.128.438-.228.675z"
-                            />
-                            <path
-                              fill="#0079C1"
-                              d="M18.8 9.5c-.3 1.8-1.5 2.8-3.4 2.8h-1.8l-.8 5.2h-2.5l2-12.8h4.5c1.7 0 2.7.5 2.5 2.2-.1.9-.3 1.7-.5 2.6z"
-                            />
-                          </svg>
-                          <span className="paypal-btn-brand-title">
-                            <span className="paypal-logo-text"><span className="pay-blue">Pay</span><span className="pal-blue">Pal</span></span>
-                            <span className="paypal-hold-label">
-                              {authorizingOrderId === msg.order?.id ? "Authorizing Hold…" : "Approve Hold"}
-                            </span>
-                          </span>
+                      {clientId && msg.order.paypal_order_id ? (
+                        <div className="paypal-smart-button-container">
+                          <PayPalApprove
+                            clientId={clientId}
+                            orderId={msg.order.id}
+                            paypalOrderId={msg.order.paypal_order_id}
+                            onAuthorized={(authOrder) => handleOrderAuthorized(authOrder)}
+                            onError={(err) => {
+                              console.error("PayPal Smart Button error:", err);
+                            }}
+                          />
+                          <div className="hold-disclaimer" style={{ marginTop: 4 }}>
+                            <span>intent=AUTHORIZE · Real PayPal Sandbox Hold · $0.00 charged until delivery</span>
+                          </div>
                         </div>
-                        <span className="btn-paypal-amt mono">{msg.quote?.formatted_price || "$18.50"}</span>
-                      </button>
-                      <div className="hold-disclaimer">
-                        <span>No charge today — payment is completed only upon delivery.</span>
-                      </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="approve-paypal-hold-btn"
+                          disabled={authorizingOrderId === msg.order?.id}
+                          onClick={() => handleSimulatedApproval(msg.order!.id)}
+                        >
+                          <div className="btn-paypal-left">
+                            <svg
+                              className="paypal-btn-monogram"
+                              viewBox="0 0 24 24"
+                              width="20"
+                              height="20"
+                              aria-hidden="true"
+                            >
+                              <path
+                                fill="#003087"
+                                d="M20.067 8.478c-.492.88-1.22 1.458-2.203 1.761-.986.306-2.222.306-3.708.306H12.5l-1.3 8.243h-2.94L10.3 3.5h5.8c1.378 0 2.45.244 3.218.732.767.489 1.05 1.346.749 2.571-.052.212-.128.438-.228.675z"
+                              />
+                              <path
+                                fill="#0079C1"
+                                d="M18.8 9.5c-.3 1.8-1.5 2.8-3.4 2.8h-1.8l-.8 5.2h-2.5l2-12.8h4.5c1.7 0 2.7.5 2.5 2.2-.1.9-.3 1.7-.5 2.6z"
+                              />
+                            </svg>
+                            <span className="paypal-btn-brand-title">
+                              <span className="paypal-logo-text"><span className="pay-blue">Pay</span><span className="pal-blue">Pal</span></span>
+                              <span className="paypal-hold-label">
+                                {authorizingOrderId === msg.order?.id ? "Authorizing Hold…" : "Approve Hold"}
+                              </span>
+                            </span>
+                          </div>
+                          <span className="btn-paypal-amt mono">{msg.quote?.formatted_price || "$18.50"}</span>
+                        </button>
+                      )}
+
+                      {clientId && msg.order.paypal_order_id && (
+                        <button
+                          type="button"
+                          className="instant-demo-auth-btn mono"
+                          disabled={authorizingOrderId === msg.order.id}
+                          onClick={() => handleSimulatedApproval(msg.order!.id)}
+                          title="Bypasses PayPal popup login for quick offline demonstration"
+                        >
+                          ⚡ Fast Demo: 1-Click Hold (Skip PayPal login)
+                        </button>
+                      )}
                     </div>
                   )}
 
