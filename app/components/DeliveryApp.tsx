@@ -197,9 +197,9 @@ export function DeliveryApp() {
   const [activeOrder, setActiveOrder] = useState<DeliveryOrder | null>(null);
   const [recipientPin, setRecipientPin] = useState("");
 
-  const [selectedPreset, setSelectedPreset] = useState<PhotoPreset>(PHOTO_PRESETS[0]);
-  const [mediaMode, setMediaMode] = useState<"preset" | "camera" | "upload">("preset");
-  const [previewUrl, setPreviewUrl] = useState<string>(PHOTO_PRESETS[0].imagePath);
+  const [selectedPreset, setSelectedPreset] = useState<PhotoPreset | null>(null);
+  const [mediaMode, setMediaMode] = useState<"preset" | "camera" | "upload" | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [customPhotoName, setCustomPhotoName] = useState<string | null>(null);
   const [customPhotoBase64, setCustomPhotoBase64] = useState<string | null>(null);
 
@@ -285,11 +285,13 @@ export function DeliveryApp() {
           mode: "live",
           isLocating: false,
         });
-        void runVisionVerification({
-          presetId: mediaMode === "preset" ? selectedPreset.id : "custom",
-          image: customPhotoBase64 ? `data:image/jpeg;base64,${customPhotoBase64}` : undefined,
-          gpsCoords: { lat, lng },
-        });
+        if (customPhotoBase64 || previewUrl || selectedPreset) {
+          void runVisionVerification({
+            presetId: mediaMode === "preset" && selectedPreset ? selectedPreset.id : "custom",
+            image: customPhotoBase64 ? `data:image/jpeg;base64,${customPhotoBase64}` : undefined,
+            gpsCoords: { lat, lng },
+          });
+        }
       },
       (err) => {
         setGpsData((prev) => ({ ...prev, isLocating: false }));
@@ -313,11 +315,13 @@ export function DeliveryApp() {
       mode: "simulated",
       isLocating: false,
     });
-    void runVisionVerification({
-      presetId: mediaMode === "preset" ? selectedPreset.id : "custom",
-      image: customPhotoBase64 ? `data:image/jpeg;base64,${customPhotoBase64}` : undefined,
-      gpsCoords: { lat, lng },
-    });
+    if (customPhotoBase64 || previewUrl || selectedPreset) {
+      void runVisionVerification({
+        presetId: mediaMode === "preset" && selectedPreset ? selectedPreset.id : "custom",
+        image: customPhotoBase64 ? `data:image/jpeg;base64,${customPhotoBase64}` : undefined,
+        gpsCoords: { lat, lng },
+      });
+    }
   }
 
   async function fetchLatestOrder() {
@@ -391,13 +395,22 @@ export function DeliveryApp() {
         setActiveOrder(nextPending);
         setCurrentStep(1);
         setRecipientPin("");
-        setSelectedPreset(PHOTO_PRESETS[0]);
-        setPreviewUrl(PHOTO_PRESETS[0].imagePath);
-        void runVisionVerification({ presetId: "correct" });
+        setSelectedPreset(null);
+        setMediaMode(null);
+        setPreviewUrl(null);
+        setCustomPhotoName(null);
+        setCustomPhotoBase64(null);
+        setVisionResult(null);
       } else {
         // No other active pending orders
         setActiveOrder(null);
         setCurrentStep(1);
+        setSelectedPreset(null);
+        setMediaMode(null);
+        setPreviewUrl(null);
+        setCustomPhotoName(null);
+        setCustomPhotoBase64(null);
+        setVisionResult(null);
       }
     } catch {
       setActiveOrder(null);
@@ -408,8 +421,7 @@ export function DeliveryApp() {
 
   useEffect(() => {
     void fetchLatestOrder();
-    void runVisionVerification({ presetId: "correct" });
-  }, [runVisionVerification]);
+  }, []);
 
   function handleSelectPreset(preset: PhotoPreset) {
     if (isFinalized) return;
@@ -418,6 +430,7 @@ export function DeliveryApp() {
     setPreviewUrl(preset.imagePath);
     setCustomPhotoName(null);
     setCustomPhotoBase64(null);
+    setVisionResult(null);
     void runVisionVerification({ presetId: preset.id });
   }
 
@@ -463,9 +476,11 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
     if (isFinalized) return;
     const file = e.target.files?.[0];
     if (!file) return;
+    setSelectedPreset(null);
     setCustomPhotoName(file.name);
     setMediaMode(mode);
     setIsAnalyzing(true);
+    setVisionResult(null);
 
     try {
       const dataUrl = await resizeImageForVision(file, 1200);
@@ -516,7 +531,7 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
             note: `Doorstep #15 and intact parcel verified · Customer PIN (${pinToVerify}) confirmed`,
             photoBase64: customPhotoBase64 || undefined,
             photoMime: customPhotoBase64 ? "image/jpeg" : undefined,
-            presetId: customPhotoBase64 ? "custom" : selectedPreset.id,
+            presetId: customPhotoBase64 ? "custom" : selectedPreset?.id,
             quantitativeScore: visionResult?.overallHandoverScore ?? visionResult?.confidence ?? 98.4,
             gpsCoordinates: { lat: gpsData.lat, lng: gpsData.lng },
             orderSnapshot: activeOrder,
@@ -897,7 +912,7 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
               <span className="scenario-switcher-label">Sample photos:</span>
               <div className="scenario-pills-row" role="radiogroup" aria-label="Sample photos">
                 {PHOTO_PRESETS.map((preset) => {
-                  const active = mediaMode === "preset" && selectedPreset.id === preset.id;
+                  const active = mediaMode === "preset" && selectedPreset?.id === preset.id;
                   return (
                     <button
                       key={preset.id}
@@ -918,75 +933,93 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
             {/* Clean Photo Preview */}
             <div className={`vision-viewfinder-frame ${isAnalyzing ? "is-analyzing" : ""}`}>
               <div className="viewfinder-media-container">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewUrl}
-                  alt="Doorstep preview"
-                  className="viewfinder-media"
-                />
+                {previewUrl ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewUrl}
+                      alt="Doorstep preview"
+                      className="viewfinder-media"
+                    />
 
-                {isAnalyzing && (
-                  <div className="vision-laser-sweep-overlay" aria-live="polite">
-                    <div className="vision-scanning-pill mono">
-                      <RefreshCw size={13} className="spin" />
-                      <span>Checking door number and package…</span>
+                    {isAnalyzing && (
+                      <div className="vision-laser-sweep-overlay" aria-live="polite">
+                        <div className="vision-scanning-pill mono">
+                          <RefreshCw size={13} className="spin" />
+                          <span>Checking door number and package…</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!isAnalyzing &&
+                      visionResult?.boundingBoxes?.map((box, idx) => {
+                        const isRightSide = box.x > 50;
+                        return (
+                          <div
+                            key={idx}
+                            className={`hud-bbox hud-bbox-${box.tone}`}
+                            style={{
+                              left: `${box.x}%`,
+                              top: `${box.y}%`,
+                              width: `${box.w}%`,
+                              height: `${box.h}%`,
+                            }}
+                          >
+                            <div
+                              className="bbox-tag mono"
+                              style={isRightSide ? { right: -2, left: "auto" } : { left: -2, right: "auto" }}
+                            >
+                              <span className="bbox-dot" />
+                              <span className="bbox-name">{box.label}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </>
+                ) : (
+                  <div className="viewfinder-placeholder">
+                    <div className="viewfinder-placeholder-icon">
+                      <Camera size={28} />
+                    </div>
+                    <div className="viewfinder-placeholder-text">
+                      <span className="placeholder-title">No Doorstep Photo Loaded</span>
+                      <span className="placeholder-sub">
+                        Upload or take a doorstep photo, or pick one of the sample scenarios above to run verification.
+                      </span>
                     </div>
                   </div>
                 )}
-
-                {!isAnalyzing &&
-                  visionResult?.boundingBoxes?.map((box, idx) => {
-                    const isRightSide = box.x > 50;
-                    return (
-                      <div
-                        key={idx}
-                        className={`hud-bbox hud-bbox-${box.tone}`}
-                        style={{
-                          left: `${box.x}%`,
-                          top: `${box.y}%`,
-                          width: `${box.w}%`,
-                          height: `${box.h}%`,
-                        }}
-                      >
-                        <div
-                          className="bbox-tag mono"
-                          style={isRightSide ? { right: -2, left: "auto" } : { left: -2, right: "auto" }}
-                        >
-                          <span className="bbox-dot" />
-                          <span className="bbox-name">{box.label}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
               </div>
             </div>
 
-            {/* Simple Verdict Banner */}
-            <div className={`telemetry-verdict-banner ${isVerified ? "verdict-good" : "verdict-bad"}`}>
-              <div className="verdict-banner-icon">
-                {isVerified ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+            {/* Simple Verdict Banner (Only rendered when analysis result exists) */}
+            {visionResult && (
+              <div className={`telemetry-verdict-banner ${isVerified ? "verdict-good" : "verdict-bad"}`}>
+                <div className="verdict-banner-icon">
+                  {isVerified ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                </div>
+                <div className="verdict-banner-text">
+                  <span className="verdict-banner-title">
+                    {isVerified
+                      ? "Door #15 & Intact Package Verified"
+                      : !gpsData.inZone
+                      ? "Out of Delivery Zone"
+                      : visionResult.handoverVerdict === "REJECTED_MISMATCH"
+                      ? "Wrong Door Number (#13 instead of #15)"
+                      : "Damaged Package Detected"}
+                  </span>
+                  <span className="verdict-banner-sub">
+                    {isVerified
+                      ? "Location and package condition confirmed. Proceed to enter the customer's PIN."
+                      : !gpsData.inZone
+                      ? `You are ${gpsData.distanceMeters}m away from the destination address.`
+                      : visionResult.handoverVerdict === "REJECTED_MISMATCH"
+                      ? "This photo shows Door #13, but the order is for Door #15."
+                      : "The box appears crushed or damaged. Delivery cannot be completed."}
+                  </span>
+                </div>
               </div>
-              <div className="verdict-banner-text">
-                <span className="verdict-banner-title">
-                  {isVerified
-                    ? "Door #15 & Intact Package Verified"
-                    : !gpsData.inZone
-                    ? "Out of Delivery Zone"
-                    : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "Wrong Door Number (#13 instead of #15)"
-                    : "Damaged Package Detected"}
-                </span>
-                <span className="verdict-banner-sub">
-                  {isVerified
-                    ? "Location and package condition confirmed. Proceed to enter the customer's PIN."
-                    : !gpsData.inZone
-                    ? `You are ${gpsData.distanceMeters}m away from the destination address.`
-                    : visionResult?.handoverVerdict === "REJECTED_MISMATCH"
-                    ? "This photo shows Door #13, but the order is for Door #15."
-                    : "The box appears crushed or damaged. Delivery cannot be completed."}
-                </span>
-              </div>
-            </div>
+            )}
 
             <div className="step-nav-bar">
               <button
@@ -1007,7 +1040,7 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
                   <span>Continue to Delivery PIN</span>
                   <ArrowRight size={16} />
                 </button>
-              ) : (
+              ) : visionResult ? (
                 <button
                   type="button"
                   className="step-btn-danger"
@@ -1016,6 +1049,15 @@ function resizeImageForVision(file: File, maxDimension = 1200): Promise<string> 
                 >
                   <XCircle size={15} />
                   <span>Report Failed Delivery</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="step-btn-secondary"
+                  disabled
+                  style={{ opacity: 0.45, cursor: "not-allowed" }}
+                >
+                  <span>Select or upload photo to proceed</span>
                 </button>
               )}
             </div>
