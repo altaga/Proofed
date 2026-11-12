@@ -5,8 +5,8 @@
 <h1 align="center">Proofed</h1>
 
 <p align="center">
-  <strong>Authorize now. Capture only after verified proof of physical handover.</strong><br>
-  <em>The settlement & trust layer between autonomous AI commerce agents and the physical world.</em>
+  <strong>AI agents can buy in seconds, but what if delivery fails?</strong><br>
+  <em>Proofed combines PayPal authorizations, AI vision, and recipient verification to capture payment only after handover—or void failed orders.</em>
 </p>
 
 <p align="center">
@@ -20,13 +20,27 @@
 
 ## 1. Executive Summary & Thesis
 
-Autonomous AI agents can negotiate and initiate purchases in milliseconds. However, agentic physical commerce suffers from a critical **accountability gap**:
+> **AI agents can buy in seconds, but what if delivery fails?**
 
-1. **Pre-charging risk (`intent=CAPTURE`)**: Charging a buyer's payment method upfront exposes shoppers and merchants to costly chargebacks when a courier delivers to the wrong address, damages the parcel, or fails delivery.
-2. **Unchecked AI pricing**: Language models hallucinate prices, applied discounts, and totals when left unconstrained.
-3. **PayPal's Conditional Settlement Primitive**: PayPal Orders v2 supports `intent: "AUTHORIZE"`, placing a 29-day authorization hold with a 3-day honor window (`$0.00` charged upfront). 
+In autonomous AI commerce, an agent can find, negotiate, and initiate orders in milliseconds. But the moment physical delivery begins, the digital certainty breaks:
+- **Couriers drop packages at the wrong door** (e.g. apartment `#14` instead of `#15`).
+- **Parcels arrive crushed or damaged** on the doorstep.
+- **Packages get stolen or left unattended** without physical handover.
 
-**Proofed binds funds capture strictly to physical reality.** When an AI shopping assistant helps a customer find an item, the buyer approves a conditional hold. Funds remain held on PayPal until a **tri-factor physical handover protocol** (GPS geofence, multimodal computer vision inspection via `MiniMax-M3.1-Flash`, and a courier-blind customer PIN) verifies delivery at the doorstep. Only upon verified handover does the server execute PayPal Payments v2 `/capture`. If delivery fails, the hold is never captured and can be re-routed or released via `/void`.
+### The Upfront Charge Trap (`intent=CAPTURE`)
+Traditional e-commerce captures payment immediately at checkout (`intent: "CAPTURE"`). When physical delivery fails, buyers face frustrating dispute forms, merchants suffer chargeback penalties and frozen balances, and autonomous agent workflows grind to a halt.
+
+### Proofed: The Conditional Physical Settlement Layer
+Proofed binds payment settlement directly to verified physical reality using **PayPal Orders v2** and **PayPal Payments v2**:
+
+1. **Authorize at Checkout (`$0.00` charged upfront)**: When the shopper approves an agent's order, Proofed creates an authorization hold via PayPal Orders v2 (`intent: "AUTHORIZE"`). Funds remain held in the buyer's account—no money is deducted upfront.
+2. **Tri-Factor Doorstep Verification Protocol**:
+   - **Factor 1 (GPS Geofence)**: Validates courier device coordinates against the delivery location before photo inspection.
+   - **Factor 2 (Multimodal AI Vision)**: `MiniMax-M3.1-Flash` audits the doorstep photo for apartment doorplate match and package integrity with bounding boxes.
+   - **Factor 3 (Courier-Blind Customer PIN)**: The courier must obtain the private 6-character code displayed only on the customer's `/client` screen.
+3. **Conditional Settlement (`/capture` vs `/void`)**:
+   - **Handover Verified**: Upon passing all 3 factors, Proofed executes PayPal Payments v2 `/capture` to settle merchant funds.
+   - **Handover Failed**: If the courier attempts delivery at the wrong door or the parcel is damaged, capture is strictly blocked ($0.00 charged), and the hold is either rescheduled or safely released via PayPal Payments v2 `/void`.
 
 ```mermaid
 flowchart LR

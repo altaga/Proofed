@@ -4,6 +4,7 @@
 
 # AGENTS.md — Agent Operations & Architecture Manual
 
+> **Concept**: AI agents can buy in seconds, but what if delivery fails? Proofed combines PayPal authorizations, AI vision, and recipient verification to capture payment only after handover—or void failed orders.  
 > **Mission**: Authorize now. Capture only after verified proof of physical handover.  
 > **Repository**: Proofed (PayPal AI Hackathon 2026)  
 > **Target Audience**: Autonomous AI coding agents (Antigravity, Claude Code, Cursor, Trae, MiniMax) and human engineers.  
@@ -13,16 +14,18 @@
 
 ## 1. Executive Summary & System Purpose
 
-Proofed bridges the accountability gap in autonomous AI physical commerce. When an AI shopping assistant helps a customer find and order products:
-1. The AI shopping agent recommends items from a verified merchant catalog.
-2. The shopper approves a **conditional payment hold** using PayPal Orders v2 with `intent=AUTHORIZE`.
-3. Funds remain **HELD** (`$0.00` charged upfront) on the buyer's PayPal account.
-4. When the courier arrives at the doorstep, the courier interface (`/delivery`) executes a **tri-factor physical handover protocol**:
+Autonomous AI agents can negotiate and initiate purchases in milliseconds. But the moment physical delivery begins, the digital certainty breaks: parcels get dropped at the wrong door (#14 instead of #15), boxes arrive crushed, or packages get stolen. Traditional e-commerce charges buyers upfront (`intent=CAPTURE`), leading to disputed charges, chargeback fees, and lost trust.
+
+**Proofed bridges the accountability gap in autonomous AI physical commerce** by binding PayPal payment capture strictly to physical delivery verification:
+1. **Zero-Trust Shopping**: The AI shopping assistant recommends items from a verified merchant catalog (prices strictly computed in TypeScript integer cents).
+2. **Conditional Payment Hold**: The shopper approves a hold using PayPal Orders v2 (`intent=AUTHORIZE`). Exactly `$0.00` is charged upfront, and a temporary authorization hold is created.
+3. **Tri-Factor Doorstep Verification**: When the courier arrives, the `/delivery` terminal executes a 3-factor physical protocol:
    - **Factor 1 (GPS Geofence)**: Validates courier location against the delivery address coordinates.
-   - **Factor 2 (Multimodal Vision)**: `MiniMax-M3.1-Flash` inspects the doorstep photo for apartment door number match and package integrity with bounding boxes.
+   - **Factor 2 (Multimodal AI Vision)**: `MiniMax-M3.1-Flash` inspects the doorstep photo for apartment door number match and package integrity with bounding boxes.
    - **Factor 3 (Courier-Blind PIN)**: The courier must obtain the private 6-character Delivery PIN displayed only on the customer's `/client` screen.
-5. Only upon successful verification of all three factors does the backend execute PayPal Payments v2 `/capture`.
-6. If handover fails (e.g. wrong doorplate `#14` instead of `#15`, crushed parcel, or recipient absence), the hold is never captured and is either re-dispatched or safely released via PayPal Payments v2 `/void`.
+4. **Conditional Settlement**:
+   - **Success**: Only upon successful verification of all three factors does the backend execute PayPal Payments v2 `/capture`.
+   - **Failure**: If handover fails (wrong door `#14` instead of `#15`, crushed parcel, or recipient absence), the hold is never captured and is either re-dispatched or safely released via PayPal Payments v2 `/void`.
 
 ---
 

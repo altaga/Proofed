@@ -2,7 +2,7 @@
   "name": "proofed-workspace",
   "version": "1.0.0",
   "private": true,
-  "description": "Proofed — Authorize now. Capture only after proof of handover.",
+  "description": "Proofed — AI agents can buy in seconds, but what if delivery fails? Authorize now, capture only after verified handover.",
   "scripts": {
     "dev": "npm --prefix app run dev",
     "build": "npm --prefix app run build",
