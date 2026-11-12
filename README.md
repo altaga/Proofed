@@ -37,7 +37,7 @@ flowchart LR
 
 ## 2. Visual Walkthrough & System Screens
 
-Proofed features four real-time operational views designed under a Swiss/Fintech dark aesthetic:
+Proofed features four core operational views (plus `/demo` presenter) designed under a Swiss/Fintech dark aesthetic:
 
 ### 1. Shopper AI Assistant & PayPal Hold (`/client`)
 Natural language product discovery, spoken budget enforcement, itemized order quoting, and explicit PayPal hold approval via PayPal Smart Buttons. The customer receives a private 6-character Delivery PIN.
@@ -238,13 +238,13 @@ npm run dev
 npm test
 
 # Run vision & fraud audit tests
-npm --prefix app test tests/vision-audit.test.ts tests/fraud-audit.test.ts
+npm --prefix app test tests/vision-audit.test.ts tests/fraud-audit.test.ts   # 30 tests total
 
 # Run all test suites
 npm run test:all
 
 # Capture high-resolution Playwright screenshots
-node scripts/capture_screenshots.mjs
+npm run screenshots
 ```
 
 ---

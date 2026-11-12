@@ -1,4 +1,4 @@
-import { chromium } from "file:///c:/Users/VAI/Github/Proofed/app/node_modules/@playwright/test/index.mjs";
+import { chromium } from "../app/node_modules/@playwright/test/index.mjs";
 import path from "node:path";
 import { mkdirSync } from "node:fs";
 

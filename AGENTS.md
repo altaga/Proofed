@@ -169,35 +169,43 @@ Defined in `app/lib/state-machine.ts`:
 
 ## 6. API Route Catalog
 
+Verified against `app/app/api/**/route.ts`.
+
 ### Agent & Catalog
 - `POST /api/agent/session`: Initializes or retrieves a shopper conversation session.
 - `POST /api/agent/chat`: Sends user message to MiniMax LLM, executes tool calls through zero-trust policy engine, and returns updated cart and action traces.
+- `GET /api/catalog`: Merchant catalog (integer cents).
+- `GET /api/config`: Public client config (PayPal client ID, mode).
 
 ### Orders & Checkout
-- `POST /api/orders`: Creates an order draft from cart in integer cents.
+- `POST /api/orders`: Creates an order draft from cart and the PayPal Orders v2 order (`intent: "AUTHORIZE"`).
 - `GET /api/orders`: Lists orders. Couriers use `?view=courier` to mask pickup codes.
-- `GET /api/orders/[id]`: Retrieves specific order details and event history.
-- `POST /api/orders/[id]/recovery`: Submits buyer recovery choice after failed delivery (`re_deliver`, `substitute`, `release_hold`).
+- `GET /api/orders/[id]`: Order details and event history.
+- `GET /api/orders/[id]/audit`: HMAC-signed audit trail for an order.
+- `POST /api/orders/[id]/recovery` and `POST /api/orders/recover`: Buyer recovery choice after failed delivery.
+- `POST /api/orders/sync`: Syncs client-held orders with server state.
+- `GET /api/events`: Event log feed for `/backend`.
 
 ### Courier Doorstep Delivery
-- `POST /api/delivery/verify-photo`: Analyzes doorstep photo using `MiniMax-M3.1-Flash` with dynamic bounding box extraction.
-- `POST /api/delivery/confirm`: Submits GPS coordinates, photo evidence, and recipient PIN. Verifies all 3 factors, transitions to `DELIVERY_CONFIRMED`, and triggers payment capture.
-- `POST /api/delivery/fail`: Reports delivery exception (wrong door, damaged goods, no access). Sets status to `DELIVERY_FAILED`.
+- `GET /api/device/queue`: Courier delivery queue (PIN masked).
+- `POST /api/vision/verify`: Doorstep photo analysis with `MiniMax-M3.1-Flash` (fail-closed).
+- `POST /api/device/confirm`: GPS + photo evidence + recipient PIN. Verifies all 3 factors, sets `DELIVERY_CONFIRMED`, triggers capture.
+- `POST /api/device/fail`: Reports delivery exception. Sets `DELIVERY_FAILED`.
 
 ### PayPal Sandbox Integration
-- `POST /api/paypal/create-order`: Calls PayPal Orders v2 with `intent: "AUTHORIZE"`.
-- `POST /api/paypal/authorize`: Calls PayPal Orders v2 `/v2/checkout/orders/{id}/authorize` to place payment hold.
-- `POST /api/paypal/capture`: Strictly gates execution to `DELIVERY_CONFIRMED` orders; calls PayPal Payments v2 `/v2/payments/authorizations/{id}/capture`.
-- `POST /api/paypal/void`: Releases payment hold via `/v2/payments/authorizations/{id}/void`.
-- `POST /api/paypal/refund`: Issues post-capture refund via `/v2/payments/captures/{id}/refund`.
-- `POST /api/paypal/webhooks`: Ingests and verifies incoming PayPal webhook notifications.
+- `POST /api/paypal/authorize`: PayPal Orders v2 `/authorize` after buyer approval (places the hold).
+- `POST /api/paypal/capture`: Gated to `DELIVERY_CONFIRMED`; calls Payments v2 `/authorizations/{id}/capture`.
+- `POST /api/paypal/void`: Releases the hold via `/authorizations/{id}/void`.
+- `POST /api/paypal/refund`: Post-capture refund.
+- `POST /api/paypal/webhooks`: Verifies and ingests PayPal webhooks.
+- `POST /api/jobs/reconcile`: Reconciles local order state with PayPal.
 
 ### Demo & Automation
-- `POST /api/demo/seed-held`: Seeds a pre-authorized demo order for instant presentation testing.
-- `POST /api/demo/reset`: Clears test orders and restores default catalog state.
+- `POST /api/demo/seed-held`: Seeds a pre-authorized demo order.
+- `POST /api/demo/reset`: Resets demo state.
+- `GET /api/health`, `GET /api/stats`: Health and ledger metrics.
 
 ---
-
 ## 7. Guidelines for Autonomous Coding Agents
 
 When working in this codebase:

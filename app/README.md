@@ -75,7 +75,6 @@ Screenshots (captured from the running app):
 
 ![Shop](../docs/screenshots/shop.png)
 
-![Pickup station](../docs/screenshots/device.png)
 
 ![Merchant desk](../docs/screenshots/merchant.png)
 
